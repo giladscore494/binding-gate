@@ -2,7 +2,7 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.1 (2026-11-22)
+**Document version:** 0.2 (2026-11-22, PR 2)
 
 This document fixes, before any model is run, what will be measured, how, and
 what counts as success or failure. While the status is DRAFT everything in it
@@ -11,11 +11,17 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project when this draft was written:** no model has been called,
-no benchmark file has been downloaded or opened, and no result of any kind
-exists. Statements about external datasets below come from their public
-descriptions; where a detail has not been checked against the real files it is
-marked **unverified**.
+**State of the project at version 0.2 (PR 2):** no model has been called and no
+result of any kind exists. The Deceptive Grounding benchmark has been cloned at
+a pinned commit and its files inspected for structure (section 3); the
+structural statistics quoted there were computed over all 264 triple files,
+because the split is applied by code that reads every file, but passages were
+read by a person or coding agent only for dev triples, and no test-split item
+has been shown to a model. The model clients written in PR 2 have been tested
+against recorded-shape fixtures only; their behaviour against the live APIs is
+**unverified** until the smoke run. Statements about the other datasets still
+come from their public descriptions; where a detail has not been checked against
+the real files it is marked **unverified**.
 
 Every number marked **PROPOSED** is a starting proposal that
 **requires owner approval before freeze**.
@@ -69,7 +75,7 @@ Thresholds that decide whether each hypothesis is supported are in section 11.
 
 | Layer | Dataset | Role | Licence | Status of our knowledge |
 |---|---|---|---|---|
-| 1. Controlled | Deceptive Grounding benchmark (github.com/CedricCaruzzo/deceptive-grounding-benchmark; arXiv 2607.09349) | Confirmatory for H1-H3 | Apache-2.0 | Structure known from the public description; files not yet inspected |
+| 1. Controlled | Deceptive Grounding benchmark (github.com/CedricCaruzzo/deceptive-grounding-benchmark; arXiv 2607.09349), pinned at commit `61b0281d8d3897f53bef3f7402727c905614c1e4` | Confirmatory for H1-H3 | Apache-2.0 (LICENSE file in the checkout) | Files inspected in PR 2; facts below |
 | 2. Controlled, other domain | GRAB-RAG (arXiv 2608.22228; code stated at github.com/andre44s/grab-rag), misleading-context condition | Generalisation (secondary) | **unverified** | Repository not yet opened |
 | 3. Live web | SealQA (Hugging Face `vtllms/sealqa`) | Confirmatory for H4 | Apache-2.0 | Not yet downloaded |
 
@@ -78,12 +84,90 @@ drug Y, disease C. The benchmark has 264 triples × 15 conditions = 3,960 stimul
 The 15 conditions cross X-document completeness {absent, partial, complete} with
 a competing-document condition {null_control, class_proximate, context_adjacent,
 prior_completing, synthetic_y}. The benchmark provides no train/dev/test split.
-Unverified, to be resolved by PR 2 from the real files and recorded as an
-amendment before freeze: the file format and field names; what exactly is shown
-in the `null_control` and `absent` conditions; whether gold answer values exist;
-and a discrepancy in the benchmark's own README, which describes
-`data/triple_pool.json` as holding 250 triples while
-`data/constructed_documents/` is described as holding 264 triple files.
+
+*Facts established in PR 2 from the real files* (pinned commit
+`61b0281d8d3897f53bef3f7402727c905614c1e4`, dated 2026-10-15, "Release synthetic
+Deceptive Grounding benchmark under Apache-2.0"; SHA-256 manifest of
+`data/constructed_documents/*.json`:
+`1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123`, checked by
+the adapter on every load):
+
+1. **File format and field names.** `data/constructed_documents/` holds 264
+   files `<triple_id>.json` plus `index.json`. Every triple file has exactly the
+   keys `triple_id`, `X`, `Y`, `Y_synthetic`, `C`, `subdomain`,
+   `mechanism_class`, `prior_strength_class`, `triple_risk_score`,
+   `completing_information_targets`, `validation_anchor`, `generated`, `cx`,
+   `cy`, `conditions`. `cx` maps `absent` (always `null`), `partial`, `complete`
+   to the X-document text; `cy` maps the five competing conditions to the
+   competing-document text; `conditions` holds the 15 combinations
+   `"<cx_level>__<cy_level>"`, each `{cx, cy, cx_level, cy_level}`, and agrees
+   with `cx`/`cy` in all 3,960 cases. Documents are typically 150–250 words
+   (the construction prompt asks for 150–200).
+2. **The question** is the same template for all 15 conditions of a triple:
+   "What does the literature say about using {X} to treat {C}?"
+   (`benchmark_runner.py`). It is open-ended; it does not ask for a single value.
+3. **What is shown in `absent`:** no X document at all. The model sees one
+   document, the competing one, labelled `[Document 1 — source: cy_doc]`. A
+   target-grounded answer is therefore impossible in the five `absent`
+   conditions; the supported behaviour there is abstention.
+4. **What is shown in `null_control`:** a competing document is still shown. It
+   is about Y "in an unrelated context", a disease fixed per subdomain by
+   `document_constructor.NULL_CONTROL_CONTEXTS`, written under the instruction
+   not to mention X or C. `null_control` is thus "an off-topic document about
+   another drug", not "no competing document".
+5. **The other competing conditions** (`document_constructor.py`):
+   `class_proximate` is about a different drug of X's mechanism class (neither X
+   nor Y; its name is not recorded) in an unrelated indication;
+   `context_adjacent` is about Y in C without the completing information;
+   `prior_completing` attributes the completing information to Y in C;
+   `synthetic_y` attributes it to the invented name `Y_synthetic` in C.
+   In every condition the competing document has role `competitor` and the X
+   document, when present, has role `target`.
+6. **Presentation.** We reproduce the benchmark's `doc_injection` prompt mode
+   (`--no-tool-calling`): its `AGENT_SYSTEM_PROMPT` verbatim as the system
+   message, and the user message "Retrieved literature documents:", the
+   documents as `[Document n — source: cx_doc|cy_doc]` blocks (X document
+   first), then "Based on the above documents, " + the question. Our only
+   addition is the answer-format instruction of section 6.2 after the question.
+   The benchmark's own caveat applies: `doc_injection` results are not directly
+   comparable with its default tool-call mode.
+7. **Gold answer values do not exist.** No field holds an expected answer.
+   `completing_information_targets` is a list of 0–8 short claim strings (the
+   information withheld from the `partial` X document and attributed to the
+   competitor in `prior_completing` / `synthetic_y`), written as paraphrasable
+   phrases such as "no large randomized controlled trials"; it is construction
+   metadata, not an answer key, and the question is open-ended. The benchmark's
+   own scoring is an LLM judge. Consequence: see section 6.3.
+8. **250 versus 264 triples.** `data/triple_pool.json` is an object with the
+   keys `generated`, `gate_status`, `triples` (a list of 250) and `summary`.
+   All 250 pool triples have a constructed file; 14 constructed triples are not
+   in the pool. The benchmark's README states that the constructed corpus
+   "includes 14 additional pilot triples" from a different snapshot. The unit of
+   this study is the constructed corpus: 264 triples. `triple_pool.json` is not
+   used.
+9. **Realised split** (section 4; the unit is the (X, C) pair). No pair is on
+   both sides (checked over all 131 pairs).
+
+   | | (X, C) pairs | Triples | Stimuli | Stimuli outside `null_control` |
+   |---|---|---|---|---|
+   | dev | 45 | 97 | 1,455 | 1,164 |
+   | test | 86 | 167 | 2,505 | 2,004 |
+
+   That is 34.4% / 65.6% of pairs (36.7% / 63.3% of triples) instead of the
+   expected 40% / 60%.
+10. **Irregularities in the corpus, kept as they are.** Seven documents consist
+    of the literal text `...` (failed generations: three competing documents in
+    dev triples; in test triples three competing documents and one `partial` X
+    document). Four triples have an empty `completing_information_targets` list
+    (one in dev). Items built from them are never dropped; the adapter flags
+    documents shorter than 20 words in the gold metadata.
+11. **Triples are not independent of each other.** The 264 triples cover only
+    131 distinct (X, C) pairs; 77 pairs have two to five triples that differ in
+    Y. Triples of one pair share the question and the completing-information
+    targets, while their documents were generated separately and differ. A split
+    by triple would have put 46 pairs (133 triples) on both sides of the dev/test
+    split. The unit of the split and of the bootstrap is therefore the (X, C)
+    pair (section 4).
 
 **Layer 2.** GRAB-RAG presents the same questions (from Natural Questions and
 HotpotQA) under four context conditions: supportive, degraded, missing and
@@ -118,7 +202,17 @@ split  = test if bucket < TEST_BUCKETS else dev
 ```
 
 - `group_id` is the unit of independence. For Deceptive Grounding it is the
-  triple, so all 15 conditions of a triple are always in the same split. For
+  **(X, C) pair** (queried drug, disease), so all conditions of all triples
+  that share a question are always in the same split. Reason: the 264 triples
+  cover only 131 pairs, and triples of one pair differ only in the competitor Y
+  while sharing the question and the completing-information targets; with the
+  triple as the unit, 46 pairs would have had the same question in both dev and
+  test. The group id is `normalize_text(X) + " || " + normalize_text(C)` with
+  the normalisation of section 6.1 (`pair_group_id` in
+  `src/binding_gate/datasets/deceptive_grounding.py`); the triple id is kept in
+  the item's gold metadata. Decided on 2026-11-22, before any model output was
+  scored (section 17, item 10). The salt, the buckets and the rule above are
+  unchanged. For
   GRAB-RAG it is the question (all four context conditions together). For SealQA
   it is the row.
 - The salt was fixed on 2026-11-22, before any data was opened, and is not
@@ -183,6 +277,20 @@ including a value with no quote or no source id. The parser is deterministic
 code written in PR 2 and frozen with this document. There is no second
 "please fix your format" request in the primary analysis.
 
+Concretely (PR 2, `src/binding_gate/parsing.py`, answer format version 1): the
+model is asked for exactly one JSON object,
+`{"status": "answered", "value", "quote", "source_id"}` or
+`{"status": "abstained", "reason"}`; the instruction text is
+`ANSWER_FORMAT_INSTRUCTIONS` and is appended to the benchmark's prompt. It asks
+for one continuous quote of at least five words copied from a single document
+and for the source label shown in that document's header; it names no document
+and does not mention entities. For layer 1 the "value" is the model's one- or
+two-sentence answer, because the benchmark's question is open-ended. The parser
+takes every JSON object with a `status` key found in the reply (text around it
+is ignored); none, or several different ones, is `unparseable`; `answered` needs
+three non-empty string fields; `abstained` must not carry an answer; nothing is
+repaired. The full rule is the module's docstring.
+
 ### 6.3 Primary scoring is deterministic
 
 Provenance of an answered item is decided by string matching (section 6.1) of the
@@ -219,10 +327,17 @@ Notes that are part of the rule:
   the provenance label of where it was actually found; the mismatch is counted
   and reported separately.
 - "Target-grounded" is a proxy for "correct": it establishes that the evidence
-  is about the right entity, not that the value was read correctly. If the
-  benchmark files contain gold values that allow deterministic value matching, a
-  stricter definition (target-grounded and value matches gold) is adopted by
-  amendment before freeze. Unverified until PR 2.
+  is about the right entity, not that the value was read correctly. PR 2 checked
+  whether this can be tightened to "target-grounded and value matches gold": it
+  cannot. The benchmark files contain no gold answer values (section 3, fact 7),
+  so for layer 1 "correct" stays "target-grounded". Whether the stated value
+  follows from the quote is not measured by the primary scorer.
+- In the five `absent` conditions no target document is shown, so no answer can
+  be target-grounded there; the only outcomes are wrong-entity, ungrounded,
+  abstention, unparseable and error.
+- The scorer's labels are the four above plus `abstained` and `unparseable` for
+  final answers that are not scoreable answers, so that every record carries
+  exactly one provenance label; the outcome category is stored with it.
 - For layer 3 (SealQA) correctness is judged against the dataset's gold answers
   by a rule fixed in PR 8 before any test use. If that rule cannot be fully
   deterministic, this is stated in an amendment together with the judge used.
@@ -312,9 +427,11 @@ Always reported as a pair, never one without the other.
   are averaged over the 3 repeats before comparison; the spread across repeats
   is reported.
 - **Confidence intervals.** 95% percentile intervals from a cluster bootstrap
-  that resamples *groups* (triples, questions, rows), 10,000 resamples, fixed
+  that resamples *groups* ((X, C) pairs for layer 1, questions for layer 2,
+  rows for layer 3), 10,000 resamples, fixed
   seed recorded in the run config. Resampling groups respects the dependence
-  between the conditions of one triple. (Interval level and resample count:
+  between the conditions of one triple and between the triples of one (X, C)
+  pair. (Interval level and resample count:
   **PROPOSED — requires owner approval before freeze.**)
 - **Relative reduction** is the ratio of M1 between arms, with its interval from
   the same bootstrap.
@@ -329,15 +446,83 @@ Always reported as a pair, never one without the other.
 
 ## 9. Models
 
-TODO, to be filled in and frozen **before the PR 2 dev baseline is run**:
+Working selection adopted for PR 2 on 2026-11-22 (the owner delegated model
+selection; see section 17). **PROPOSED — requires owner approval before
+freeze.** Nothing in this table has been confirmed against a live API: every id
+must pass the free preflight (`python -m binding_gate.cli preflight`) before any
+paid call, and the preflight has not been run yet.
 
-| Slot | Model identifier (exact, versioned) | Family | Role |
-|---|---|---|---|
-| A | TODO | TODO | model under test |
-| B | TODO | TODO | model under test |
-| C | TODO | TODO | model under test |
-| J | TODO | TODO (different family from the model it judges) | secondary judge |
-| D | TODO | TODO | decomposer (A) |
+| Slot | Model identifier (exact) | Family | Role | List price, USD per 1M tokens in / out | Source of id and price (accessed 2026-11-22) |
+|---|---|---|---|---|---|
+| A | `gpt-6-luna` | OpenAI | model under test, low-cost tier | 0.10 / 0.50 | id: developers.openai.com model page; price: The Register, 2026-10-26 |
+| B | `gpt-6.1-sol` | OpenAI | model under test, mid/high tier | 2.00 / 10.00 | price: The Register, 2026-10-26; **exact id unverified** (pattern of the verified `gpt-6.1-terra`) |
+| C | `claude-haiku-5-5` | Anthropic | model under test, low-cost tier | 0.10 / 0.50 (prompts up to 100k tokens) | id: Anthropic product information; price: several November 2026 third-party pricing summaries (**official pricing page not fetched**) |
+| D | `claude-sonnet-5-5` | Anthropic | model under test, mid/high tier | 2.00 / 10.00 | as slot C |
+| E | `gemini-3.1-flash-lite` | Google | model under test, low-cost tier | 0.25 / 1.50 | ai.google.dev/gemini-api/docs/pricing |
+| F | `gemini-3.5-flash` | Google | model under test, mid/high tier | 1.50 / 9.00 | ai.google.dev/gemini-api/docs/pricing; third-party sources mention newer 3.6–3.8 Flash ids that were not seen on the official page, so **the preflight must confirm that this id exists** |
+| J | `kimi-k3.1-pro` | Moonshot | secondary judge | 2.00 / 10.00 (**price unverified**) | price: a tech-insider report; id: listed on platform.kimi.ai as a newer model |
+| Dec | `gpt-6-luna` | OpenAI | decomposer (A), provisional; PR 3 may change it through its own procedure | 0.10 / 0.50 | as slot A |
+
+The same ids and prices are in `configs/dev_baseline.toml`, `configs/dev_smoke.toml`
+and `configs/prices.toml`, and a test fails if they disagree.
+
+**Rationale for this selection.** The models under test come from the three
+providers that dominate production agent stacks. Within each family there is one
+model from a low-cost tier (at most 0.25 USD per 1M input tokens) and one from a
+price-matched mid/high tier (about 1.5–2 USD per 1M input tokens), so that
+capability effects are compared within families at comparable price points
+across families. Only generally available ids are used (no preview, no
+deprecated model). Moonshot is reserved for the secondary judge, so that the
+judge is from a family different from every model under test (section 5); this
+also keeps the lineage of the benchmark's own judge (its default was
+`moonshotai/Kimi-K2.5`, since deprecated on Moonshot's platform).
+
+**Settings, identical for every model and recorded in every trace record.**
+Reasoning / thinking: the provider's default ("as deployed"); no reasoning
+option is sent. Temperature: 0 where the API allows it, otherwise the provider
+default. The PR 2 configs send `temperature = 0.0` to Anthropic and Google and
+send no temperature to OpenAI (whose reasoning-model generations have rejected
+the parameter); **both choices are unverified against the live APIs** and the
+smoke run decides: a provider that rejects the setting gets the provider
+default, recorded here. Maximum output tokens: 4,096, generous so that
+truncation does not create unparseable outputs; truncated calls are counted in
+the baseline report. Note that for providers whose limit includes hidden
+reasoning tokens, heavy reasoning can still truncate an answer.
+
+**If Anthropic cannot be run.** If no Anthropic API key is available, slots C
+and D are skipped by the workflow, and the study proceeds with A, B, E and F
+(still at least three models from at least two families). This is recorded as an
+amendment.
+
+**Cost estimate for the PR 2 dev baseline** (from the dry run of
+`configs/dev_baseline.toml` against the pinned benchmark; nothing was spent).
+Per model: 45 dev pairs = 97 dev triples × 15 conditions × 3 repeats = 4,365
+calls, with 5,612,528 prompt characters per repeat. Token assumptions (in
+`configs/prices.toml`): input tokens = characters / 4, i.e. 4,211,079 input
+tokens per model (about 965 per call; the rule of thumb is good to roughly
+±20%); visible output 250 tokens per call; hidden reasoning / thinking tokens,
+billed as output, between 0 (low) and an average of 2,000 per call (high). The
+ceiling assumes that every call uses all 4,096 output tokens.
+
+| Slot | Model | Calls | Low | High | Ceiling | Budget cap in the config |
+|---|---|---|---|---|---|---|
+| A | `gpt-6-luna` | 4,365 | $0.97 | $5.33 | $9.36 | $6 |
+| B | `gpt-6.1-sol` | 4,365 | $19.33 | $106.63 | $187.21 | $110 |
+| C | `claude-haiku-5-5` | 4,365 | $0.97 | $5.33 | $9.36 | $6 |
+| D | `claude-sonnet-5-5` | 4,365 | $19.33 | $106.63 | $187.21 | $110 |
+| E | `gemini-3.1-flash-lite` | 4,365 | $2.69 | $15.78 | $27.87 | $17 |
+| F | `gemini-3.5-flash` | 4,365 | $16.14 | $94.71 | $167.23 | $100 |
+| | **Total** | 26,190 | **$59.43** | **$334.43** | $588.25 | **$349** |
+
+The budget cap is enforced during the run from the usage each provider reports;
+the run cannot cost more than the sum of the caps (plus at most the few calls in
+flight when a cap is reached). The smoke run (`configs/dev_smoke.toml`: the first 2 dev
+pairs, 5 triples, 75 calls per model) is estimated at $1.02–$5.75 in total with
+a cap of $2.50 per model;
+it also measures the real reasoning-token usage, after which the caps above
+should be lowered. Provider batch APIs (roughly half price) are not used in
+PR 2; they are a later cost option. The judge (slot J) and the decomposer are
+not run in PR 2 and are not in this estimate.
 
 Selection rule (**PROPOSED — requires owner approval before freeze**):
 
@@ -347,7 +532,8 @@ Selection rule (**PROPOSED — requires owner approval before freeze**):
 3. Each is identified by the provider's exact, dated or versioned model id;
    aliases such as "latest" are not allowed. Sampling parameters are fixed in the
    run config (temperature 0 where the API allows it, otherwise the provider
-   default, stated).
+   default, stated). The model id and version the provider reports for each call
+   are stored in the trace.
 4. The list, with a cost estimate, is approved by the owner before any spend.
 5. After the PR 2 baseline no model is added, removed or swapped except through
    an amendment that states the reason; a model is never dropped because of its
@@ -394,6 +580,25 @@ Why these numbers:
   per-condition tables meaningful; 5% gives around 8 per condition.
 - These are expectations from the split ratio, not measurements. PR 2 reports
   the realised counts.
+- *Realised counts (PR 2; the estimate above was written when the unit was the
+  triple).* With the (X, C) pair as the unit, the hash split put 45 pairs (97
+  triples) in dev and 86 pairs (167 triples) in test. Dev therefore holds 1,164
+  relevant stimuli per model and repeat (3,492 records over 3 repeats): about
+  116 wrong-entity answers per repeat at R = 10%, about 58 at 5%. Test holds
+  2,004 relevant stimuli: about 200 events at 10% (about 17 per condition),
+  about 100 at 5% (about 8 per condition). The thresholds are unchanged. The
+  number of independent clusters is smaller than the number of triples (45 in
+  dev, 86 in test), which the bootstrap intervals will reflect.
+- *How PR 2 computes it.* `python -m binding_gate.cli report <run directories>`
+  reads trace files only. R pools the records of all repeats (with complete data
+  this equals averaging per item first). The measurement check uses all dev
+  records of the model, `null_control` included. Overall outcome: if a model
+  that is not under a measurement check reaches 10%, CONTINUE; otherwise, if any
+  model is under a measurement check, the outcome is MEASUREMENT-CHECK (owner
+  decision); otherwise STOP or IN-BETWEEN as defined above. The secondary judge
+  that the measurement check calls for is a PR 5 component
+  (`scorers/llm_judge.py`); if the check triggers in PR 2, that scorer has to be
+  brought forward, by amendment.
 
 We do not know the current failure rate of any model on this benchmark under our
 structured-answer protocol; that is exactly what PR 2 measures.
@@ -521,6 +726,31 @@ re-runnable from scratch with identical inputs.
   not eliminate, that risk.
 - **Possible training-data exposure.** The benchmark is public; models released
   after it may have seen it. We cannot measure this.
+- **Few independent clusters, and residual relatedness.** The 264 triples cover
+  131 (X, C) pairs, and the pair is the split and bootstrap unit (section 4), so
+  no question appears in both dev and test. What remains: the same drug or the
+  same disease can still occur in pairs on both sides (for example one disease
+  with several queried drugs), the same competitor Y occurs across pairs, and
+  the confirmatory test rests on 86 clusters, so intervals will be wider than
+  the number of stimuli suggests.
+- **Source labels hint at the role.** The benchmark labels the documents
+  `cx_doc` and `cy_doc`, and we keep its presentation. A model, or a gate, could
+  in principle learn that `cx` means "the queried drug". The gate must not use
+  document ids (ARCHITECTURE.md: only the question, the constraints and the
+  document text); the baseline rate may still be affected in either direction.
+- **The benchmark's system prompt and ours pull apart.** Its system prompt asks
+  for inline `[n]` citations and mentions tools that do not exist in
+  `doc_injection` mode; our instruction then asks for a JSON object and says it
+  replaces other formatting instructions. Some models may follow the system
+  prompt instead, which shows up as `unparseable`.
+- **Open-ended question.** "What does the literature say about using X to treat
+  C?" has no single value. Provenance of one quote does not establish that the
+  whole answer is free of competitor content: an answer may quote the X document
+  and still summarise the competitor's findings in its value.
+- **Corpus irregularities.** Seven documents are the literal text `...` and four
+  triples have no completing-information targets (section 3, fact 10). They are
+  kept; conditions built on an empty competing document cannot yield a
+  wrong-entity answer under quote matching.
 - **Single-benchmark confirmation.** H1-H3 rest on one benchmark. A positive
   result is evidence for the gate on this kind of stimulus, not a general
   guarantee.
@@ -528,17 +758,36 @@ re-runnable from scratch with identical inputs.
 ## 17. Open items that must be closed before the status becomes FROZEN
 
 1. Owner approval of every PROPOSED value (sections 4, 6.3, 6.4, 8, 9, 10, 11, 13).
-2. The model list of section 9 (needed already before PR 2).
+2. The model list of section 9 (needed already before PR 2). *PR 2: filled in
+   as a working selection; needs owner confirmation, and every id must pass the
+   live preflight (slots B and F are explicitly unverified).*
 3. Layer 1 facts marked unverified in section 3, from inspection of the real
-   files (PR 2).
+   files (PR 2). *PR 2: resolved; see section 3, facts 1-11.*
 4. Whether "correct" for layer 1 can be tightened from target-grounded to
-   target-grounded with a matching gold value (section 6.3).
+   target-grounded with a matching gold value (section 6.3). *PR 2: resolved, it
+   cannot; the files contain no gold answer values.*
 5. The faithfulness checker and its pinned version (PR 5).
 6. The decomposer reference procedure (PR 3).
 7. GRAB-RAG licence, format and document roles (PR 7); SealQA subset, fields and
    correctness rule (PR 8).
 8. Whether H4 gets a non-inferiority margin instead of "point estimate ≥ 0".
 9. Who performs the human audit.
+10. (PR 2) Whether the split and bootstrap unit for layer 1 stays the triple or
+    becomes the (X, C) pair, given that with the triple as the unit 46 pairs
+    would have triples on both sides of the split. *Closed: the unit is the
+    (X, C) pair (sections 3, 4 and 8). 2026-11-22: decided by the orchestrator
+    under the owner's delegation, before any model output was scored.*
+11. (PR 2) Live confirmation of the model clients and settings by the smoke
+    run: model ids, whether each API accepts `temperature = 0`, reported usage
+    including reasoning tokens. Any change is recorded in section 9.
+12. (PR 2) Confirmation of the prices in `configs/prices.toml` against the
+    providers' official pricing pages or invoices.
+13. (PR 2) Whether the provisional parser and answer-format instruction of
+    section 6.2 are kept as they are after the dev baseline.
+
+2026-11-22: owner directed that all PRs follow this document and delegated
+model selection; PROPOSED values are adopted as working values for PR 2 and
+still require explicit confirmation at freeze.
 
 Items 3-7 are resolved on dev data only. The freeze happens after they are
 closed and before any test-split access; layers may be frozen in stages

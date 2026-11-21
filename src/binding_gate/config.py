@@ -29,6 +29,15 @@ File format (``config_version = 1``)::
     [[scorers]]
     name = "provenance"
 
+    [runner]                         # optional; execution settings (added in PR 2)
+    concurrency = 8                  # keys are validated by binding_gate.runner
+    max_usd = 5.0
+
+The ``[runner]`` table is opaque here (any JSON-compatible values) and is
+interpreted by ``binding_gate.runner.RunnerSettings``. It is part of the hashed
+config only when present and non-empty, so configs written before it existed
+keep their hash.
+
 The config hash is the SHA-256 of the canonical JSON of the *parsed and
 normalised* config (defaults filled in), so comments, key order and whitespace do
 not change it, while any change of meaning does. The hash is written to the run
@@ -37,6 +46,7 @@ manifest and to every trace record.
 
 from __future__ import annotations
 
+import json
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,6 +68,7 @@ _TOP_LEVEL_KEYS = {
     "models",
     "arms",
     "scorers",
+    "runner",
 }
 _COMPONENT_KEYS = {"name", "label", "options"}
 
@@ -96,9 +107,16 @@ class RunConfig:
     repeats: int
     limit: int | None = None
     description: str = ""
+    runner: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """The normalised config; this exact structure is what gets hashed."""
+        data = self._base_dict()
+        if self.runner:
+            data["runner"] = self.runner
+        return data
+
+    def _base_dict(self) -> dict[str, Any]:
         return {
             "config_version": CONFIG_VERSION,
             "name": self.name,
@@ -157,6 +175,20 @@ def _components(where: str, raw: Any, *, required: bool) -> tuple[ComponentSpec,
     return specs
 
 
+def _runner_table(raw: Any) -> dict[str, Any]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise ConfigError("runner must be a table ([runner])")
+    try:
+        canonical_json(raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(
+            f"runner must contain only JSON-compatible values (no dates, NaN or infinity): {exc}"
+        ) from exc
+    return json.loads(canonical_json(raw))
+
+
 def _positive_int(where: str, value: Any) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ConfigError(f"{where} must be an integer >= 1")
@@ -200,6 +232,7 @@ def parse_config(raw: Mapping[str, Any]) -> RunConfig:
         models=_components("models", raw.get("models"), required=True),
         arms=_components("arms", raw.get("arms"), required=True),
         scorers=_components("scorers", raw.get("scorers"), required=False),
+        runner=_runner_table(raw.get("runner")),
     )
 
 

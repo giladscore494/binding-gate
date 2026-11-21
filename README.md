@@ -4,9 +4,13 @@ A verification gate for LLM agents that answer questions from web search or
 retrieved documents.
 
 **Status: pre-registration draft. Nothing has been measured yet.** This
-repository currently contains the project skeleton, the frozen data formats and
-a draft of the study plan. There are no results, and no claim that the gate
-works.
+repository contains the project skeleton, the frozen data formats, a draft of
+the study plan and (since PR 2) everything needed to measure the *baseline*: how
+often current models make this error without any gate. That baseline has not
+been run: no model has been called, the model clients have only been tested
+against example responses, and the model ids and prices in the configs are not
+yet confirmed against the live APIs. There are no results, and no claim that the
+gate works.
 
 ## The problem
 
@@ -67,10 +71,32 @@ The design for all planned work is in [ARCHITECTURE.md](ARCHITECTURE.md).
 | Test-set lock with a committed access log | `src/binding_gate/testlock.py`, `audit/test_access_log.jsonl` |
 | Append-only run traces and run manifest | `src/binding_gate/trace.py` |
 | The text normalisation used for "verbatim" | `src/binding_gate/textnorm.py` |
+| Adapter for the Deceptive Grounding benchmark (pinned commit, never redistributed) | `src/binding_gate/datasets/deceptive_grounding.py` |
+| Required answer structure and its deterministic parser | `src/binding_gate/parsing.py` |
+| Model clients: OpenAI, Anthropic, Google Gemini, Moonshot (plain HTTPS, no SDKs) | `src/binding_gate/models/` |
+| Baseline arm without a gate; deterministic provenance scorer | `src/binding_gate/arms/no_gate.py`, `src/binding_gate/scorers/provenance.py` |
+| Runner with response cache, resume, dry run and a hard budget cap | `src/binding_gate/runner.py`, `src/binding_gate/cli.py` |
+| Baseline report with the pre-registered stop rule | `src/binding_gate/baseline_report.py` |
+| Run configs and the price table behind the cost estimate | `configs/dev_smoke.toml`, `configs/dev_baseline.toml`, `configs/prices.toml` |
+| Manually started GitHub Actions workflow for the baseline | `.github/workflows/baseline.yml`, [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md) |
 
-Not here yet: dataset adapters, model clients, the decomposer, the checks, the
-gate, baselines, statistics. They arrive in later pull requests, listed in
-ARCHITECTURE.md.
+Not here yet: the decomposer, the checks, the gate, the comparison baselines,
+statistics. They arrive in later pull requests, listed in ARCHITECTURE.md, and
+only if the baseline passes the stop rule of the pre-registration.
+
+## Running the baseline
+
+See [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md). In short: a free dry
+run prints the number of calls and a cost estimate; a smoke run of 75 calls per
+model checks the live APIs for a few dollars at most; the full dev baseline then runs one
+job per model under a hard budget cap. Runs are started by choosing a config
+file; only API keys come from repository secrets.
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest                                              # no network, no keys
+python -m binding_gate.cli dry-run --config configs/dev_smoke.toml   # needs the benchmark in data/raw/
+```
 
 ## Honest limitations
 

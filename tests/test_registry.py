@@ -19,9 +19,19 @@ def isolated_registry(monkeypatch):
     monkeypatch.setattr(registry, "_discovered", set())
 
 
-def test_every_kind_has_an_importable_package_that_is_empty_in_pr1(isolated_registry):
+def test_every_kind_has_an_importable_package():
     assert set(registry.KIND_PACKAGES) == {"dataset", "model", "decomposer", "check", "gate", "arm", "scorer"}
     for kind in registry.KIND_PACKAGES:
+        assert isinstance(available(kind), list)
+
+
+def test_pr2_components_are_registered_and_later_kinds_are_still_empty():
+    # Not isolated on purpose: this is the real registry after discovery.
+    assert "deceptive_grounding" in available("dataset")
+    assert {"openai_responses", "anthropic_messages", "google_gemini", "moonshot_chat"} <= set(available("model"))
+    assert "no_gate" in available("arm")
+    assert "provenance" in available("scorer")
+    for kind in ("decomposer", "check", "gate"):
         assert available(kind) == []
 
 

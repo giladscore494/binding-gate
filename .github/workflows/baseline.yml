@@ -1,0 +1,197 @@
+name: baseline
+
+# Manually started PR 2 runs: dry run (free), smoke run (a few dollars at most) and the full dev
+# baseline. Everything that defines a run is in the config file chosen below;
+# only API keys come from repository secrets. Step-by-step instructions with the
+# exact values to enter: docs/RUNNING_BASELINE.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: "Run config (path in the repository)"
+        required: true
+        default: "configs/dev_smoke.toml"
+        type: string
+      model:
+        description: 'Model label from the config, or "all" (one parallel job per model)'
+        required: true
+        default: "all"
+        type: string
+      dry_run:
+        description: "Dry run: count calls and estimate cost; no model API is called"
+        required: true
+        default: true
+        type: boolean
+      confirm_spend:
+        description: "I confirm that paid API calls may be made (needed when dry run is unchecked)"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-${{ github.ref }}-${{ inputs.config }}-${{ inputs.model }}-${{ inputs.dry_run }}
+  cancel-in-progress: false
+
+env:
+  CONFIG: ${{ inputs.config }}
+  MODEL: ${{ inputs.model }}
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      models: ${{ steps.models.outputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Refuse a paid run that was not confirmed
+        if: ${{ !inputs.dry_run && !inputs.confirm_spend }}
+        run: |
+          echo "::error::dry_run is unchecked but confirm_spend is not checked. A paid run must be confirmed. Nothing was run."
+          exit 1
+      - name: Select models
+        id: models
+        run: |
+          ALL="$(python -m binding_gate.cli models --config "$CONFIG")"
+          if [ "$MODEL" = "all" ]; then
+            SELECTED="$ALL"
+          else
+            SELECTED="$(python -c 'import json,sys; labels=json.loads(sys.argv[1]); sys.exit("unknown model label %r; labels in this config: %s" % (sys.argv[2], labels)) if sys.argv[2] not in labels else print(json.dumps([sys.argv[2]]))' "$ALL" "$MODEL")"
+          fi
+          echo "models=$SELECTED" >> "$GITHUB_OUTPUT"
+          echo "Selected models: $SELECTED"
+
+  run:
+    name: ${{ inputs.dry_run && 'dry-run' || 'run' }} (${{ matrix.model }})
+    needs: plan
+    runs-on: ubuntu-latest
+    # About 4,400 calls per model in the full baseline; at 8 calls in flight and
+    # up to a minute per call in the worst case this stays under GitHub's 6-hour
+    # limit for hosted runners. An interrupted run keeps its traces (uploaded below).
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.plan.outputs.models) }}
+    env:
+      MODEL: ${{ matrix.model }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Clone the benchmark at the pinned commit (into data/raw/, git-ignored)
+        run: |
+          python -m binding_gate.cli dataset-pin --config "$CONFIG" > dataset-pin.txt
+          cat dataset-pin.txt
+          REPOSITORY="$(sed -n 's/^repository=//p' dataset-pin.txt)"
+          COMMIT="$(sed -n 's/^commit=//p' dataset-pin.txt)"
+          ROOT="$(sed -n 's/^root=//p' dataset-pin.txt)"
+          case "$ROOT" in data/raw/*) ;; *) echo "::error::dataset root must be under data/raw/"; exit 1 ;; esac
+          mkdir -p "$ROOT"
+          git -C "$ROOT" init -q
+          git -C "$ROOT" remote add origin "$REPOSITORY"
+          git -C "$ROOT" fetch -q --depth 1 origin "$COMMIT"
+          git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
+          test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
+          rm -f dataset-pin.txt
+
+      - name: Dry run (no API call, no key needed)
+        run: python -m binding_gate.cli dry-run --config "$CONFIG" --model "$MODEL"
+
+      - name: Preflight (free check that the model id exists)
+        id: preflight
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: |
+          set +e
+          python -m binding_gate.cli preflight --config "$CONFIG" --model "$MODEL"
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 4 ]; then
+            echo "::warning::Model $MODEL was SKIPPED: its API key is not configured as a repository secret. Other models are not affected."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          exit "$CODE"
+
+      - name: Paid run
+        id: paid
+        if: ${{ !inputs.dry_run && inputs.confirm_spend && steps.preflight.outputs.skipped == 'false' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: python -m binding_gate.cli run --config "$CONFIG" --model "$MODEL" --runs-dir runs --confirm-spend
+
+      - name: Baseline report for this model
+        if: ${{ always() && steps.paid.conclusion != 'skipped' && hashFiles('runs/*/traces.jsonl') != '' }}
+        run: |
+          RUN_DIRS=(runs/*/)
+          python -m binding_gate.cli report "${RUN_DIRS[@]}" --json "baseline_report_${MODEL}.json" | tee "baseline_report_${MODEL}.txt"
+          mv "baseline_report_${MODEL}.json" "baseline_report_${MODEL}.txt" runs/
+
+      - name: Upload runs/ (traces, manifest, report)
+        if: ${{ always() && hashFiles('runs/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-${{ matrix.model }}
+          path: runs/
+          if-no-files-found: ignore
+          retention-days: 90
+
+  report:
+    name: baseline report (all models of this run)
+    needs: run
+    if: ${{ always() && !inputs.dry_run && inputs.confirm_spend }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runs-*
+          path: artifacts
+      - name: Stop-rule report over every model that ran
+        run: |
+          mapfile -t RUN_DIRS < <(find artifacts -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::warning::No model produced traces (all skipped or failed); there is nothing to report."
+            exit 0
+          fi
+          mkdir -p combined
+          python -m binding_gate.cli report "${RUN_DIRS[@]}" --json combined/baseline_report.json | tee combined/baseline_report.txt
+          {
+            echo '```'
+            cat combined/baseline_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('combined/**') != '' }}
+        with:
+          name: baseline-report
+          path: combined/
+          retention-days: 90
