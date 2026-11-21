@@ -16,11 +16,22 @@ import os
 KNOWN_SECRETS: dict[str, str] = {
     # "ENV_VAR_NAME": "what it is for and which component reads it",
     # No secrets are needed in PR 1: nothing in this PR calls a model or the network.
+    "OPENAI_API_KEY": "OpenAI API key; read by models/openai_responses.py (PR 2)",
+    "ANTHROPIC_API_KEY": "Anthropic API key; read by models/anthropic_messages.py (PR 2)",
+    "GEMINI_API_KEY": "Google Gemini API key; read by models/google_gemini.py (PR 2)",
+    "MOONSHOT_API_KEY": "Moonshot (Kimi) API key; read by models/moonshot_chat.py (PR 2)",
 }
 
 
 class SecretError(RuntimeError):
     """Raised when a secret is undocumented or not set."""
+
+
+def has_secret(name: str) -> bool:
+    """True if the documented secret ``name`` is set to a non-empty value (the value is not returned)."""
+    if name not in KNOWN_SECRETS:
+        raise SecretError(f"{name} is not documented in binding_gate.secrets.KNOWN_SECRETS")
+    return bool(os.environ.get(name))
 
 
 def get_secret(name: str) -> str:

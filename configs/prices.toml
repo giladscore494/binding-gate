@@ -1,0 +1,69 @@
+# Token prices used by the dry-run cost estimate and by the budget cap.
+# US dollars per 1,000,000 tokens, standard (non-batch, non-cached) list prices.
+# One entry per exact model id, each with its source and the date it was read.
+# None of these prices was fetched from an official pricing page by this
+# project's code; they were supplied with the model selection on 2026-11-22
+# (PREREGISTRATION.md section 9) and are UNVERIFIED unless the note says otherwise.
+# Check them against the provider invoices after the smoke run.
+
+prices_version = 1
+
+[assumptions]
+# Used only by the dry-run estimate; the budget cap uses the usage the provider reports.
+chars_per_token = 4.0          # input tokens ~= prompt characters / 4 (rule of thumb for English, about +-20%)
+visible_output_tokens = 250    # the JSON answer: a one/two-sentence value, a quote, a source id
+reasoning_tokens_low = 0       # hidden reasoning/thinking tokens per call billed as output: none ...
+reasoning_tokens_high = 2000   # ... up to an average of 2,000 at provider-default reasoning (an assumption)
+
+[[price]]
+model_id = "gpt-6-luna"
+input_per_mtok = 0.10
+output_per_mtok = 0.50
+source = "The Register, 2026-10-26 (price); developers.openai.com model page (id)"
+accessed = "2026-11-22"
+
+[[price]]
+model_id = "gpt-6.1-sol"
+input_per_mtok = 2.00
+output_per_mtok = 10.00
+source = "The Register, 2026-10-26 (price)"
+accessed = "2026-11-22"
+note = "exact model id unverified (pattern of the verified gpt-6.1-terra); the preflight must confirm it"
+
+[[price]]
+model_id = "claude-haiku-5-5"
+input_per_mtok = 0.10
+output_per_mtok = 0.50
+source = "several November 2026 third-party pricing summaries (official pricing page not fetched); id from Anthropic product information"
+accessed = "2026-11-22"
+note = "price stated for prompts up to 100k tokens; our prompts are about 1k tokens"
+
+[[price]]
+model_id = "claude-sonnet-5-5"
+input_per_mtok = 2.00
+output_per_mtok = 10.00
+source = "several November 2026 third-party pricing summaries (official pricing page not fetched); id from Anthropic product information"
+accessed = "2026-11-22"
+
+[[price]]
+model_id = "gemini-3.1-flash-lite"
+input_per_mtok = 0.25
+output_per_mtok = 1.50
+source = "ai.google.dev/gemini-api/docs/pricing"
+accessed = "2026-11-22"
+
+[[price]]
+model_id = "gemini-3.5-flash"
+input_per_mtok = 1.50
+output_per_mtok = 9.00
+source = "ai.google.dev/gemini-api/docs/pricing"
+accessed = "2026-11-22"
+note = "third-party sources mention newer 3.6-3.8 Flash ids not seen on the official page; the preflight must confirm this id exists"
+
+[[price]]
+model_id = "kimi-k3.1-pro"
+input_per_mtok = 2.00
+output_per_mtok = 10.00
+source = "tech-insider report (price); platform.kimi.ai model list (id)"
+accessed = "2026-11-22"
+note = "secondary judge (slot J); price unverified; not used by any PR 2 config"

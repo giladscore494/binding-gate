@@ -1,0 +1,36 @@
+binding-gate
+Copyright 2026 the binding-gate authors.
+
+This product reproduces short portions of the Deceptive Grounding Benchmark
+(https://github.com/CedricCaruzzo/deceptive-grounding-benchmark, commit
+61b0281d8d3897f53bef3f7402727c905614c1e4), licensed under the Apache License,
+Version 2.0:
+
+  - the text of AGENT_SYSTEM_PROMPT from its config.py, verbatim;
+  - the wording of its query ("What does the literature say about using {X}
+    to treat {C}?") from benchmark_runner.py;
+  - the layout of its "doc_injection" user message ("Retrieved literature
+    documents: ... [Document n — source: <id>] ... Based on the above
+    documents, ...") from benchmark_runner.py, re-implemented here and extended
+    with this project's answer-format instruction.
+
+They are in src/binding_gate/datasets/deceptive_grounding.py. No benchmark data
+(triples or passages) is included in this repository; test fixtures use
+invented text.
+
+The upstream NOTICE file reads:
+
+    Deceptive Grounding Benchmark
+    Copyright 2026 the Deceptive Grounding authors.
+
+    This release accompanies:
+    Cedric Caruzzo, Donggeun Yoo, and Tae Soo Kim.
+    Deceptive Grounding: Entity Attribution Failure in Clinical
+    Retrieval-Augmented Generation (2026).
+    https://arxiv.org/abs/2607.09349
+
+    The bundled clinical passages are synthetic research stimuli and can contain
+    deliberately false or reassigned claims. They are not clinical evidence.
+
+    Citation is requested for scholarly attribution; it does not add a condition
+    to the Apache License, Version 2.0.

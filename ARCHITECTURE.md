@@ -1,8 +1,11 @@
 # Architecture
 
 This document describes the design of binding-gate across all ten planned pull
-requests. PR 1 (this one) delivers the skeleton, the frozen data contracts and
-the pre-registration; everything marked "PR n" below does not exist yet.
+requests. PR 1 delivered the skeleton, the frozen data contracts and the
+pre-registration. PR 2 delivered the Deceptive Grounding adapter, the model
+clients, the answer parser, the `no_gate` arm, the provenance scorer, the runner
+and the baseline report (section 8a). Everything marked "PR n" with n ≥ 3 does
+not exist yet.
 
 What is measured and how success is judged is defined in
 [PREREGISTRATION.md](PREREGISTRATION.md). This file is about how the code is
@@ -84,6 +87,7 @@ src/binding_gate/
   scorers/       one module per scorer                                          PR 2, 5
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
+.github/workflows/baseline.yml   manually started dry run / smoke run / dev baseline   PR 2
 ```
 
 Ownership of later work. Each PR adds new files in the places listed and does
@@ -91,7 +95,7 @@ not modify files owned by another PR of the same wave.
 
 | PR | Wave | Adds |
 |---|---|---|
-| 2 | B | `datasets/deceptive_grounding.py`, `models/*`, `arms/no_gate.py`, `scorers/provenance.py`, `parsing.py` (answer format + parser), `runner.py`, `cli.py`, `configs/dev_baseline*.toml` |
+| 2 | B | `datasets/deceptive_grounding.py`, `models/*`, `arms/no_gate.py`, `scorers/provenance.py`, `parsing.py` (answer format + parser), `runner.py`, `cli.py`, `configs/dev_baseline*.toml`; as delivered also `answering.py`, `pricing.py`, `baseline_report.py`, `configs/dev_smoke.toml`, `configs/prices.toml`, `.github/workflows/baseline.yml`, `docs/RUNNING_BASELINE.md`, `NOTICE` |
 | 3 | C | `decomposers/*`, `evaluation/decomposer.py`, its configs |
 | 4 | C | `checks/*`, `gates/*`, `arms/gated.py` |
 | 5 | C | `arms/prompt_entity_check.py`, `arms/faithfulness_checker.py`, `arms/llm_judge_checks.py`, `scorers/llm_judge.py`, ablation configs |
@@ -287,6 +291,54 @@ These are fixed here because every later PR relies on them.
    every failed call is logged as a `ModelCall` with `error`.
 6. No output of an arm is ever discarded or repaired silently.
 
+## 8a. What PR 2 delivered, and the conventions later PRs must follow
+
+- **Answer step shared by all arms** (`answering.py`). An arm that starts from
+  the model's own answer builds its request with `build_answer_request(arm_input,
+  presentation)` and sends it with `call_model(model, request, purpose)`.
+  Identical requests are what makes the runner's cache hand `gated`,
+  `faithfulness_checker` and `llm_judge_checks` the candidate that `no_gate`
+  produced. A *presentation* (selected by name in the arm options) is the
+  benchmark-specific prompt layout; PR 7 and PR 8 add theirs to
+  `answering.PRESENTATIONS`.
+- **Retries** happen only in `call_model`, under the client's `retry` policy
+  (from `[models.options]`); every attempt is a `ModelCall`. When all attempts
+  fail it raises `ModelCallFailed`, which carries the logged calls; an arm lets
+  it propagate and the runner writes the error record with those calls.
+- **Component construction.** Models: `factory(label=<config label>, **options)`;
+  the label becomes `client.name`. Arms: `factory(model=<client>, **options)`.
+  Scorers and datasets: `factory(**options)`. A model client may offer
+  `preflight()` (free existence check), `retry`, `model_id`, `secret_name` and
+  `max_output_tokens`; the runner uses them when present.
+- **Model clients** are plain HTTPS with the standard library (no SDKs; reasons
+  in `models/_http.py`). `ModelResponse.model` is the provider-reported id;
+  `ModelResponse.raw` holds `requested_model`, `finish_reason`, `truncated`,
+  `reasoning_tokens`, the provider's usage object and the sampling parameters
+  that were sent. `TokenUsage.output_tokens` is the billed output including
+  hidden reasoning tokens.
+- **Cache.** Key = SHA-256 of `{client label, repeat, request}`. A reused
+  response is flagged `raw["cache_hit"] = true` and is not charged. On resume
+  the cache is rebuilt from the trace.
+- **`[runner]` config table** (optional, hashed when present): `concurrency`,
+  `max_usd` (hard cap per model label), `max_usd_by_model`, `prices`.
+  `config.py` passes it through; `runner.RunnerSettings` validates it.
+- **Run directory** additionally holds `invocations.jsonl` (one line per start,
+  resume and end of the runner: selected models, dataset fingerprint, price
+  file hash, spend).
+- **Provenance scorer labels**: the four reserved labels, plus `abstained` and
+  `unparseable` for final answers that are not scoreable answers;
+  `details["outcome"]` is the outcome category of PREREGISTRATION.md 6.3. The
+  minimum quote length is applied by the scorer.
+- **Test split.** The runner reaches test items only by calling
+  `testlock.load_test_split` (`--test-unlock-tag`, `--purpose`); PR 6 builds the
+  one-command frozen test run on top of that.
+- **Split unit for Deceptive Grounding.** `Item.group_id` is the normalised
+  (X, C) pair (`datasets.deceptive_grounding.pair_group_id`), not the triple;
+  the triple id is in `gold["triple_id"]`. Statistics (PR 6) must cluster on
+  `group_id`.
+- **Baseline report** (`baseline_report.py`, `cli report`) implements only the
+  section 10 stop rule from traces. It is not the statistics package (PR 6).
+
 ## 9. Out of scope
 
 - No general fact-checking: the gate does not decide whether a source is true,
@@ -311,3 +363,7 @@ These are fixed here because every later PR relies on them.
 | Schema version | Date | Change | Migration |
 |---|---|---|---|
 | 1 | 2026-11-22 | Initial contracts (PR 1). | none |
+
+PR 2 (2026-11-22) changed no contract; the schema version and fingerprint are
+unchanged. It added one optional run-config table, `[runner]` (see section 8a),
+which is not a data contract; configs without it keep their hash.

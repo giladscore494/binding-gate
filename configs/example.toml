@@ -1,10 +1,10 @@
 # Example run configuration (config_version 1).
 #
-# This file documents the format and is loaded by the test suite. It cannot be
-# executed yet: the components it names are delivered by PR 2. Their registry
-# names ("deceptive_grounding", "no_gate", "provenance") are reserved in
-# ARCHITECTURE.md; the model client name below is a stand-in until PR 2 chooses
-# the clients under the rule in PREREGISTRATION.md section 9.
+# This file documents the format and is loaded by the test suite. It is an
+# illustration, not a runnable config: its model client name is a stand-in. The
+# runnable PR 2 configs are configs/dev_smoke.toml and configs/dev_baseline.toml
+# (models from PREREGISTRATION.md section 9), which also show the optional
+# [runner] table (concurrency, budget cap, price file).
 #
 # A run is selected by passing the path of a file like this one. Nothing here is
 # ever read from environment variables.

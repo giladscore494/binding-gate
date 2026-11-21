@@ -177,10 +177,26 @@ def test_two_ablations_of_one_arm_are_told_apart_by_label():
 
 
 def test_every_committed_config_loads():
-    paths = sorted((REPO_ROOT / "configs").glob("*.toml"))
+    # configs/prices.toml is the price table of the cost estimator, not a run config
+    # (it is validated in tests/test_pricing.py).
+    paths = sorted(p for p in (REPO_ROOT / "configs").glob("*.toml") if p.name != "prices.toml")
     assert paths, "configs/ must contain at least the example config"
     for path in paths:
         load_config(path)
+
+
+def test_runner_table_is_optional_hashed_when_present_and_must_be_json_compatible():
+    plain = b.run_config()
+    assert plain.runner == {} and "runner" not in plain.to_dict()
+    with_runner = b.run_config(runner={"concurrency": 8, "max_usd": 5.0})
+    assert with_runner.to_dict()["runner"] == {"concurrency": 8, "max_usd": 5.0}
+    assert with_runner.config_hash != plain.config_hash
+    assert b.run_config(runner={}).config_hash == plain.config_hash
+    assert b.run_config(runner={"max_usd": 6.0}).config_hash != b.run_config(runner={"max_usd": 5.0}).config_hash
+    with pytest.raises(ConfigError, match="runner"):
+        b.run_config(runner=["not", "a", "table"])
+    with pytest.raises(ConfigError, match="runner"):
+        b.run_config(runner={"budget": float("nan")})
 
 
 PINNED_HASH = "bfd5a6d5bbda754616928daa79270d890fecb6d11a1b68e8a6fef9172bc55f59"
