@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Run outputs (traces and manifests). Published result sets are added
+# deliberately under results/ by the PR that produces them.
+runs/
+
+# Downloaded third-party datasets and live-web page snapshots are never committed
+# (licensing and copyright; see ARCHITECTURE.md).
+data/raw/
+snapshots/
+
+# Secrets: API keys are read from environment variables only (see src/binding_gate/secrets.py).
+.env
+.env.*
+*.secrets
+secrets.*
+!src/binding_gate/secrets.py
+*.pem
+*.key
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

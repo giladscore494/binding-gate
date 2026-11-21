@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "binding-gate"
+dynamic = ["version"]
+description = "A deterministic verification gate against entity-attribution failures (deceptive grounding) in LLM agents that answer from retrieved sources."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = []
+
+[project.optional-dependencies]
+# Later PRs append ONE line each here for their own optional extras
+# (see ARCHITECTURE.md, "Shared files"). The core package has no runtime dependencies.
+dev = ["pytest>=8"]
+
+[tool.setuptools.dynamic]
+version = { attr = "binding_gate.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
