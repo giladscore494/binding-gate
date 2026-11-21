@@ -1,0 +1,37 @@
+# Example run configuration (config_version 1).
+#
+# This file documents the format and is loaded by the test suite. It cannot be
+# executed yet: the components it names are delivered by PR 2. Their registry
+# names ("deceptive_grounding", "no_gate", "provenance") are reserved in
+# ARCHITECTURE.md; the model client name below is a stand-in until PR 2 chooses
+# the clients under the rule in PREREGISTRATION.md section 9.
+#
+# A run is selected by passing the path of a file like this one. Nothing here is
+# ever read from environment variables.
+
+config_version = 1
+name = "example-dev-smoke"
+description = "Format illustration only: ungated baseline on a few dev groups."
+split = "dev"
+repeats = 3
+limit = 5            # dev only: use the first 5 groups (smoke run)
+
+[dataset]
+name = "deceptive_grounding"
+
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+
+[[models]]
+name = "client-defined-in-pr2"
+label = "model-under-test-a"
+
+[models.options]
+model_id = "TODO-frozen-in-preregistration"
+temperature = 0.0
+
+[[arms]]
+name = "no_gate"
+
+[[scorers]]
+name = "provenance"
