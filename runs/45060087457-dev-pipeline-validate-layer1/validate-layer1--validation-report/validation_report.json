@@ -1,0 +1,623 @@
+{
+  "amendment": "PREREGISTRATION.md section 18, amendment 1 (2026-11-22)",
+  "baseline_workflow_run_id": 45053502161,
+  "bootstrap": {
+    "level": "19/20",
+    "resamples": 10000,
+    "seed": 20261122,
+    "unit": "group_id"
+  },
+  "decided_after": "the layer-1 dev baseline (no_gate, deterministic provenance scoring) gave STOP under section 10 (workflow run 45053502161)",
+  "definitions": {
+    "agreement": "ours = provenance wrong_entity, judge = eaf_or_substitution; judge failures count as disagreement",
+    "difference": "free_form rate minus structured (no_gate) rate on the same items, paired; cluster bootstrap",
+    "positive": "judge label eaf_or_substitution (claim attributed to the competing document, or entity substitution)",
+    "rates": "over all subsample records of the arm and model; judge failures, unscored records and arm errors count as not positive; rates_determinate_only leave them out"
+  },
+  "judge_hash": "aabf88e6ac33b0d9d01a2509899c802a2a53242aaec0d0d8a79a4a890a06487a",
+  "judges": [
+    {
+      "label": "judge-kimi-k3.1-pro",
+      "model_id": "kimi-k3.1-pro",
+      "name": "moonshot_chat"
+    }
+  ],
+  "models": {
+    "google-low": {
+      "free_form": {
+        "arm_error": 0,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 0,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 144,
+        "judge_unparseable": 0,
+        "labels": {
+          "judge_error": 144
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": null,
+          "eaf": null,
+          "eaf_or_substitution": null,
+          "substitution": null
+        },
+        "records": 144,
+        "unscored": 0
+      },
+      "paired": {
+        "both_determinate": 0,
+        "both_positive": 0,
+        "estimates": {
+          "difference": 0.0,
+          "difference_determinate": null,
+          "free_form_rate": 0.0,
+          "free_form_rate_determinate": null,
+          "structured_rate": 0.0,
+          "structured_rate_determinate": null
+        },
+        "groups": 43,
+        "intervals": {
+          "difference": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "difference_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "free_form_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "free_form_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "structured_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "structured_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          }
+        },
+        "only_free_form_positive": 0,
+        "only_structured_positive": 0,
+        "paired_items": 144,
+        "unpaired_free_form": 0,
+        "unpaired_structured": 0
+      },
+      "structured": {
+        "agreement": {
+          "both_positive": 0,
+          "crosstab": {
+            "abstention | abstained": 47,
+            "target_grounded | judge_error": 95,
+            "wrong_entity | judge_error": 2
+          },
+          "deterministic_rate": 0.013888888888888888,
+          "deterministic_rate_non_null_control": 0.013888888888888888,
+          "deterministic_wrong_entity": 2,
+          "judge_failures": 97,
+          "judged_population": 97,
+          "kappa": 0.0,
+          "kappa_parsed_only": null,
+          "only_judge_positive": 0,
+          "only_ours_positive": 2,
+          "raw_agreement": 0.0,
+          "records": 144,
+          "unscored": 0
+        },
+        "arm_error": 0,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 47,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 97,
+        "judge_unparseable": 0,
+        "labels": {
+          "abstained": 47,
+          "judge_error": 97
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "records": 144,
+        "unscored": 0
+      }
+    },
+    "openai-low": {
+      "free_form": {
+        "arm_error": 1,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 0,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 143,
+        "judge_unparseable": 0,
+        "labels": {
+          "arm_error": 1,
+          "judge_error": 143
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": null,
+          "eaf": null,
+          "eaf_or_substitution": null,
+          "substitution": null
+        },
+        "records": 144,
+        "unscored": 0
+      },
+      "paired": {
+        "both_determinate": 0,
+        "both_positive": 0,
+        "estimates": {
+          "difference": 0.0,
+          "difference_determinate": null,
+          "free_form_rate": 0.0,
+          "free_form_rate_determinate": null,
+          "structured_rate": 0.0,
+          "structured_rate_determinate": null
+        },
+        "groups": 43,
+        "intervals": {
+          "difference": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "difference_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "free_form_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "free_form_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "structured_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "structured_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          }
+        },
+        "only_free_form_positive": 0,
+        "only_structured_positive": 0,
+        "paired_items": 144,
+        "unpaired_free_form": 0,
+        "unpaired_structured": 0
+      },
+      "structured": {
+        "agreement": {
+          "both_positive": 0,
+          "crosstab": {
+            "abstention | abstained": 47,
+            "target_grounded | judge_error": 92,
+            "ungrounded | judge_error": 3,
+            "wrong_entity | judge_error": 2
+          },
+          "deterministic_rate": 0.013888888888888888,
+          "deterministic_rate_non_null_control": 0.013888888888888888,
+          "deterministic_wrong_entity": 2,
+          "judge_failures": 97,
+          "judged_population": 97,
+          "kappa": 0.0,
+          "kappa_parsed_only": null,
+          "only_judge_positive": 0,
+          "only_ours_positive": 2,
+          "raw_agreement": 0.0,
+          "records": 144,
+          "unscored": 0
+        },
+        "arm_error": 0,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 47,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 97,
+        "judge_unparseable": 0,
+        "labels": {
+          "abstained": 47,
+          "judge_error": 97
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "records": 144,
+        "unscored": 0
+      }
+    },
+    "zai-low": {
+      "free_form": {
+        "arm_error": 0,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 0,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 144,
+        "judge_unparseable": 0,
+        "labels": {
+          "judge_error": 144
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": null,
+          "eaf": null,
+          "eaf_or_substitution": null,
+          "substitution": null
+        },
+        "records": 144,
+        "unscored": 0
+      },
+      "paired": {
+        "both_determinate": 0,
+        "both_positive": 0,
+        "estimates": {
+          "difference": 0.0,
+          "difference_determinate": null,
+          "free_form_rate": 0.0,
+          "free_form_rate_determinate": null,
+          "structured_rate": 0.0,
+          "structured_rate_determinate": null
+        },
+        "groups": 43,
+        "intervals": {
+          "difference": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "difference_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "free_form_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "free_form_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "structured_rate": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "structured_rate_determinate": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          }
+        },
+        "only_free_form_positive": 0,
+        "only_structured_positive": 0,
+        "paired_items": 144,
+        "unpaired_free_form": 0,
+        "unpaired_structured": 0
+      },
+      "structured": {
+        "agreement": {
+          "both_positive": 0,
+          "crosstab": {
+            "abstention | abstained": 48,
+            "target_grounded | judge_error": 95,
+            "wrong_entity | judge_error": 1
+          },
+          "deterministic_rate": 0.006944444444444444,
+          "deterministic_rate_non_null_control": 0.006944444444444444,
+          "deterministic_wrong_entity": 1,
+          "judge_failures": 96,
+          "judged_population": 96,
+          "kappa": 0.0,
+          "kappa_parsed_only": null,
+          "only_judge_positive": 0,
+          "only_ours_positive": 1,
+          "raw_agreement": 0.0,
+          "records": 144,
+          "unscored": 0
+        },
+        "arm_error": 0,
+        "counts": {
+          "confabulation": 0,
+          "eaf": 0,
+          "eaf_or_substitution": 0,
+          "substitution": 0
+        },
+        "determinate": 48,
+        "groups": 43,
+        "intervals": {
+          "confabulation": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "eaf_or_substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "substitution": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          }
+        },
+        "judge_error": 96,
+        "judge_unparseable": 0,
+        "labels": {
+          "abstained": 48,
+          "judge_error": 96
+        },
+        "rates": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "rates_determinate_only": {
+          "confabulation": 0.0,
+          "eaf": 0.0,
+          "eaf_or_substitution": 0.0,
+          "substitution": 0.0
+        },
+        "records": 144,
+        "unscored": 0
+      }
+    }
+  },
+  "notes": [
+    "google-low / structured: 0 unparseable judge output(s) and 97 failed judge call(s)",
+    "google-low / free_form: 0 unparseable judge output(s) and 144 failed judge call(s)",
+    "openai-low / structured: 0 unparseable judge output(s) and 97 failed judge call(s)",
+    "openai-low / free_form: 0 unparseable judge output(s) and 143 failed judge call(s)",
+    "zai-low / structured: 0 unparseable judge output(s) and 96 failed judge call(s)",
+    "zai-low / free_form: 0 unparseable judge output(s) and 144 failed judge call(s)"
+  ],
+  "sample": {
+    "config": "configs/rescore/validation_judge_structured.toml",
+    "exclude_strata": [
+      "absent/null_control",
+      "partial/null_control",
+      "complete/null_control"
+    ],
+    "per_stratum": 12,
+    "seed": 20261122
+  },
+  "split": "dev",
+  "status": "EXPLORATORY, post hoc - decides nothing; layer-1 confirmatory work stays stopped (section 10)",
+  "validation_version": 1
+}
