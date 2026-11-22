@@ -143,8 +143,13 @@ results/layer<N>/<run_id>/       committed, non-sensitive results of a run (sect
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
 .github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run); reusable PR 2, 8, 12, 15
-.github/workflows/dev_pipeline.yml  the whole dev phase by stage (keys-only operation)  PR 15
-.github/actions/                 composite actions: get-dataset, ledger-check            PR 15
+.github/workflows/dev_pipeline.yml  the whole dev phase by stage (keys-only operation)  PR 15, 17
+.github/workflows/frozen_test.yml   the frozen test run of one layer at a freeze tag      PR 17
+.github/workflows/results_log.yml   after every run: its reports to the branch results-log  PR 17
+.github/actions/                 composite actions: get-dataset, ledger-check            PR 15, 17
+src/binding_gate/results_log.py  allow-list, scans and git of the results-log branch     PR 17
+src/binding_gate/frozen_ci.py    input checks, access-log sync and audit branch, staging  PR 17
+branch results-log               machine-written reports (never merged into main)        PR 17
 results/ledger.json              committed snapshot of the budget ledger                 PR 15
 docs/OWNER_SETUP.md              the owner's one-time setup (Hebrew, English)            PR 15
 ```
@@ -165,7 +170,7 @@ modify files owned by another PR of the same wave (waves: [1] → [2] →
 | 9 | D | `mcp/*`, `configs/mcp/server.example.toml`, `docs/MCP.md` |
 | 10 | D | `report/*`, `audit_tool/*` |
 | 16 | - | `stats/layers.py`, `report/publish.py`, `configs/test_live.toml`, `configs/test_grab_rag_supportive.toml` (frozen runs of layers 2 and 3; results location) |
-| 17 | - | `datasets/sec_build.py`, `datasets/sec_edgar.py`, `datasets/sec_financials.py`, `scorers/sec_answer.py`, presentation `sec_filings`, `configs/datasets/sec_financials_v1.toml`, `configs/dev_sec_*.toml`, `configs/test_sec.toml`; GRAB-RAG configs moved to `configs/extended/`; layer 2 of `stats/prereg.py` and `stats/layers.py` |
+| 17 | - | `datasets/sec_build.py`, `datasets/sec_edgar.py`, `datasets/sec_financials.py`, `scorers/sec_answer.py`, presentation `sec_filings`, `configs/datasets/sec_financials_v1.toml`, `configs/dev_sec_*.toml`, `configs/test_sec.toml`; GRAB-RAG configs moved to `configs/extended/`; layer 2 of `stats/prereg.py` and `stats/layers.py`; `results_log.py`, `frozen_ci.py`, `.github/workflows/frozen_test.yml`, `.github/workflows/results_log.yml`, stages `sec-dataset-prepare` and `layer2-dev` of the dev pipeline |
 
 **Shared files.** There is no registry file that every PR edits. The only files
 more than one PR may touch are: `pyproject.toml` (append one line under
@@ -341,6 +346,13 @@ Registering the same name twice raises an error.
 - Every call of `load_test_split`, granted or refused, appends a hash-chained line to
   `audit/test_access_log.jsonl`. The log is committed after each test run; CI
   verifies the chain and that no access was granted while the status is DRAFT.
+- PR 17: frozen runs run in GitHub Actions (`.github/workflows/frozen_test.yml`).
+  The job checks out exactly the tag and copies `main`'s access log into the
+  working tree (the clean-tree condition ignores that one file), so new entries
+  chain onto `main`'s last entry; `binding_gate.frozen_ci` then checks that the
+  new log is `main`'s plus entries of this tag only and returns it through a
+  pull request from `audit-log/frozen-<run id>`. One frozen run at a time; the
+  next refuses while such a branch is unmerged. The lock itself is unchanged.
 - Limitation: this is auditability, not access control. Someone determined can
   call `assign_split` directly, read the data by hand, or rewrite the log before
   committing. The lock prevents accidental use and makes supported use visible.
@@ -512,6 +524,25 @@ These are fixed here because every later PR relies on them.
     allowed fields are enumerated (`ALLOWED_FIELDS`) and tested.
   - **No expression inside a shell script**: inputs, outputs and secrets reach
     `run:` scripts only through `env:` (tested for every workflow and action).
+- **Results without artifacts (PR 17).** The orchestrator can read logs and git
+  branches through the API but cannot download artifacts. So
+  `.github/workflows/results_log.yml` (event `workflow_run`, after every run of
+  `dev pipeline`, `baseline` and `frozen test run`) commits each run's
+  non-sensitive reports to the orphan branch `results-log`, folder
+  `runs/<workflow run id>-<stage>/` (`run.json` lists what was kept and left
+  out), plus the budget ledger computed right after the run; the frozen workflow
+  adds `frozen/<layer>/<workflow run id>/` (the `report/publish.py` allow-list).
+  `binding_gate.results_log` decides what may be committed: report files on an
+  allow-list, each scanned for secret patterns, e-mail addresses, secret values
+  and page-text-like content; never traces (except layer-1 traces of a frozen
+  run, Apache-2.0), dataset items, judge scores, snapshots or encrypted files.
+  It commits as `github-actions[bot]` in a temporary worktree and retries a
+  rejected push after `git pull --rebase`. The writing workflow holds no secret,
+  so no job with an API key has a token that can write to the repository. The
+  ledger reads every `ledger.json` on the branch, which carries spend past the
+  90-day artifact retention. Workflow run titles (`run-name`) name the folders.
+  A new kind of report must be added to `results_log.ALLOWED_NAMES` to reach the
+  orchestrator.
 
 ## 9. Out of scope
 

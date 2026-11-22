@@ -1,0 +1,347 @@
+name: frozen test run
+run-name: "frozen test run: ${{ inputs.layer }} at ${{ inputs.tag }}"   # results_log.yml names its folder from this
+
+# PR 17: the frozen test run of ONE layer (PREREGISTRATION.md section 12) from GitHub Actions, so that no
+# step of the study needs a local command line. Started by hand (or by the orchestrator through the API)
+# after the freeze; the owner only adds repository secrets.
+#
+#   plan        refuses (exit 5, nothing run, nothing logged) a layer that is not one of the four, a tag
+#               that is not prereg-freeze-<name>, an unchecked confirm_spend, a tag that does not exist,
+#               and a pending audit-log pull request of an earlier frozen run (binding_gate.frozen_ci).
+#   ledger      the budget ledger at the tag: refuses if the spend so far plus the caps of the layer's
+#               config could exceed USD 50 (.github/actions/ledger-check).
+#   run         checks out EXACTLY the tag, puts main's access log in the working tree (the lock ignores
+#               changes to that one file, so the new entries chain onto main's last entry), gets the
+#               dataset, then `python -m binding_gate.cli frozen-test-run --config <layer config> --tag <tag>
+#               --purpose ... --confirm-spend`. The lock itself (binding_gate.testlock) decides: clean tree,
+#               HEAD == tag, PREREGISTRATION.md status FROZEN; it logs the access, granted or refused.
+#               All models of the layer run in ONE job and ONE access: section 17 item 18 (one access per
+#               model?) is still open (binding_gate.frozen_ci.PER_MODEL_JOBS = false). A GitHub-hosted job
+#               ends after 6 hours: the paid step stops after 330 minutes, the run is then left unfinished
+#               (records uploaded; finishing it is a further logged access that needs an amendment).
+#               Layers 1 and 2: runs/ uploaded as an artifact (the ledger reads its spend). Layer 3: runs/
+#               only encrypted (RUNS_ENCRYPTION_PASSPHRASE), next to the unencrypted layer-3 summary.
+#   audit-log   checks that the new access log is main's log plus this run's entries (hash chain intact,
+#               append-only, this tag), pushes it on the branch audit-log/frozen-<run id> and opens a pull
+#               request into main. (A pull request, not a direct push: main stays reviewable and may be
+#               protected. If the repository does not allow Actions to open pull requests, the branch is
+#               still pushed and the orchestrator opens the pull request.)
+#   results-log commits the published results (binding_gate.report.publish allow-list: manifest, analysis,
+#               report, invocations, frozen-run record, live-web publish manifest; layer-1 traces because
+#               their documents are Apache-2.0; never layer-2 or layer-3 traces or page text) to the branch
+#               results-log under frozen/<layer>/<workflow run id>/.
+#
+# One frozen run at a time (concurrency group; a second one waits).
+
+on:
+  workflow_dispatch:
+    inputs:
+      layer:
+        description: "Layer whose frozen test config runs (PREREGISTRATION.md section 12)"
+        required: true
+        default: "layer1"
+        type: choice
+        options:
+          - layer1
+          - layer1_midtier
+          - layer2_sec
+          - layer3_live
+      tag:
+        description: "Freeze tag prereg-freeze-<name>; the run uses exactly that commit"
+        required: true
+        type: string
+      confirm_spend:
+        description: "I confirm that paid API calls and one logged test-split access may be made"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read   # the budget ledger lists and downloads artifacts
+
+concurrency:
+  group: frozen-test-run
+  cancel-in-progress: false
+
+env:
+  LAYER: ${{ inputs.layer }}
+  TAG: ${{ inputs.tag }}
+  ATTEMPT_SUFFIX: ${{ github.run_attempt != '1' && format('-attempt{0}', github.run_attempt) || '' }}
+
+jobs:
+  plan:
+    name: refuse wrong inputs (nothing run, nothing logged)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      config: ${{ steps.validate.outputs.config }}
+      per_model_jobs: ${{ steps.validate.outputs.per_model_jobs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # main, every tag and every audit-log/* branch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Refuse unless the layer, the freeze-tag pattern and confirm_spend are right
+        id: validate
+        env:
+          CONFIRM: ${{ inputs.confirm_spend }}
+        run: |
+          python -m binding_gate.frozen_ci validate --layer "$LAYER" --tag "$TAG" --confirm "$CONFIRM" | tee "$RUNNER_TEMP/validate.txt"
+          grep -E '^(config|per_model_jobs)=' "$RUNNER_TEMP/validate.txt" >> "$GITHUB_OUTPUT"
+      - name: Refuse unless the tag exists
+        run: |
+          if ! git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" > /dev/null; then
+            echo "::error::REFUSED: the tag $TAG does not exist in this repository. Nothing was run and nothing was logged."
+            exit 1
+          fi
+          echo "tag $TAG -> $(git rev-parse "refs/tags/$TAG^{commit}")"
+      - name: Refuse while the access-log pull request of an earlier frozen run is not merged
+        run: python -m binding_gate.frozen_ci pending-audit
+
+  ledger:
+    name: budget ledger (the caps of the layer's config at the tag)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Budget ledger - refuse if the spend so far plus the caps of this layer could exceed the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: ${{ needs.plan.outputs.config }}
+          model: all
+          artifact-name: frozen-test--${{ inputs.layer }}--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+
+  run:
+    name: frozen test run (${{ inputs.layer }}; all models in one job, one logged access)
+    needs: [plan, ledger]
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      CONFIG: ${{ needs.plan.outputs.config }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0   # the tag and origin/main (for the access log)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Read what the config needs (written outside the working tree)
+        id: requirements
+        run: |
+          python -m binding_gate.cli requirements --config "$CONFIG" > "$RUNNER_TEMP/requirements.txt"
+          cat "$RUNNER_TEMP/requirements.txt"
+          cat "$RUNNER_TEMP/requirements.txt" >> "$GITHUB_OUTPUT"
+      - name: Install the optional extras the config needs (and plots, for the analysis figures)
+        env:
+          EXTRAS: ${{ steps.requirements.outputs.extras }}
+        run: python -m pip install -e ".[${EXTRAS:+${EXTRAS},}plots]"
+      - name: Bring the access log up to date with main (new entries chain onto main's last entry)
+        run: python -m binding_gate.frozen_ci sync-access-log --base-out "$RUNNER_TEMP/access_log_base.jsonl"
+      - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
+        uses: ./.github/actions/get-dataset
+        env:
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}   # only the SEC dataset (layer 2) reads it
+        with:
+          config: ${{ env.CONFIG }}
+      - name: Cache the MiniCheck weights and NLTK data (faithfulness checker)
+        if: ${{ steps.requirements.outputs.faithfulness_checker == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub
+            ~/nltk_data
+          key: minicheck-${{ steps.requirements.outputs.faithfulness_weights }}-punkt_tab
+      - name: Prepare and verify the faithfulness checker (pinned MiniCheck weights; no model API)
+        if: ${{ steps.requirements.outputs.faithfulness_checker == 'true' }}
+        timeout-minutes: 60
+        run: |
+          python -m binding_gate.arms.faithfulness_checker prepare
+          python -m binding_gate.arms.faithfulness_checker verify
+      - name: Refuse a live-web run whose run directory could not be encrypted
+        if: ${{ steps.requirements.outputs.private_outputs == 'true' }}
+        env:
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          if [ -z "$RUNS_ENCRYPTION_PASSPHRASE" ]; then
+            echo "::error::This layer stores third-party page text. Set the repository secret RUNS_ENCRYPTION_PASSPHRASE. Nothing was run and nothing was logged."
+            exit 1
+          fi
+      - name: The working tree is clean apart from the access log (the lock's condition; read-only, not an access)
+        run: python -m binding_gate.frozen_ci clean-check
+      - name: Frozen test run (paid; one logged test-split access)
+        id: frozen
+        timeout-minutes: 330
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: |
+          python -m binding_gate.cli frozen-test-run --config "$CONFIG" --tag "$TAG" \
+            --purpose "frozen test run of $LAYER from GitHub Actions workflow run $GITHUB_RUN_ID (PREREGISTRATION.md section 12)" \
+            --confirm-spend --runs-dir runs
+      - name: Keep the access log for the pull request
+        if: ${{ always() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/access-log"
+          if [ -f "$RUNNER_TEMP/access_log_base.jsonl" ]; then
+            cp "$RUNNER_TEMP/access_log_base.jsonl" "$RUNNER_TEMP/access-log/base.jsonl"
+            cp audit/test_access_log.jsonl "$RUNNER_TEMP/access-log/test_access_log.jsonl"
+          fi
+      - name: Upload the access log (the audit-log job opens the pull request from it)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--access-log${{ env.ATTEMPT_SUFFIX }}
+          path: ${{ runner.temp }}/access-log/
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Upload runs/ of layers 1 and 2 (the budget ledger reads their spend)
+        if: ${{ always() && steps.requirements.outputs.private_outputs != 'true' && hashFiles('runs/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--runs-all-models${{ env.ATTEMPT_SUFFIX }}
+          path: runs/
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Layer-3 summary inside the job (costs, metrics, outcomes; no page text, no quotes)
+        if: ${{ always() && steps.requirements.outputs.private_outputs == 'true' && hashFiles('runs/*/traces.jsonl') != '' }}
+        run: |
+          RUN_DIRS=(runs/*/)
+          python -m binding_gate.layer3_summary "${RUN_DIRS[@]}" --out layer3-summary
+      - name: Upload the layer-3 summary (the budget ledger reads its costs)
+        if: ${{ always() && steps.requirements.outputs.private_outputs == 'true' && hashFiles('layer3-summary/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--layer3-summary-all-models${{ env.ATTEMPT_SUFFIX }}
+          path: layer3-summary/
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Results for the results-log branch (allow-list of binding_gate.report.publish)
+        if: ${{ always() && hashFiles('runs/*/manifest.json') != '' }}
+        run: python -m binding_gate.frozen_ci stage-results --runs-dir runs --layer "$LAYER" --out "$RUNNER_TEMP/frozen-results"
+      - name: Upload the results for the results-log branch
+        if: ${{ always() && hashFiles('runs/*/manifest.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--results${{ env.ATTEMPT_SUFFIX }}
+          path: ${{ runner.temp }}/frozen-results/
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Encrypt runs/ of a live-web run (third-party page text is never uploaded in clear)
+        if: ${{ always() && steps.requirements.outputs.private_outputs == 'true' && hashFiles('runs/**') != '' }}
+        env:
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          mkdir -p private
+          tar -czf private/runs.tar.gz runs
+          printf '%s' "$RUNS_ENCRYPTION_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o private/runs.tar.gz.gpg private/runs.tar.gz
+          rm -f private/runs.tar.gz
+      - name: Upload the encrypted runs/ of a live-web run
+        if: ${{ always() && steps.requirements.outputs.private_outputs == 'true' && hashFiles('private/runs.tar.gz.gpg') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--runs-encrypted-all-models${{ env.ATTEMPT_SUFFIX }}
+          path: private/runs.tar.gz.gpg
+          if-no-files-found: ignore
+          retention-days: 90
+
+  audit-log:
+    name: access log back to main (append-only check, branch, pull request)
+    needs: [plan, run]
+    if: ${{ always() && needs.run.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write        # push the branch audit-log/frozen-<run id> (never main)
+      pull-requests: write   # open the pull request into main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the access log of the run
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--access-log${{ env.ATTEMPT_SUFFIX }}
+          path: ${{ runner.temp }}/access-log
+      - name: Check that only this run's entries were appended, and push them on a branch
+        id: branch
+        run: |
+          if [ ! -f "$RUNNER_TEMP/access-log/test_access_log.jsonl" ]; then
+            echo "The run stopped before the access log was prepared: nothing was logged, nothing to commit."
+            echo "entries_added=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m binding_gate.frozen_ci audit-branch --new "$RUNNER_TEMP/access-log/test_access_log.jsonl" \
+            --base "$RUNNER_TEMP/access-log/base.jsonl" --tag "$TAG" --run-id "$GITHUB_RUN_ID" --layer "$LAYER" \
+            | tee "$RUNNER_TEMP/branch.txt"
+          grep -E '^(branch|entries_added)=' "$RUNNER_TEMP/branch.txt" >> "$GITHUB_OUTPUT"
+      - name: Open the pull request into main
+        if: ${{ steps.branch.outputs.entries_added != '0' && steps.branch.outputs.entries_added != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          BODY="The access log after the frozen test run of $LAYER at $TAG (workflow run $GITHUB_RUN_ID). binding_gate.frozen_ci checked that main's log is unchanged and that only entries of this tag were appended, hash chain intact. Merge before the next frozen run (it refuses while this branch is not merged)."
+          if gh pr create --base main --head "$BRANCH" --title "audit: access log of frozen test run $GITHUB_RUN_ID ($LAYER, $TAG)" --body "$BODY"; then
+            echo "Pull request opened from $BRANCH into main." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::The branch $BRANCH was pushed, but the pull request could not be opened (Settings -> Actions -> General -> 'Allow GitHub Actions to create and approve pull requests' may be off). Open it from $BRANCH into main through the API or the web page."
+            echo "Branch $BRANCH pushed; open its pull request into main by hand." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  results-log:
+    name: published results to the results-log branch (frozen/<layer>/<run id>/)
+    needs: [plan, run]
+    if: ${{ always() && needs.run.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # push to the results-log branch only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the staged results of the run
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: frozen-test--${{ inputs.layer }}--results${{ env.ATTEMPT_SUFFIX }}
+          path: ${{ runner.temp }}/frozen-results
+      - name: Commit them to results-log under frozen/<layer>/<workflow run id>/
+        run: |
+          if [ ! -f "$RUNNER_TEMP/frozen-results/frozen_summary.json" ]; then
+            echo "No run directory was produced: nothing to commit."
+            exit 0
+          fi
+          python -m binding_gate.frozen_ci commit-results "$RUNNER_TEMP/frozen-results" --layer "$LAYER" --run-id "$GITHUB_RUN_ID"
+          echo "Committed to results-log: frozen/$LAYER/$GITHUB_RUN_ID/" >> "$GITHUB_STEP_SUMMARY"

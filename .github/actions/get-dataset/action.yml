@@ -1,9 +1,13 @@
 name: Get the dataset of a config at its pinned version
 description: >-
   Clones the dataset named in a run config at its pinned commit into data/raw/ (git-ignored),
-  or downloads and converts it when its pin method is "prepare" (SealQA). Shared by
-  .github/workflows/baseline.yml and .github/workflows/dev_pipeline.yml (PR 15). Needs the
-  package installed (with the extras the config needs) and the repository checked out.
+  or downloads and converts it when its pin method is "prepare" (SealQA), or generates it from
+  SEC EDGAR (sec_financials, PR 17; the calling step passes the secret SEC_CONTACT_EMAIL in its env,
+  and the EDGAR responses are cached between runs under data/raw/sec-financials/cache). Shared by
+  .github/workflows/baseline.yml, .github/workflows/dev_pipeline.yml and
+  .github/workflows/frozen_test.yml. Needs the package installed (with the extras the config needs)
+  and the repository checked out. Writes nothing outside data/raw/ (the frozen test run needs a
+  clean working tree).
 
 inputs:
   config:
@@ -13,19 +17,40 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Read the dataset pin
+      id: pin
+      shell: bash
+      env:
+        CONFIG: ${{ inputs.config }}
+      run: |
+        python -m binding_gate.cli dataset-pin --config "$CONFIG" > "$RUNNER_TEMP/dataset-pin.txt"
+        cat "$RUNNER_TEMP/dataset-pin.txt"
+        echo "root=$(sed -n 's/^root=//p' "$RUNNER_TEMP/dataset-pin.txt")" >> "$GITHUB_OUTPUT"
+        echo "method=$(sed -n 's/^method=//p' "$RUNNER_TEMP/dataset-pin.txt")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the EDGAR responses of the SEC dataset (public SEC data; one file per URL)
+      if: ${{ steps.pin.outputs.method == 'prepare' && steps.pin.outputs.root == 'data/raw/sec-financials' }}
+      uses: actions/cache@v4
+      with:
+        path: data/raw/sec-financials/cache
+        key: sec-edgar-v1-${{ hashFiles('configs/datasets/sec_financials_v1.toml','configs/datasets/sec_financials_selection_v1.json') }}
+        restore-keys: |
+          sec-edgar-v1-
+
     - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
       shell: bash
       env:
         CONFIG: ${{ inputs.config }}
       run: |
-        python -m binding_gate.cli dataset-pin --config "$CONFIG" > dataset-pin.txt
-        cat dataset-pin.txt
-        REPOSITORY="$(sed -n 's/^repository=//p' dataset-pin.txt)"
-        COMMIT="$(sed -n 's/^commit=//p' dataset-pin.txt)"
-        ROOT="$(sed -n 's/^root=//p' dataset-pin.txt)"
-        METHOD="$(sed -n 's/^method=//p' dataset-pin.txt)"
+        python -m binding_gate.cli dataset-pin --config "$CONFIG" > "$RUNNER_TEMP/dataset-pin.txt"
+        REPOSITORY="$(sed -n 's/^repository=//p' "$RUNNER_TEMP/dataset-pin.txt")"
+        COMMIT="$(sed -n 's/^commit=//p' "$RUNNER_TEMP/dataset-pin.txt")"
+        ROOT="$(sed -n 's/^root=//p' "$RUNNER_TEMP/dataset-pin.txt")"
+        METHOD="$(sed -n 's/^method=//p' "$RUNNER_TEMP/dataset-pin.txt")"
         case "$ROOT" in data/raw/*) ;; *) echo "::error::dataset root must be under data/raw/"; exit 1 ;; esac
         if [ "$METHOD" = "prepare" ]; then
+          # SealQA: download and convert; sec_financials: generate from EDGAR (SEC_CONTACT_EMAIL from the step env).
+          # The prepared dataset is checked against the pin by every load (an UNPINNED SEC dataset is refused there).
           python -m binding_gate.cli dataset-prepare --config "$CONFIG"
         elif [ -d "$ROOT/.git" ] && [ "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT" ]; then
           echo "dataset already at $COMMIT in $ROOT"
@@ -37,4 +62,4 @@ runs:
           git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
           test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
         fi
-        rm -f dataset-pin.txt
+        rm -f "$RUNNER_TEMP/dataset-pin.txt"

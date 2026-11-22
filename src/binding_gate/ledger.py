@@ -30,6 +30,14 @@ What is counted (one ENTRY per key; several copies of the same records count onc
                                  ``results/ledger.json`` (for example a frozen test run
                                  made on a computer, outside GitHub Actions).
 
+PR 17: the ``ledger.json`` snapshots kept on the ``results-log`` branch
+(``binding_gate.results_log``: every ledger artifact of every run, and a ledger computed
+right after each run) are read too, exactly like earlier ledger artifacts: their
+entries are carried forward and the artifacts they cover need not exist any more.
+The ledger action exports them (``python -m binding_gate.results_log export-ledgers``)
+and passes the directory to ``fetch --extra-ledgers`` and ``compute``. This carries
+every spend past the 90-day artifact retention without a hand-made snapshot.
+
 Copies of one run directory (the same run in several artifacts, or an artifact and
 a resumed copy) have the same key; the largest value is kept (traces are
 append-only, so a later copy is a superset of an earlier one).
@@ -65,17 +73,18 @@ run that is only queued has spent nothing, and its own check will see this one).
 
 Residual risk (documented in docs/RUNNING.md, "Budget ledger"): artifacts are kept
 for at most 90 days (``retention-days: 90`` on every upload, the maximum GitHub
-allows for public repositories; a repository setting may lower it). The chain of
-ledger artifacts carries older spend forward only as long as a ledger runs at
-least once per retention period; otherwise the orchestrator commits the latest
-``ledger.json`` as ``results/ledger.json`` (the same format), which the ledger
-always reads. Spend that never reached an artifact (a job killed before its upload
+allows for public repositories; a repository setting may lower it). Since PR 17 the
+ledger snapshots on the ``results-log`` branch carry older spend forward without
+limit (a ledger is computed and committed there after every run); the committed
+``results/ledger.json`` (the same format) remains available for manual entries. Spend that never reached an artifact (a job killed before its upload
 step, a run on a computer) is invisible unless it is entered in the snapshot; the
 provider spending limits are the outer safety net.
 
 Commands
 --------
-``fetch --out DIR``                       download (Actions only; needs GITHUB_TOKEN)
+``fetch --out DIR [--extra-ledgers DIR]``  download (Actions only; needs GITHUB_TOKEN); the
+                                          ledgers under --extra-ledgers (results-log
+                                          snapshots) cover the artifacts they read
 ``compute [DIR ...] [--inputs DIR] --json FILE [--markdown FILE]``
 ``cap (--config C [--model L] | --stage S)``
 ``check --ledger FILE (--config C [--model L] | --stage S | --cap USD)``
@@ -754,6 +763,27 @@ def fetch(api: Any, out_dir: str | Path, *, current_run_id: int | None = None, s
     return index
 
 
+def extra_ledger_coverage(root: str | Path) -> dict[str, Any]:
+    """Artifact ids covered by the ledger snapshots under ``root`` (results-log branch, PR 17).
+
+    An unreadable snapshot is reported and skipped: it then covers nothing, so an
+    expired artifact only it covered becomes a ledger problem (the ledger refuses
+    rather than guessing).
+    """
+    covered: set[int] = set()
+    problems: list[str] = []
+    read = 0
+    root = Path(root)
+    for path in sorted(root.rglob(LEDGER_NAME)) if root.is_dir() else []:
+        try:
+            data = read_ledger_file(path)
+            covered |= {int(i) for i in data.get("covered_artifact_ids", [])}
+            read += 1
+        except Exception as exc:  # noqa: BLE001 - reported
+            problems.append(f"results-log ledger {path.relative_to(root).as_posix()} cannot be read: {exc}")
+    return {"covered": sorted(covered), "read": read, "problems": problems}
+
+
 # --------------------------------------------------------------------------- #
 # Command line
 # --------------------------------------------------------------------------- #
@@ -777,6 +807,8 @@ def _parser() -> argparse.ArgumentParser:
     fetch_cmd.add_argument("--out", required=True)
     fetch_cmd.add_argument("--repo-root", default=".")
     fetch_cmd.add_argument("--snapshot", default=SNAPSHOT_PATH)
+    fetch_cmd.add_argument("--extra-ledgers", default=None,
+                           help="directory of earlier ledger.json files (results-log snapshots, PR 17)")
 
     compute_cmd = commands.add_parser("compute", help="compute the ledger from fetched artifacts and directories")
     compute_cmd.add_argument("directories", nargs="*")
@@ -813,6 +845,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             covered: list[int] = []
             if snapshot.is_file():
                 covered = [int(i) for i in read_ledger_file(snapshot).get("covered_artifact_ids", [])]
+            if args.extra_ledgers:
+                extra = extra_ledger_coverage(args.extra_ledgers)
+                covered += extra["covered"]
+                print(f"ledger fetch: {extra['read']} results-log ledger snapshot(s) read, "
+                      f"{len(extra['problems'])} unreadable")
+                for problem in extra["problems"]:
+                    print(f"::warning::{problem}")
             run_id = os.environ.get("GITHUB_RUN_ID", "")
             index = fetch(GitHubAPI.from_environment(), args.out, current_run_id=int(run_id) if run_id.isdigit() else None,
                           snapshot_covered=covered)

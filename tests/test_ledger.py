@@ -192,8 +192,11 @@ def test_caps_of_configs_and_stages_are_the_caps_the_plan_lists():
     for stage, configs in STAGES.items():
         assert ledger.stage_cap(stage, repo_root=REAL_REPO) == pytest.approx(
             sum(ledger.config_cap(c, repo_root=REAL_REPO) for c in configs))
-    assert ledger.stage_cap("all-dev", repo_root=REAL_REPO) == pytest.approx(17.30)
-    assert ledger.stage_cap("check-secrets", repo_root=REAL_REPO) == 0
+    # PR 17: GRAB-RAG (cap 0.40) left all-dev; the three SEC dev runs (0.30 + 1.70 + 0.30) joined it as layer2-dev
+    assert ledger.stage_cap("all-dev", repo_root=REAL_REPO) == pytest.approx(19.20)
+    assert ledger.stage_cap("layer2-dev", repo_root=REAL_REPO) == pytest.approx(2.30)
+    for free in ("check-secrets", "sec-dataset-prepare"):
+        assert ledger.stage_cap(free, repo_root=REAL_REPO) == 0
 
 
 @pytest.mark.parametrize("name,role", [

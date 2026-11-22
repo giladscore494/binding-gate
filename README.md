@@ -14,10 +14,15 @@ test it.
 > are not yet confirmed against the live APIs.
 
 > **Owner: the only setup you do is in [docs/OWNER_SETUP.md](docs/OWNER_SETUP.md)** (Hebrew and
-> English): add six repository secrets and set a spending limit at each provider. Everything else
-> in the dev phase runs from the GitHub Actions workflow **dev pipeline**
-> (`.github/workflows/dev_pipeline.yml`, PR 15), guarded by a global budget ledger that refuses any
-> paid run that could take the study's actual spend above USD 50.
+> English): add seven repository secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`,
+> `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `SEC_CONTACT_EMAIL`) and set a
+> spending limit at each provider. Everything else runs in GitHub Actions, with no local command
+> line: the dev phase from the workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`,
+> PR 15; PR 17 added the free SEC dataset stage and the layer-2 stage), the frozen test runs from
+> **frozen test run** (`.github/workflows/frozen_test.yml`, PR 17), every paid step guarded by a
+> global budget ledger that refuses any run that could take the study's actual spend above USD 50.
+> After every run, the workflow **results log** commits its non-sensitive reports (never traces,
+> page text or secrets) to the branch `results-log`, where the orchestrator reads them.
 
 ## The failure studied
 
@@ -148,14 +153,20 @@ redistributed. In GitHub, the manually started workflow **baseline**
 (`.github/workflows/baseline.yml`) runs the dev runs with keys from repository
 secrets. **The full operating sequence**, from adding the secrets to the
 frozen test run and the public report, with the exact run-dialog values for
-every workflow step and the exact command for every command-line-only step, is
+every workflow step and the command each workflow runs, is
 in [docs/RUNNING.md](docs/RUNNING.md) (English and Hebrew; the first steps also
 in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
 Since PR 15 the whole dev phase also runs, stage by stage and with no file
 edited, from the workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`;
-stages `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `layer3-dev`,
-`all-dev`), which calls `baseline.yml` once per config and checks every paid
-step against the global budget ledger (`python -m binding_gate.ledger`).
+stages `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`,
+`sec-dataset-prepare`, `layer2-dev`, `layer3-dev`, `all-dev`), which calls
+`baseline.yml` once per config and checks every paid step against the global
+budget ledger (`python -m binding_gate.ledger`). Since PR 17 the frozen test
+runs run from the workflow **frozen test run** (input `layer`: `layer1`,
+`layer1_midtier`, `layer2_sec`, `layer3_live`; it returns the test-split access
+log to `main` in a pull request), and the reports of every run are committed to
+the branch `results-log` (`binding_gate.results_log`). The commands below are
+what the workflows run; none of them is needed on a computer.
 
 | Step | Command (all paid commands refuse without `--confirm-spend`) |
 |---|---|

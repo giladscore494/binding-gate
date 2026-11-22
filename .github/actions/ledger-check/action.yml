@@ -7,7 +7,10 @@ description: >-
   incomplete, another hand-started run is active, or the spend so far plus the cap of what is about
   to run would exceed hard_limit_usd of configs/budget.toml. The result goes to the job summary and
   to an artifact (ledger.json, the same format as the committed snapshot results/ledger.json).
-  Needs the repository checked out, the package installed and the job permission "actions: read".
+  PR 17: the ledger snapshots kept on the results-log branch (binding_gate.results_log) are read too,
+  so spend recorded in artifacts that have expired (90 days) still counts.
+  Needs the repository checked out, the package installed and the job permissions "actions: read"
+  and "contents: read". Writes ledger-inputs/, ledger-results-log/ and ledger/ in the working directory.
 
 inputs:
   mode:
@@ -35,17 +38,33 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Read the ledger snapshots kept on the results-log branch (spend beyond the artifact retention)
+      shell: bash
+      run: |
+        mkdir -p ledger-results-log
+        CODE=0
+        git ls-remote --exit-code --heads origin results-log > /dev/null || CODE=$?
+        if [ "$CODE" -eq 0 ]; then
+          git fetch -q --no-tags --depth=1 origin +refs/heads/results-log:refs/remotes/origin/results-log
+          python -m binding_gate.results_log export-ledgers --ref refs/remotes/origin/results-log --out ledger-results-log
+        elif [ "$CODE" -eq 2 ]; then
+          echo "no results-log branch yet: no snapshot to read"
+        else
+          echo "::error::the results-log branch could not be listed (git ls-remote exit $CODE)"
+          exit 1
+        fi
+
     - name: Download the artifacts of every earlier hand-started run (GitHub REST API)
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: python -m binding_gate.ledger fetch --out ledger-inputs
+      run: python -m binding_gate.ledger fetch --out ledger-inputs --extra-ledgers ledger-results-log
 
     - name: Compute the actual spend so far
       shell: bash
       run: |
         mkdir -p ledger
-        python -m binding_gate.ledger compute --inputs ledger-inputs --json ledger/ledger.json --markdown ledger/ledger.md
+        python -m binding_gate.ledger compute ledger-results-log --inputs ledger-inputs --json ledger/ledger.json --markdown ledger/ledger.md
 
     - name: Check the spend so far plus the cap against the hard limit
       id: check

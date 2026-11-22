@@ -1,0 +1,91 @@
+name: results log
+
+# PR 17: after every run of "dev pipeline", "baseline" (started by hand) and "frozen test run" - dry or
+# paid, successful, failed or cancelled - this workflow commits that run's NON-SENSITIVE reports to the
+# branch results-log (never main), folder runs/<workflow run id>-<stage>/, so that the orchestrator can
+# read every result through the GitHub API without downloading artifacts (it cannot reach the artifact
+# storage host). What may be committed is decided by binding_gate.results_log (an allow-list of report
+# files, each scanned for secrets and page text; traces, dataset items, judge scores, snapshots and
+# encrypted files are never committed). It also computes the budget ledger right after the run and
+# commits it there (ledger-after-run/ledger.json), so the spend outlives the 90-day artifact retention.
+#
+# Why a separate workflow (event workflow_run) and not a last job of each workflow: the jobs that hold API
+# keys never get a token that can write to the repository, and the reusable baseline.yml keeps its
+# read-only permissions when dev_pipeline.yml calls it. This workflow holds no secret.
+#
+# Concurrency: none on purpose (GitHub cancels a pending run of a concurrency group); concurrent pushes
+# are retried with pull --rebase (binding_gate.results_log.commit_to_branch).
+
+on:
+  workflow_run:
+    workflows: ["dev pipeline", "baseline", "frozen test run"]
+    types: [completed]
+
+permissions:
+  contents: write   # push to the results-log branch only (binding_gate.results_log refuses any other folder)
+  actions: read     # download the artifacts of the finished run; the ledger
+
+jobs:
+  commit:
+    name: commit the reports of ${{ github.event.workflow_run.name }} run ${{ github.event.workflow_run.id }}
+    # only runs started by hand in this repository (a fork's pull request cannot reach this branch)
+    if: ${{ github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+      SOURCE_WORKFLOW: ${{ github.event.workflow_run.name }}
+      SOURCE_TITLE: ${{ github.event.workflow_run.display_title }}
+      SOURCE_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+      SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4   # the default branch: this code decides what is committed
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download every artifact of the finished run (one directory per artifact)
+        continue-on-error: true   # a run that uploaded nothing still gets its folder (run.json)
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/source-artifacts
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Budget ledger right after the run (report only; collected like an artifact named ledger-after-run)
+        continue-on-error: true   # a ledger problem is visible in the ledger itself; the reports are still committed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/ledger-results-log" "$RUNNER_TEMP/source-artifacts/ledger-after-run"
+          CODE=0
+          git ls-remote --exit-code --heads origin results-log > /dev/null || CODE=$?
+          if [ "$CODE" -eq 0 ]; then
+            git fetch -q --no-tags --depth=1 origin +refs/heads/results-log:refs/remotes/origin/results-log
+            python -m binding_gate.results_log export-ledgers --ref refs/remotes/origin/results-log --out "$RUNNER_TEMP/ledger-results-log"
+          fi
+          python -m binding_gate.ledger fetch --out "$RUNNER_TEMP/ledger-inputs" --extra-ledgers "$RUNNER_TEMP/ledger-results-log"
+          python -m binding_gate.ledger compute "$RUNNER_TEMP/ledger-results-log" --inputs "$RUNNER_TEMP/ledger-inputs" \
+            --json "$RUNNER_TEMP/source-artifacts/ledger-after-run/ledger.json" --markdown "$RUNNER_TEMP/source-artifacts/ledger-after-run/ledger.md"
+          cat "$RUNNER_TEMP/source-artifacts/ledger-after-run/ledger.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep only the allowed report files (allow-list, scanned for secrets and page text)
+        id: collect
+        run: |
+          python -m binding_gate.results_log collect "$RUNNER_TEMP/source-artifacts" --out "$RUNNER_TEMP/staging" \
+            --run-id "$SOURCE_RUN_ID" --workflow "$SOURCE_WORKFLOW" --title "$SOURCE_TITLE" --attempt "$SOURCE_ATTEMPT" \
+            --conclusion "$SOURCE_CONCLUSION" --head-sha "$SOURCE_SHA" --head-branch "$SOURCE_BRANCH" --event workflow_dispatch \
+            | tee "$RUNNER_TEMP/collect.txt"
+          grep '^folder=' "$RUNNER_TEMP/collect.txt" >> "$GITHUB_OUTPUT"
+      - name: Commit to the results-log branch (bot identity; retried on a concurrent push)
+        env:
+          FOLDER: ${{ steps.collect.outputs.folder }}
+        run: |
+          python -m binding_gate.results_log commit "$RUNNER_TEMP/staging" --folder "$FOLDER" \
+            --message "results-log: $FOLDER ($SOURCE_WORKFLOW, $SOURCE_CONCLUSION)"
+          {
+            echo "## Committed to the results-log branch"
+            echo
+            echo "Folder: \`$FOLDER\` (branch \`results-log\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
