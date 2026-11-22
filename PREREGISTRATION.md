@@ -382,11 +382,55 @@ structured answer of section 6.2.
   `prompt_entity_check` uses a different prompt and therefore a different sample.
 - **RESEARCH without search.** In layers 1 and 2 there is nothing to search. A
   RESEARCH verdict there is final and counts as an abstention.
-- **The faithfulness checker** is TODO. Rule for choosing it (PR 5, on dev only,
-  recorded as an amendment before freeze): open source with a licence that
-  permits this use; designed to judge whether a claim is supported by a source
-  text; runnable at a pinned version; used at its documented default threshold,
-  with no tuning on our data beyond what its documentation prescribes.
+- **The faithfulness checker.** Rule for choosing it (PR 5, on dev only,
+  recorded before freeze): open source with a licence that permits this use;
+  designed to judge whether a claim is supported by a source text; runnable at
+  a pinned version; used at its documented default threshold, with no tuning on
+  our data beyond what its documentation prescribes.
+  *Decided under this rule by PR 5 on 2026-11-22, before any checker output was
+  seen (no model has been run); needs owner confirmation at freeze:*
+  **MiniCheck** (Tang, Laban and Durrett, EMNLP 2024), model
+  `MiniCheck-Flan-T5-Large` (`src/binding_gate/arms/faithfulness_checker.py`).
+  - *Code:* github.com/Liyan06/MiniCheck at commit
+    `b58b9fa69acbd1015ec970fa65dd752413a053d2` (Apache-2.0, LICENSE file of the
+    repository), installed from that commit by this project's optional extra
+    `faithfulness`. It is not on PyPI; the PyPI project named `minicheck` is an
+    unrelated program. MiniCheck's own dependencies are unpinned upstream; the
+    extra bounds them (`transformers>=4.46,<5`, `torch>=2.5`, `accelerate`,
+    `nltk>=3.9`), and the exact versions used are to be recorded with the run.
+  - *Weights:* Hugging Face `lytang/MiniCheck-Flan-T5-Large`, revision
+    `96eafd01cee2d16cf81aaa2fb226b14f422a37b3` (MIT, model card). MiniCheck
+    loads the checkpoint's `main` branch; the arm refuses to run unless `main`
+    is this revision, so a silent upstream change cannot alter results.
+  - *Designed for* sentence-level fact-checking of LLM output against grounding
+    documents, i.e. claim versus source.
+  - *Threshold:* the package default, unchanged: a sentence is supported iff
+    MiniCheck's support probability is greater than 0.5 (its `pred_label`);
+    default chunking for this model (documents split at sentence boundaries into
+    chunks of about 500 words, maximum over chunks). Nothing is tuned.
+  - *How it is applied* (fixed): only `answered` candidates are checked
+    (abstentions and unparseable outputs pass through). Claim = the candidate's
+    value, split into sentences with NLTK as MiniCheck's README prescribes;
+    evidence = the texts of all documents shown to the model, in the order shown,
+    joined by a blank line; ACCEPT iff every sentence is supported, otherwise
+    ABSTAIN. The quote and the question are not given to the checker (a
+    claim-versus-source checker evaluates the claim against the source).
+  - *Hardware:* about 780M parameters, CPU only, no GPU. Run time on a
+    GitHub-hosted CPU runner (4 vCPU, 16 GB RAM) is **unverified**; it must be
+    measured (`python -m binding_gate.arms.faithfulness_checker verify`, then the
+    smoke run) before the dev run. Under the 6-hour job limit the dev run is to be
+    split per model if needed.
+  - *Why not the alternatives* (official pages read on 2026-11-22):
+    MiniCheck's own default model, Bespoke-MiniCheck-7B, needs a GPU with vLLM
+    and, per the README, a commercial licence from Bespoke Labs for commercial
+    use; Flan-T5-Large is the authors' recommended model below 1B parameters.
+    LettuceDetect (MIT, PyPI 0.2.3) is a token-level span detector; turning
+    spans into accept/block would need a rule of our own. HHEM-2.1-Open
+    (Vectara, Apache-2.0) returns a consistency score but its model card
+    documents no decision threshold, and loading it executes model code from the
+    hub. AlignScore (MIT) requires `torch<2` and `pytorch-lightning<2` (the last
+    `torch<2` release has no wheels for Python 3.13, one of the two Python
+    versions this project supports) and documents no threshold.
 - **Judge-family rule.** Any LLM used as a judge (in `llm_judge_checks` or as a
   secondary scorer) comes from a different model family than the model under
   test in that comparison.
@@ -634,6 +678,53 @@ between "wrong-entity answer" (ours) and "EAF or substitution" (theirs), and the
 count of judge outputs that could not be parsed (kept in our denominators,
 unlike theirs). No hypothesis is decided by the judge. Disagreements are sampled
 for the human audit (section 13).
+
+**Details (PR 5, `src/binding_gate/scorers/llm_judge.py`).**
+
+- *Judge.* Slot J of section 9, `kimi-k3.1-pro` (Moonshot), a family different
+  from every model under test. The judge list in the re-scoring config is
+  ordered; for each model under test the first judge of a different, known
+  family is used. Only slot J is listed: if no listed judge qualified for some
+  model, re-scoring would refuse for that model rather than substitute a judge.
+- *Prompt.* The benchmark's single-condition judge prompt and system prompt
+  (`benchmark_judge.py` at commit `61b0281d8d3897f53bef3f7402727c905614c1e4`,
+  Apache-2.0; attribution in NOTICE), reproduced verbatim, and its validation and
+  JSON-extraction logic, re-implemented. The benchmark's 15-conditions-at-once
+  batch prompt is not used. Settings as in the benchmark: temperature 0.0 and at
+  most 12,288 output tokens (**PROPOSED — requires owner approval before
+  freeze**; whether Moonshot's API accepts temperature 0.0 for this model is
+  **unverified**). A reply that stopped because of length, content filter or a
+  tool call counts as empty, as in the benchmark.
+- *What the judge sees.* The X document (or `ABSENT`) labelled "about drug X",
+  the competing document labelled "about drug Y" (the invented name in
+  `synthetic_y`), the query and the response. Our response is the raw text of
+  the record's final answer with any `<think>` block removed.
+- *Which records are judged.* Final answers that are `answered`, and
+  `unparseable` final answers that contain text (the measurement check of
+  section 10 exists to find failures the deterministic scorer cannot see).
+  Abstentions are labelled `abstained` and empty outputs `empty_output` without a
+  call; records with an arm error are labelled `arm_error`.
+- *Labels.* `eaf_or_substitution` (any claim attributed to Document 2, or entity
+  substitution), `confabulation_only`, `correct_attribution`, `no_claims`, plus
+  `judge_unparseable` and `judge_error` for judge failures. Every field of the
+  judgment and every judge call is stored, so EAF and substitution can also be
+  reported separately.
+- *Agreement* (per model and arm). Population: records sent to the judge,
+  including judge failures. Ours positive: outcome wrong-entity (section 6.3).
+  Judge positive: `eaf_or_substitution`; a judge failure is a third category
+  that never agrees. Raw agreement = agreeing records / population; Cohen's
+  kappa over these categories, so judge failures lower both; also reported:
+  kappa over parsed judgments only, the counts of records positive for both,
+  only ours and only the judge, the full cross-table of outcome by judge label,
+  and the judge's EAF-or-substitution rate over the 12 non-`null_control`
+  conditions next to R (the figure the section 10 measurement check asks for).
+- *Procedure.* Re-scoring reads existing dev traces and writes
+  `scores.<scorer>.jsonl` beside them (the trace is never edited; resumable),
+  after a dry run with a cost estimate from the real prompts, with
+  `--confirm-spend`, a free preflight of the judge, and a hard budget cap per
+  judge model and invocation of 100 USD in `configs/rescore/dev_llm_judge.toml`
+  (**PROPOSED — requires owner approval before freeze**). Test-split traces are
+  scored only by the frozen procedure of PR 6.
 
 ## 7. Metrics
 

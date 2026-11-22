@@ -1,0 +1,47 @@
+# Secondary LLM-judge scoring of existing DEV traces (PREREGISTRATION.md section 6.5;
+# also the "secondary judge" of the section 10 measurement check).
+#
+# This is not a run config (it is in a sub-directory so that configs/*.toml stay
+# run configs only). It is read by:
+#   python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml runs/<run_id>
+#   python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml runs/<run_id>
+#   python -m binding_gate.scorers.llm_judge agreement runs/<run_id>
+# Scores are written to runs/<run_id>/scores.llm_judge.jsonl; the trace is never edited.
+#
+# The judge reproduces the Deceptive Grounding benchmark's judge prompt
+# (benchmark_judge.py at commit 61b0281d8d3897f53bef3f7402727c905614c1e4,
+# Apache-2.0, see NOTICE). The benchmark called its judge with temperature 0.0 and
+# max_tokens 12288; the same values are used here. Judge: slot J of section 9.
+#
+# Judge-family rule (section 5): for every model under test, the first judge in the
+# list whose family differs is used. Only slot J (Moonshot) is listed; it differs
+# from every model under test of section 9. If a model under test were a Moonshot
+# model, re-scoring would refuse for that model instead of substituting a judge.
+#
+# Budget: max_usd is a hard cap PER JUDGE MODEL for one invocation, enforced from the
+# usage the provider reports. PROPOSED - requires owner approval before any paid use.
+# Rough size: re-scoring the no_gate records of one model of the PR 2 dev baseline
+# is at most 4,365 judge calls; run the dry run for the estimate from the real prompts.
+# Nothing here is read from environment variables.
+
+rescore_version = 1
+name = "dev-llm-judge"
+description = "Benchmark-style attribution judge (secondary scorer) on dev traces."
+scorer = "llm_judge"
+prices = "configs/prices.toml"
+max_usd = 100.0
+concurrency = 4
+
+[[judges]]
+name = "moonshot_chat"
+label = "judge-kimi-k3.1-pro"
+[judges.options]
+model_id = "kimi-k3.1-pro"
+max_output_tokens = 12288
+# 0.0 as in the benchmark; UNVERIFIED for this model on Moonshot's API. If it is
+# rejected, delete the line (provider default) and record the deviation.
+temperature = 0.0
+timeout_seconds = 300
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0

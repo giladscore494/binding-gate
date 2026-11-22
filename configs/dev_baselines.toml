@@ -1,0 +1,186 @@
+# PR 5 comparison baselines (PREREGISTRATION.md section 5), dev split, 3 repeats.
+#
+# Arms, all in ONE run:
+#   no_gate               the reference; its answer request is also used by the two
+#                         checker arms below, so the runner answers it once per item,
+#                         model and repeat and hands all three the SAME candidate
+#                         ("same candidate, different gate")
+#   prompt_entity_check   a different prompt (no_gate + a fixed entity-check
+#                         instruction), hence its own model call and its own sample
+#   faithfulness_checker  the no_gate candidate accepted or blocked by MiniCheck
+#                         (MiniCheck-Flan-T5-Large, pinned; section 5). Runs locally on
+#                         CPU and needs the optional extra: pip install -e ".[faithfulness]"
+#                         and python -m binding_gate.arms.faithfulness_checker prepare
+#   llm_judge_checks      the no_gate candidate checked (checks C, D) by an LLM judge:
+#                         slot J of section 9, kimi-k3.1-pro (Moonshot), a family
+#                         different from every model under test
+#
+# Cost. Per model and repeat the provider is asked twice per item (no_gate, shared by
+# the checker arms, and prompt_entity_check), so model cost is about twice the PR 2
+# baseline. The judge is paid separately and is NOT counted by the runner's budget
+# cap (it is not a [[models]] entry): llm_judge_checks enforces its own cap,
+# judge_max_usd, over all its judge calls in one process. Print an upper bound with
+#   python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml
+# All caps are PROPOSED and require owner approval before any paid run; they should
+# be lowered after the smoke run has measured real reasoning-token usage.
+#
+# Models, dataset, sampling and retries are copied from configs/dev_baseline.toml
+# (section 9). The section 10 stop rule decides which models continue; models that
+# stop must be removed here before a paid run. Nothing here is read from
+# environment variables (only keys are, through src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-baselines"
+description = "PR 5 comparison baselines: no_gate, prompt_entity_check, faithfulness_checker, llm_judge_checks; dev split, 3 repeats."
+split = "dev"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/prices.toml"
+# Hard cap in US dollars PER MODEL for the models under test (about twice the PR 2
+# caps, because prompt_entity_check makes its own call). Sum: 12 + 220 + 12 + 220 + 34 + 200 = 698.
+max_usd = 12.0
+[runner.max_usd_by_model]
+openai-mid = 220.0
+anthropic-mid = 220.0
+google-low = 34.0
+google-mid = 200.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "prompt_entity_check"
+label = "prompt_entity_check"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "faithfulness_checker"
+label = "faithfulness_checker"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+backend = "minicheck"
+evidence = "all_documents"
+
+[[arms]]
+name = "llm_judge_checks"
+label = "llm_judge_checks"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+prices = "configs/prices.toml"
+# Hard cap in US dollars for ALL judge calls of this arm in one process (all models
+# and repeats together). PROPOSED. Upper bound from the estimate command on
+# 2026-11-22 (every candidate answered; 26,190 judge calls; about 35.1M input
+# tokens): $136 low, $660 high, $1,143 ceiling. The cap is set just above the high
+# bound, as for the models; the real cost is lower because only answered
+# candidates are judged.
+judge_max_usd = 670.0
+
+# Ordered list of judges; the first whose family differs from the model under test is
+# used. Only slot J is listed: if it ever clashed with a model under test, the arm
+# would refuse rather than substitute a judge (add a fallback here by amendment).
+[[arms.options.judges]]
+name = "moonshot_chat"
+label = "judge-kimi-k3.1-pro"
+[arms.options.judges.options]
+model_id = "kimi-k3.1-pro"
+max_output_tokens = 4096
+# temperature 0.0 follows section 9 ("0 where the API allows it"); UNVERIFIED for
+# this model on Moonshot's API. If it is rejected, delete the line (provider default)
+# and record the change in PREREGISTRATION.md section 9.
+temperature = 0.0
+timeout_seconds = 300
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
