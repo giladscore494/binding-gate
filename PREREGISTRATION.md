@@ -76,7 +76,7 @@ Thresholds that decide whether each hypothesis is supported are in section 11.
 | Layer | Dataset | Role | Licence | Status of our knowledge |
 |---|---|---|---|---|
 | 1. Controlled | Deceptive Grounding benchmark (github.com/CedricCaruzzo/deceptive-grounding-benchmark; arXiv 2607.09349), pinned at commit `61b0281d8d3897f53bef3f7402727c905614c1e4` | Confirmatory for H1-H3 | Apache-2.0 (LICENSE file in the checkout) | Files inspected in PR 2; facts below |
-| 2. Controlled, other domain | GRAB-RAG (arXiv 2608.22228; code stated at github.com/andre44s/grab-rag), misleading-context condition | Generalisation (secondary) | **unverified** | Repository not yet opened |
+| 2. Controlled, other domain | GRAB-RAG (github.com/andre44s/grab-rag; arXiv 2608.22228), pinned at commit `2006561476b39a6cd1ebc0ab5df1b09af01dbcab`; misleading condition, with the supportive condition as paired control | Exploratory (secondary); see below for what it can and cannot test | Code MIT; data CC BY-SA 3.0 (NQ-derived) and CC BY-SA 4.0 (HotpotQA-derived) | Files inspected in PR 7; facts below. The misleading contexts are **not shipped** and must be exported once with GRAB-RAG's code |
 | 3. Live web | SealQA (Hugging Face `vtllms/sealqa`) | Confirmatory for H4 | Apache-2.0 | Not yet downloaded |
 
 **Layer 1.** Each stimulus is built from a triple: queried drug X, competitor
@@ -169,15 +169,148 @@ the adapter on every load):
     split. The unit of the split and of the bootstrap is therefore the (X, C)
     pair (section 4).
 
-**Layer 2.** GRAB-RAG presents the same questions (from Natural Questions and
-HotpotQA) under four context conditions: supportive, degraded, missing and
-misleading. We use the misleading condition. Unverified: the licence, the data
-format, and whether misleading contexts are entity or qualifier mismatches of
-the kind the gate targets. For context only, its authors report that in the
-misleading condition small models still answered 41.6% of the time under explicit
-abstention prompting, and that a generator-side conflict check cut this to 13.3%
-while discarding many correct answers. These figures are not a baseline for this
-study; our arms are measured on our own runs.
+**Layer 2.** GRAB-RAG presents the same questions (500 from Natural Questions,
+500 from HotpotQA) under four context conditions: supportive, degraded, missing
+and misleading. We use the misleading condition and, as its paired control, the
+supportive condition.
+
+*Facts established in PR 7 from the real files* (pinned commit
+`2006561476b39a6cd1ebc0ab5df1b09af01dbcab`, dated 2026-11-13, "update readme";
+SHA-256 manifest of `data/*/eval.jsonl`:
+`d11d48acb7d30cd7033db39b909d8d2d5c0af1c925191ae9e7bc25c7549d14b0`, checked by
+the adapter `src/binding_gate/datasets/grab_rag.py` on every load). Structural
+counts were computed over all 1,000 records, because the split is applied by
+code that reads every record. Disclosure: before the split was computed, the
+first 1,500 bytes of each file were printed once to learn the format; this
+showed the coding agent the first NQ record and part of the second (both dev)
+and the first HotpotQA record and part of the second (both **test**). No model
+has seen any record.
+
+1. **Licences.** Code: MIT (`LICENSE`, "Copyright (c) 2026 Yohanes Andre
+   Setiawan"). Data, as stated in the checkout's `README.md` ("NQ-derived data
+   stays CC BY-SA 3.0; HotpotQA-derived stays CC BY-SA 4.0"): HotpotQA's
+   official site (hotpotqa.github.io) and its Hugging Face card state CC BY-SA
+   4.0; the Natural Questions card on Hugging Face (organisation
+   `google-research-datasets`) states CC BY-SA 3.0 Unported. Google's own NQ
+   pages could not be read (rendered by script), so the NQ data licence is
+   confirmed by secondary sources only. Consequence: no record is
+   redistributed (ARCHITECTURE.md section 9); test fixtures are invented text;
+   any excerpt quoted in a report carries CC BY-SA attribution.
+2. **File format and field names.** `data/natural_questions/eval.jsonl` and
+   `data/hotpotqa/eval.jsonl`, 500 lines each, sorted by `id`, every line exactly
+   the keys `id`, `question`, `answers`, `gold_passages`, `dataset`. NQ: one gold
+   passage (`{title, text}`, a long-answer paragraph) and 1-10 answer aliases
+   (225 records have one); HotpotQA: two gold passages (the supporting
+   paragraphs) and exactly one answer (yes/no questions were excluded by
+   GRAB-RAG). No passage exceeds 2,000 characters. No question text occurs
+   twice.
+3. **Gold answers exist.** `answers` holds the NQ short answers and the HotpotQA
+   answer. Correctness can therefore be decided against gold values (section 6.3
+   note below), unlike layer 1.
+4. **The conditions are not shipped; they are built at run time** by
+   `build_condition` in `src/context_quality.py`, called from `src/runner.py`
+   (five passages each): supportive = `Q100`, the gold passages repeated to fill
+   five slots, shuffled; degraded = `Q50`, three gold slots and two hard
+   negatives; missing = `Q0`, five hard negatives; misleading = `QC`, one edited
+   gold passage and four hard negatives, shuffled; `Qclosed` (no passages) is a
+   reference condition. (Names confirmed against the paper's HTML version.) Hard
+   negatives are the top passages of a hybrid BM25 + BGE retriever over all gold
+   passages of the same file that are not gold for the question and contain no
+   answer alias.
+5. **What "misleading" is.** `ContradictoryGenerator` takes the first gold
+   passage in which the answer span can be swapped and replaces the answer
+   (every whole-word occurrence, plus overlapping aliases, and in the title) by:
+   a year shifted by ±10/20/30, a number shifted by 10-30 %, or another named
+   entity of the same GLiNER type (person, organisation, place, nationality,
+   event, work of art) drawn from entities found in the gold passages; the edit
+   is kept only if no gold answer remains. The other gold passage of a HotpotQA
+   question is not shown. Questions where no swap succeeds get no misleading
+   context. The paper reports 532 such questions (202 NQ, 330 HotpotQA) and a
+   one-author audit of 200 swaps: 59% fluent, 28% borderline, 13% broken
+   (organisation swaps 41% broken). These figures are *reported*, not checked by
+   us. Among the 394 dev questions, the first gold answer is a year, contains a
+   year, or is a number in 44 cases (NQ 23, HotpotQA 21); the rest are names or
+   phrases, which get an entity swap if they are eligible at all.
+6. **How the edited passage is marked.** It is not labelled. In
+   `build_condition`'s output it is the only passage without the retriever's
+   `pid` and `score` keys. The planted wrong answer is not recorded either; the
+   adapter recovers it from a token diff between the gold passage and its edit
+   (all inserted spans must be one and the same string; otherwise it is recorded
+   as not derivable and the item is kept).
+7. **Why the misleading contexts must be exported.** Building them needs the
+   GLiNER and BGE models (and a GPU in GRAB-RAG's code), and GRAB-RAG's runner
+   writes only model outputs, never the passages it showed. The adapter
+   therefore reads a *context export*: one JSON line per question,
+   `{dataset, question_id, condition: "QC", seed: 42, passages}`, where
+   `passages` is exactly `build_condition`'s return value (null when GRAB-RAG
+   skips the question), produced by the calls `src/runner.py` makes, with the
+   passages written out (`EXPORT_PROCEDURE` in the adapter). It does not exist
+   yet. Its SHA-256 is pinned in the run config when it does; until then the
+   layer-2 configs stop with an explanation. Retrieval and NER on a GPU may not
+   be bit-identical across machines, so the export, not the procedure, is the
+   pinned stimulus. The supportive condition needs no model and is built by the
+   adapter from `eval.jsonl` exactly as `Q100` (`random.Random(42 + qi)`; the
+   permutation is pinned by a test on Python 3.11 and 3.13).
+8. **Realised split** (section 4; the unit is the question, group id
+   `<source dataset>/<question id>`). Dev 191 NQ + 203 HotpotQA = 394 questions
+   (39.4%); test 309 + 297 = 606. How many dev questions have a misleading context
+   is known only once the export exists (about 210 if the reported 53.2% holds).
+   Two NQ and seven HotpotQA gold passages serve more than one question; one and
+   two of them, respectively, serve questions on both sides of the split.
+9. **Presentation.** GRAB-RAG's system message (`sys_base`, verbatim) and its
+   `P0` user layout ("Context:", the passages, "Question: ..."), each passage
+   rendered as GRAB-RAG renders it (`<title>: <text>`) under our header
+   `[Document n — source: docN]` (neutral ids by position), and our answer-format
+   instruction (section 6.2) instead of GRAB-RAG's JSON instruction.
+   Deviations from GRAB-RAG: no truncation of the context to 1,500 tokens;
+   document headers; our answer format; hosted frontier models (section 9)
+   instead of small local ones. Our numbers are not comparable with the paper's.
+10. **Document roles and scoring.** Misleading items: the edited passage is
+    `competitor`, the hard negatives are `other`; supportive items: every passage
+    is `target`. The `provenance` scorer is run unchanged, so for layer 2 its
+    `competitor_only` / "wrong-entity" label means only "the quote comes from the
+    edited passage". A second deterministic scorer, `grab_rag_answer`, decides
+    whether the answer's value carries a gold answer, the planted answer, both or
+    neither (labels `correct`, `misled`, `ambiguous`, `other_wrong`, plus
+    `abstained` and `unparseable` with the same minimum quote length): after the
+    section 6.1 normalisation, GRAB-RAG's own answer normalisation (lower case,
+    punctuation and articles removed, `1,000` → `1000`, `1st` → `first`) and
+    whole-word containment, which is GRAB-RAG's `contains_answer` rule applied to
+    the value. Containment instead of exact match because our value is one or two
+    sentences. **PROPOSED — requires owner approval before freeze.**
+
+*What layer 2 can and cannot test.* The edit replaces the **answer**, not the
+entity the question is about: the question's subject stays in the passage, which
+now asserts a wrong value for it (or, when the answer is the passage's own
+subject, a wrong name). The paper describes it as answer-span substitution
+adapted from entity-swap knowledge-conflict methods. This is **not** the
+entity-attribution failure of section 1: a quote from the edited passage is
+textually about the right entity and the right qualifiers. The gate does not
+judge truth (ARCHITECTURE.md section 9), so its binding checks are not expected
+to block misled answers here, except by accident (for example when the planted
+name sits closer to the value than the question's entity). Layer 2 therefore
+tests a broader misleading-evidence failure, not the one the gate targets.
+Proposed interpretation (**PROPOSED — requires owner approval before freeze.**):
+
+- Misleading items are a **scope boundary**, not evidence for H1. Layer-2 M1 is
+  misled answers / answered records (strict variant: misled with the quote taken
+  from the edited passage, reported alongside). A reduction by the gate is
+  reported, with the reasons the gate gave, but is not read as support for the
+  gate's mechanism; no reduction is the expected result and is not evidence
+  against H1.
+- Supportive items measure the **cost** side on natural questions: layer-2 M2 is,
+  among supportive records where `no_gate` gave a `correct` answer, the share
+  where the compared arm did not. This is the part of layer 2 that bears on
+  generalisation (of H2).
+- Only questions with a misleading context get a supportive item, so the two
+  conditions are paired by question.
+- Layer 2 stays exploratory and has no pass/fail threshold (section 11).
+
+For context only, the paper reports that in the misleading condition small
+models still answered 41.6% of the time under explicit abstention prompting,
+that most of those answers repeated the planted wrong entity, and that a
+generator-side conflict check cut answering to 13.3% while discarding many
+correct answers. These figures are not a baseline for this study.
 
 **Layer 3.** SealQA is reported to have 619 rows (seal_0: 111, seal_hard: 254,
 longseal: 254). These counts are *reported*, not checked by us. The subset(s)

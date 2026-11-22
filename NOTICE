@@ -34,3 +34,45 @@ The upstream NOTICE file reads:
 
     Citation is requested for scholarly attribution; it does not add a condition
     to the Apache License, Version 2.0.
+
+------------------------------------------------------------------------------
+
+This product also reproduces short portions of GRAB-RAG
+(https://github.com/andre44s/grab-rag, commit
+2006561476b39a6cd1ebc0ab5df1b09af01dbcab), licensed under the MIT License:
+
+  - the text of its system message `sys_base` from src/policies.py, verbatim;
+  - the layout of its `P0` user message ("Context:" ... "Question: ...") and of
+    one passage ("<title>: <text>") from src/policies.py and src/runner.py;
+  - its answer normalisation and `contains_answer` rule (src/utils.py) and its
+    supportive-condition (`Q100`) passage order (src/context_quality.py,
+    src/runner.py), re-implemented.
+
+They are in src/binding_gate/datasets/grab_rag.py. No GRAB-RAG data (questions,
+answers or passages, which derive from Natural Questions, CC BY-SA 3.0, and
+HotpotQA, CC BY-SA 4.0) is included in this repository; test fixtures use
+invented text.
+
+GRAB-RAG's licence reads:
+
+    MIT License
+
+    Copyright (c) 2026 Yohanes Andre Setiawan
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
