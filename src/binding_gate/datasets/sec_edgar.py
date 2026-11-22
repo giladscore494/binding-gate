@@ -82,11 +82,31 @@ class NotFound(EdgarError):
     """HTTP 404 for a URL (not retried)."""
 
 
-DEFAULT_PROJECT_PART = f"binding-gate research project {PROJECT_URL}"
-"""SEC's documented format is the requester's name followed by a contact e-mail; a
-tool-style string (product token and version) got HTTP 403 from www.sec.gov on 2026-11-22."""
+DEFAULT_PROJECT_PART = "binding-gate research project"
+"""SEC's sample format is the requester's name followed by a contact e-mail. A tool-style string
+(product token, version, URL) and a name-plus-URL string both got HTTP 403 from www.sec.gov on
+2026-11-22, so the declared part is a plain name."""
 CONTACT_SECRET = "SEC_CONTACT_EMAIL"
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_EMAIL_ANYWHERE = re.compile(r"[^@\s<>\"']+@[^@\s<>\"']+")
+_TAG = re.compile(r"<[^>]*>")
+REFUSAL_EXCERPT_CHARS = 240
+
+
+def refusal_excerpt(body: bytes, headers: dict[str, str]) -> str:
+    """A short, scrubbed description of a refusal (403 etc.) for the error message.
+
+    Tells an SEC "undeclared automated tool" page apart from a CDN/IP block. Tags are stripped,
+    whitespace collapsed, anything address-like replaced by ``[address]``; never the request headers.
+    """
+    try:
+        text = _decode(body, headers.get("content-encoding")).decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - diagnostics only
+        text = body[:2000].decode("utf-8", "replace")
+    text = " ".join(_TAG.sub(" ", text).split())
+    text = _EMAIL_ANYWHERE.sub("[address]", text)[:REFUSAL_EXCERPT_CHARS]
+    server = _EMAIL_ANYWHERE.sub("[address]", str(headers.get("server", "")))[:60]
+    return f"server={server or '?'}; body: {text or '(empty)'}"
 
 
 class MissingContact(EdgarError):
@@ -271,7 +291,8 @@ class EdgarClient:
                     raise NotFound(url)
                 last_error = f"HTTP {response.status}"
                 if response.status not in RETRY_STATUSES:
-                    raise EdgarError(f"{url}: {last_error} (not retried)")
+                    detail = refusal_excerpt(response.body, response.headers)
+                    raise EdgarError(f"{url}: {last_error} (not retried; {detail})")
             if attempt <= self.max_retries:
                 self.sleep(backoff)
                 backoff = min(backoff * 2, BACKOFF_MAX_SECONDS)

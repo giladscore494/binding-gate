@@ -55,7 +55,7 @@ def test_user_agent_is_project_part_plus_the_secret_email_and_is_never_stored(bu
     root, manifest, _adapter, _items, fake = built
     ua = fake.requests[0][1]["User-Agent"]
     assert ua == f"{sec_edgar.DEFAULT_PROJECT_PART} {EMAIL}"
-    assert "https://github.com/giladscore494/binding-gate" in ua
+    assert ua == f"binding-gate research project {EMAIL}" and "http" not in ua
     for path in root.rglob("*"):
         if path.is_file():
             assert EMAIL.encode() not in path.read_bytes(), path  # cache, log, manifest, items, selection
@@ -205,7 +205,7 @@ def test_the_committed_builder_config_loads_and_holds_no_address():
     config = sec_build.BuildConfig.load(REPO_ROOT / "configs" / "datasets" / "sec_financials_v1.toml")
     assert "@" not in (REPO_ROOT / "configs" / "datasets" / "sec_financials_v1.toml").read_text()
     assert config.max_requests_per_second <= 8 and config.selection_file == ""
-    assert config.user_agent_project == "binding-gate research project https://github.com/giladscore494/binding-gate"
+    assert config.user_agent_project == "binding-gate research project"
 
 
 # -- statements, flattening and rendering ------------------------------------------------- #
@@ -440,3 +440,11 @@ def test_manifest_records_sources_parameters_and_unverified_reuse_terms(built):
         assert all(len(d["sha256"]) == 64 for d in filing["documents"])
     assert "UNVERIFIED" in manifest["reuse_terms"]
     assert set(content["items_by_stratum"]) == {"present/none", "present/peer", "absent/peer"}
+
+
+def test_refusal_excerpt_strips_tags_and_hides_addresses():
+    body = b"<html><body><h1>Your Request Originates from an Undeclared Automated Tool</h1><p>email webmaster@sec.gov or someone@example.org</p></body></html>"
+    text = sec_edgar.refusal_excerpt(body, {"server": "AkamaiGHost"})
+    assert "Undeclared Automated Tool" in text and "AkamaiGHost" in text
+    assert "@" not in text and "<" not in text
+    assert len(text) < 400
