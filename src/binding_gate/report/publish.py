@@ -99,7 +99,8 @@ def refusal_reason(relpath: str, layer: int, *, include_traces: bool = False) ->
     if relpath == TRACES:
         if layer not in TRACES_ALLOWED_LAYERS:
             return (f"traces of layer {layer} contain third-party text whose licence does not allow publication "
-                    "(layer 2: CC BY-SA passages; layer 3: web pages without a known licence)")
+                    "(layer 2: 10-K statements filed by the companies, reuse terms unverified; "
+                    "layer 3: web pages without a known licence)")
         if not include_traces:
             return "traces are published only on request (--include-traces); they are identified by their SHA-256"
         return None

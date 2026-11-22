@@ -23,6 +23,11 @@ study to the providers the owner funds: a Z.ai (GLM) client
 (`models/zai_chat.py`), model labels `zai-low` (slot H) and `zai-mid` (slot I),
 and a per-model low reasoning assumption in the price file; the Anthropic and
 DeepSeek clients stay registered but no config of the USD 50 plan uses them.
+PR 17 replaced layer 2: GRAB-RAG (kept in `configs/extended/`, in no layer)
+gave way to financial facts from US public-company annual reports, generated
+from SEC EDGAR by a deterministic builder (`datasets/sec_build.py`,
+`datasets/sec_edgar.py`), read by the adapter `datasets/sec_financials.py`,
+scored by `scorers/sec_answer.py` and analysed with H1-H2 per model.
 "PR n" below names the PR that added a part. No model has been run yet; the pre-registration
 is still DRAFT.
 
@@ -79,7 +84,8 @@ One run = one config file. For every item × arm × model × repeat the runner
 | Binding checks (C), premise matching (D) | no | pure functions; same input, same output on any machine |
 | Verdict (E) | no | pure function of the check results |
 | Web search and page fetch (layer 3) | no (external service) | every search response, robots.txt and page stored as a snapshot; the gate and the scorer read only stored snapshots |
-| Primary scorers (`provenance`, `grab_rag_answer`, `sealqa_answer`) | no | string matching with `textnorm.normalize_text` |
+| Layer-2 dataset generation from SEC EDGAR (PR 17) | no (external service, free) | deterministic rule; every source URL and SHA-256 in the manifest; runs read only the pinned, hash-verified dataset |
+| Primary scorers (`provenance`, `sec_answer`, `sealqa_answer`; `grab_rag_answer` in the extended design) | no | string matching with `textnorm.normalize_text`; `sec_answer` also parses amounts |
 | Secondary scorer (LLM judge) | yes | cross-check only; never decides a hypothesis |
 | Statistics, report, audit analysis | no | read trace and analysis files only |
 
@@ -89,10 +95,12 @@ One run = one config file. For every item × arm × model × repeat the runner
 ARCHITECTURE.md, PREREGISTRATION.md, README.md, LICENSE, NOTICE, pyproject.toml
 audit/test_access_log.jsonl      committed log of every test-split access attempt (empty today)
 configs/                         versioned run configs, one TOML file per run (dev_*, test_layer1*,
-                                 test_grab_rag_supportive, test_live: one frozen test config per layer  PR 6, 13, 16)
+                                 test_sec, test_live: one frozen test config per layer  PR 6, 13, 16, 17)
 configs/prices.toml              pinned price file used by every cost estimate and budget cap  PR 2
 configs/decomposer_eval_dev.toml config of the decomposer measurement (not a run config)      PR 3
 configs/rescore/                 re-scoring configs of existing traces (LLM judge)            PR 5
+configs/datasets/                builder config of the generated layer-2 dataset (fair-access
+                                 settings, committed company selection; not a run config)      PR 17
 configs/mcp/                     example configuration of the MCP server                      PR 9
 docs/                            RUNNING.md (full operating guide), RUNNING_BASELINE.md, MCP.md PR 2, 9, 11
 src/binding_gate/
@@ -113,14 +121,16 @@ src/binding_gate/
   pipeline.py                    dev pipeline stages and gates                  PR 15
   layer3_summary.py              unencrypted layer-3 summary (no page text)     PR 15
   frozen_run.py                  the one-command frozen test run, one layer each PR 6, 16
-  datasets/      one module per dataset adapter                                 PR 2, 7, 8
+  datasets/      one module per dataset adapter                                 PR 2, 7, 8, 17
+  datasets/sec_build.py, sec_edgar.py  deterministic builder of the layer-2 dataset from EDGAR
+                                 (cli dataset-prepare; fair access, cache, manifest)            PR 17
   models/        one module per model client (plain HTTPS)                      PR 2
   decomposers/   gate function (A), its cache, the layer-1 reference            PR 3
   evaluation/    separate measurement of the decomposer                         PR 3
   checks/        gate functions (C) and (D), one module per check               PR 4
   gates/         gate function (E) (`binding`), dev-only calibration            PR 4
   arms/          one module per experimental arm                                PR 2, 4, 5, 8
-  scorers/       one module per scorer                                          PR 2, 5, 7, 8
+  scorers/       one module per scorer                                          PR 2, 5, 7, 8, 17
   stats/         metrics, cluster bootstrap, H1-H4, analysis                    PR 6
   stats/layers.py                one analysis rule per layer (1, 2, 3)          PR 16
   plots/         figures (optional extra `plots`)                               PR 6
@@ -155,6 +165,7 @@ modify files owned by another PR of the same wave (waves: [1] → [2] →
 | 9 | D | `mcp/*`, `configs/mcp/server.example.toml`, `docs/MCP.md` |
 | 10 | D | `report/*`, `audit_tool/*` |
 | 16 | - | `stats/layers.py`, `report/publish.py`, `configs/test_live.toml`, `configs/test_grab_rag_supportive.toml` (frozen runs of layers 2 and 3; results location) |
+| 17 | - | `datasets/sec_build.py`, `datasets/sec_edgar.py`, `datasets/sec_financials.py`, `scorers/sec_answer.py`, presentation `sec_filings`, `configs/datasets/sec_financials_v1.toml`, `configs/dev_sec_*.toml`, `configs/test_sec.toml`; GRAB-RAG configs moved to `configs/extended/`; layer 2 of `stats/prereg.py` and `stats/layers.py` |
 
 **Shared files.** There is no registry file that every PR edits. The only files
 more than one PR may touch are: `pyproject.toml` (append one line under
@@ -235,21 +246,24 @@ reads, as of PR 11 (model clients and labels updated in PR 14):
 
 | What | Names |
 |---|---|
-| Datasets | `deceptive_grounding`, `grab_rag`, `sealqa` (`sealqa` declares `pin_method = "prepare"`: downloaded and converted by `cli dataset-prepare`; no `pin_method` means a git clone) |
+| Datasets | `deceptive_grounding`, `grab_rag` (extended design only since PR 17; in no layer), `sealqa` (`sealqa` declares `pin_method = "prepare"`: downloaded and converted by `cli dataset-prepare`; no `pin_method` means a git clone), `sec_financials` (PR 17, layer 2; `pin_method = "prepare"`: generated from SEC EDGAR by `cli dataset-prepare`, pinned by the manifest content hash `data_sha256`) |
 | Model clients | `openai_responses`, `anthropic_messages`, `google_gemini`, `moonshot_chat`, `deepseek_chat` (PR 13), `zai_chat` (PR 14); `anthropic_messages` and `deepseek_chat` are not used by the USD 50 study |
 | Model labels in the configs of the USD 50 study | primary `openai-low` (A), `google-low` (E), `zai-low` (H); mid-tier `openai-mid` (B), `google-mid` (F), `zai-mid` (I); `decomposer` (Dec, auxiliary); judge `judge-kimi-k3.1-pro` (J). The labels `anthropic-low` and `anthropic-mid` occur only under `configs/extended/`; `deepseek-low` (PR 13) is in no config since PR 14 |
 | Decomposers | `model_decomposer` |
 | Checks | `quote_verbatim`, `entity_in_window`, `qualifiers_in_window`, `no_closer_competitor`, `premise_present` |
 | Gates | `binding` |
 | Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research` |
-| Scorers | `provenance` (deterministic, primary, layers 1-2), `grab_rag_answer` (deterministic, layer 2), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
+| Scorers | `provenance` (deterministic, primary, layer 1; its logic is reused inside `sec_answer`), `grab_rag_answer` (deterministic, GRAB-RAG, extended design), `sec_answer` (deterministic, primary, layer 2, PR 17), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
 | Search clients (not a registry kind) | `serpapi_google` (`research/search.py`, `SEARCH_CLIENTS`) |
 | Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs and in `configs/test_layer1.toml` (one scheme since PR 12) |
 | `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable` |
 | `grab_rag_answer` labels | `correct`, `misled`, `ambiguous`, `other_wrong`, `abstained`, `unparseable` |
 | `sealqa_answer` labels | `correct`, `incorrect`, `abstained`, `unparseable` |
+| `sec_answer` labels (PR 17) | `correct`, `value_unsupported`, `wrong_entity`, `wrong_period_or_scale`, `other_wrong`, `abstained`, `unparseable` |
+| Presentations | `deceptive_grounding_doc_injection`, `grab_rag_context`, `sealqa_live_web`, `sec_filings` (PR 17) |
+| Layers (`stats/prereg.py` `LAYER_BY_DATASET`) | 1 `deceptive_grounding` (H1-H3), 2 `sec_financials` (H1-H2, PR 17), 3 `sealqa` (H4) |
 | `ModelCall.purpose` | `answer`, `decompose`, `check` (LLM-judge arm), `judge` (secondary scorer), `search`, `fetch` (layer 3) |
-| Gold keys | `gold["document_roles"]` (map of document id → `"target"`, `"competitor"` or `"other"`; `provenance`, `grab_rag_answer`), `gold["answers"]` (`grab_rag_answer`, `sealqa_answer`), `gold["planted_answer"]` (`grab_rag_answer`) |
+| Gold keys | `gold["document_roles"]` (map of document id → `"target"`, `"competitor"` or `"other"`; `provenance`, `grab_rag_answer`, `sec_answer`), `gold["answers"]` (`grab_rag_answer`, `sealqa_answer`), `gold["planted_answer"]` (`grab_rag_answer`), `gold["value"]`, `gold["target_alternatives"]`, `gold["competitor"]["values"]` (`sec_answer`, PR 17) |
 
 Conventions that go with them:
 
@@ -360,9 +374,9 @@ Registering the same name twice raises an error.
   results/layer<N>/<run_id>` works from the published copy.
 - Frozen test runs (PR 6, PR 16) cover one layer each: the config names one
   dataset, the analysis rule comes from it (`stats/layers.py`: layer 1
-  `provenance`, layer 2 `grab_rag_answer` without a decision, layer 3
-  `sealqa_answer` and H4), and run directories of different layers are never
-  analysed together.
+  `provenance`, layer 2 `sec_answer` and H1-H2 since PR 17 (`grab_rag_answer`
+  before), layer 3 `sealqa_answer` and H4), and run directories of different
+  layers are never analysed together.
 - Live-web runs also hold `runs/<run_id>/snapshots/` (pre-registration
   section 14); the workflow uploads such run directories only encrypted.
 
@@ -511,7 +525,10 @@ These are fixed here because every later PR relies on them.
   deliberately string-based and deterministic, with the weaknesses listed in the
   pre-registration's threats to validity.
 - No redistribution of third-party data: benchmark files are downloaded by the
-  user into `data/raw/` (git-ignored); live page snapshots are private unless
+  user into `data/raw/` (git-ignored); the layer-2 dataset is generated from SEC
+  EDGAR into `data/raw/sec-financials/` and is not committed (only, after the
+  first generation, its content hash and its company selection, which holds
+  public metadata such as names, CIKs, tickers and accession numbers); live page snapshots are private unless
   their licence allows publication; the Stanford news-intermediary outputs
   (arXiv 2605.22785, no licence file) are never redistributed. The one
   exception is opt-in: layer-1 traces, which quote the Apache-2.0 benchmark,
@@ -539,4 +556,8 @@ beside a run (`scores.<scorer>.jsonl`, `snapshots/`, `frozen_run.jsonl`,
 changed no contract either: the `[sample]` table, `[runner] max_searches`, the
 optional per-price `reasoning_tokens_high` and the `deepseek_chat` client are
 config and component additions. So are PR 14's `zai_chat` client, its provider
-family `zai` and the optional per-price `reasoning_tokens_low`.
+family `zai` and the optional per-price `reasoning_tokens_low`. PR 17 changed
+no contract either: the dataset `sec_financials`, the scorer `sec_answer`, the
+presentation `sec_filings`, the secret `SEC_CONTACT_EMAIL` (appended to
+`secrets.KNOWN_SECRETS`) and the layer-2 entries of `stats/prereg.py` are
+component, config and convention additions.

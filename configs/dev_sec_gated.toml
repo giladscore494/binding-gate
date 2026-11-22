@@ -1,0 +1,282 @@
+# PR 17 dev run of the gate on layer 2 (configs/budget.toml, run "dev_sec_gated"): the SAME arms as the
+# frozen test config configs/test_sec.toml - no_gate (seeded), faithfulness_checker (MiniCheck on the CPU,
+# free), gated and its five ablations - on every dev item, 1 repeat, slots A, E, H.
+# `seed_responses_from = ["seeds/*"]` reuses the answers of configs/dev_sec_baseline.toml (the workflow
+# downloads the runs of the workflow run given in seed_run_id into seeds/), so the answer calls cost
+# nothing; what is paid is the decomposer (once per distinct question per model job). A paid run refuses
+# if no seed run was downloaded.
+#
+# Layer 2 (PR 17; PREREGISTRATION.md section 3, layer 2): financial facts from US public-company annual
+# reports. Items are generated deterministically from SEC EDGAR by `python -m binding_gate.cli
+# dataset-prepare --config <this file>` (free; repository secret SEC_CONTACT_EMAIL; see
+# src/binding_gate/datasets/sec_build.py) into data/raw/sec-financials (git-ignored) and pinned by
+# data_sha256 below. Three conditions per company (strata present/none, present/peer, absent/peer);
+# split unit = company (CIK). Presentation sec_filings; scorer sec_answer (correctness against the XBRL
+# value of the filing; wrong entity = the peer company's figure).
+#
+# Models and sampling: the three PRIMARY low-cost models (slots A, E, H) exactly as in
+# configs/dev_baseline.toml (lowest reasoning setting of each API; see the header there). Gate parameters
+# and decomposer exactly as in configs/dev_gated.toml (PROPOSED values of section 5.1, unchanged).
+# Nothing in this file is read from environment variables; only API keys are (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-sec-gated"
+description = "PR 17 layer-2 dev run: no_gate (seeded), faithfulness_checker, gated and five ablations on every sec_financials dev item, 1 repeat, slots A, E, H."
+split = "dev"
+repeats = 1
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer included). Each cap is this run's allotment in configs/budget.toml, above
+# its HIGH estimate; sum of caps 0.3 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+seed_responses_from = ["seeds/*"]      # the dev_sec_baseline run(s) of the workflow run given in seed_run_id
+max_usd = 0.1
+
+[dataset]
+name = "sec_financials"
+[dataset.options]
+root = "data/raw/sec-financials"
+build_config = "configs/datasets/sec_financials_v1.toml"
+# The content hash of the generated dataset manifest. "UNPINNED" until the first `cli dataset-prepare`
+# in GitHub Actions; then the orchestrator commits the printed content_sha256 here (and in every
+# sec config: tests/test_sec_configs.py checks they agree). Every load refuses while UNPINNED.
+data_sha256 = "UNPINNED"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot H
+name = "zai_chat"
+label = "zai-low"
+[models.options]
+model_id = "glm-5.3-flash"
+max_output_tokens = 4096
+temperature = 0.0                        # documented range [0.0, 1.0] (docs.z.ai); UNVERIFIED live, see the header
+thinking = { type = "enabled" }          # GLM-5.3 models cannot disable thinking (docs.z.ai, read 2026-11-22)
+reasoning_effort = "low"                 # lowest setting for GLM-5.3 / GLM-5.3-Flash (section 9; docs.z.ai)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "sec_filings"
+
+[[arms]]
+name = "faithfulness_checker"            # MiniCheck-Flan-T5-Large, pinned (section 5); needs the
+label = "faithfulness_checker"           # faithfulness extra and `faithfulness_checker prepare`
+[arms.options]
+presentation = "sec_filings"
+backend = "minicheck"
+evidence = "all_documents"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "sec_filings"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+# Per-check ablations (exploratory), labelled as in the layer-1 configs.
+[[arms]]
+name = "gated"
+label = "gated_minus_quote_verbatim"
+[arms.options]
+presentation = "sec_filings"
+checks = ["entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_minus_entity_in_window"
+[arms.options]
+presentation = "sec_filings"
+checks = ["quote_verbatim", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_minus_qualifiers_in_window"
+[arms.options]
+presentation = "sec_filings"
+checks = ["quote_verbatim", "entity_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_minus_no_closer_competitor"
+[arms.options]
+presentation = "sec_filings"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_minus_premise_present"
+[arms.options]
+presentation = "sec_filings"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+# sec_answer (PR 17): the stated amount against the XBRL gold value of the filing, the peer's figures and
+# the other years (labels correct / value_unsupported / wrong_entity / wrong_period_or_scale / other_wrong /
+# abstained / unparseable); the quote's provenance is recorded with the provenance logic.
+[[scorers]]
+name = "sec_answer"
+[scorers.options]
+min_quote_tokens = 5

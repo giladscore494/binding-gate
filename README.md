@@ -65,8 +65,10 @@ Written down before any experiment in [PREREGISTRATION.md](PREREGISTRATION.md):
   faithfulness checker (MiniCheck); **H4** with live web search and a re-search
   loop, net correct answers do not drop. Rules and thresholds: section 11.
 - **Layers:** (1) the Deceptive Grounding benchmark, confirmatory for H1-H3;
-  (2) GRAB-RAG, exploratory; (3) a live-web layer on SealQA, confirmatory for
-  H4 (see "Live web" below).
+  (2) financial facts from US public companies' annual reports (SEC EDGAR,
+  PR 17), confirmatory for H1-H2 per model (see "SEC filings" below); (3) a
+  live-web layer on SealQA, confirmatory for H4 (see "Live web" below).
+  GRAB-RAG, layer 2 until PR 17, is kept in the extended design (not run).
 - **Scoring is deterministic:** every arm must return value + quote + source;
   the quote is matched against the shown documents to decide whose document it
   came from. An LLM judge is only a secondary cross-check.
@@ -76,6 +78,29 @@ Written down before any experiment in [PREREGISTRATION.md](PREREGISTRATION.md):
   (section 15).
 
 The code is organised as described in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### SEC filings (layer 2)
+
+- **Why this domain:** extracting figures from annual reports is core analyst
+  work, and the typical agent error is a binding error: the right kind of
+  filing but another company (a peer's statement), another fiscal year
+  (statements show two or three years side by side) or another unit scale
+  (thousands versus millions).
+- **Questions and documents:** "What was <company>'s total revenue, in US
+  dollars, for the fiscal year ended <date>, as reported in its annual report on
+  Form 10-K?" (also operating income, net income, total assets, cash), answered
+  from the income statement and balance sheet of that 10-K and/or of a
+  same-industry peer's 10-K (three conditions: target only, target and peer,
+  peer only), as rendered by EDGAR from the filings' XBRL.
+- **Gold values** are the XBRL facts of the same filing (SEC companyfacts API),
+  as reported in that filing; scoring (`sec_answer`) is deterministic: amount
+  parsing with unit and scale, a tolerance of one unit of the last stated digit,
+  and labels correct / wrong entity / wrong period or scale / other.
+- **Generated, not downloaded:** `python -m binding_gate.cli dataset-prepare
+  --config configs/dev_sec_baseline.toml` builds the dataset from EDGAR for free
+  by a pre-registered, deterministic rule (needs the secret
+  `SEC_CONTACT_EMAIL` for SEC's fair-access User-Agent); runs read it only after
+  its manifest hash is pinned in the configs.
 
 ### Live web (layer 3)
 
@@ -148,10 +173,10 @@ step against the global budget ledger (`python -m binding_gate.ledger`).
 | LLM-judge checks on a 60-item dev subsample | `python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_llm_judge_checks.toml`, then `run --config configs/dev_llm_judge_checks.toml --confirm-spend` |
 | Per-check ablations | `run --config configs/dev_ablation_<check>.toml --confirm-spend` (one file per check) |
 | Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
-| GRAB-RAG (layer 2), cost side | `run --config configs/dev_grab_rag_supportive.toml --confirm-spend` (supportive items, no export needed). The misleading condition (`configs/extended/dev_grab_rag_*.toml`, not run) needs GRAB-RAG's contexts exported once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) |
+| SEC filings (layer 2): generate the dataset (free; secret `SEC_CONTACT_EMAIL`), then smoke, dev baseline and the gate | `python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml`, pin the printed hash in the `configs/*sec*.toml` files, then `run --config configs/dev_sec_smoke.toml`, `configs/dev_sec_baseline.toml`, `configs/dev_sec_gated.toml` (seeded) with `--confirm-spend`. GRAB-RAG (`configs/extended/*grab_rag*.toml`) is not run |
 | Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
-| Statistics: metrics, intervals, H1-H4 (each layer with its own rule: layer 1 `provenance`, layer 2 `grab_rag_answer` without a decision, layer 3 `sealqa_answer`; mixed layers refused) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
-| Frozen test runs (one layer each, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check), `configs/test_grab_rag_supportive.toml` (layer 2, exploratory) and `configs/test_live.toml` (layer 3, H4) |
+| Statistics: metrics, intervals, H1-H4 (each layer with its own rule: layer 1 `provenance`, layer 2 `sec_answer` (H1-H2), layer 3 `sealqa_answer`; mixed layers refused) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
+| Frozen test runs (one layer each, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check), `configs/test_sec.toml` (layer 2, H1-H2) and `configs/test_live.toml` (layer 3, H4) |
 | Published results (committed under `results/layer<N>/<run_id>/`) | `python -m binding_gate.report publish runs/<run_id>` (allow-list only: no page text, no layer-2/3 traces) |
 | Human audit (section 13) | see below |
 | Public report (section 15) | see below |
@@ -240,8 +265,10 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   | J | `kimi-k3.1-pro` | Moonshot | LLM judge (a family not under test) | 2.00 / 10.00 |
 
   Repository secrets the study needs: `OPENAI_API_KEY`, `GEMINI_API_KEY`,
-  `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPAPI_API_KEY` (Free plan) and
-  `RUNS_ENCRYPTION_PASSPHRASE`. `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are
+  `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPAPI_API_KEY` (Free plan),
+  `RUNS_ENCRYPTION_PASSPHRASE` and `SEC_CONTACT_EMAIL` (PR 17: the owner's
+  contact e-mail for SEC's fair-access User-Agent, used only by the free
+  generation of the layer-2 dataset; never committed or stored). `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are
   not used by the USD 50 study (their clients remain, for `configs/extended/`).
   Every id and price is unverified until the free preflight and the smoke run.
 - **Global budget ledger (PR 15).** Before every paid run in GitHub Actions,
@@ -287,12 +314,17 @@ and the study's results are pending. See [docs/MCP.md](docs/MCP.md).
   documents constructed by its authors around drug-disease-competitor triples;
   effects may not transfer to natural pages or other domains. Nothing here is
   suitable for clinical decisions.
-- **GRAB-RAG "misleading" is answer substitution, not entity mismatch.** Its
-  edited passage keeps the question's entity and asserts a wrong value, so the
-  gate is not expected to catch it; layer 2 is a scope boundary and exploratory.
-  Its misleading contexts are not shipped by GRAB-RAG and must be exported once
-  with GRAB-RAG's own code; the budgeted plan runs only layer 2's supportive
-  items (the cost side).
+- **Tables are hard for a window rule.** In layer 2 the company's name heads
+  each financial statement, while most figures sit more than 40 tokens below
+  it, so the unchanged gate is expected to block many correct answers there
+  (a risk for H2 on layer 2, measured on synthetic statements in the tests);
+  and a prior-year figure in the same row passes the qualifier check. The layer-2
+  dataset is constructed by this project (from public filings, by a rule fixed
+  before any model output) and its EDGAR formats were not verifiable in the
+  build sandbox; the first generation settles them.
+- **GRAB-RAG left the study (PR 17).** Its "misleading" condition substitutes
+  the answer, not the entity, so it does not test entity binding; its configs
+  are kept under `configs/extended/`.
 - **Single-template decomposer evaluation.** All layer-1 questions share one
   template, and the decomposer is measured on the same 45 dev questions on which
   it may be revised, so its measured accuracy is optimistic and says little
@@ -336,4 +368,6 @@ Apache-2.0, see [LICENSE](LICENSE). Short portions of the Deceptive Grounding
 benchmark (Apache-2.0) and of GRAB-RAG (MIT) are reproduced with attribution,
 and MiniCheck (Apache-2.0; weights MIT) is used as the comparison checker; see
 [NOTICE](NOTICE). No benchmark data is included or redistributed; test fixtures
-use invented text.
+use invented text. The layer-2 dataset is generated from SEC EDGAR public
+filings on the user's machine or in GitHub Actions and is not committed (the
+reuse terms of sec.gov could not be verified in PR 17).

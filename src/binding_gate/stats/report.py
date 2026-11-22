@@ -209,7 +209,7 @@ def render_markdown(analysis: Mapping[str, Any], *, figure_note: str = "") -> st
             )
     lines += [
         "",
-        "Per-condition tables, ablations, layer 2 and pooled numbers are exploratory. "
+        "Per-condition tables, ablations and pooled numbers are exploratory (layer 2 decides H1 and H2 since PR 17). "
         "M4 (recovery after re-search) is reported in `analysis.json` and is a placeholder until PR 8.",
         "",
     ]

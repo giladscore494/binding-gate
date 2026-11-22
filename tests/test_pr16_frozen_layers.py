@@ -2,7 +2,7 @@
 
 Section 17 items 37 and 39 of the pre-registration. Every frozen run here works in a temporary
 git repository with its own audit log, on synthetic datasets (invented SealQA rows, the invented
-GRAB-RAG stand-in) and a fake web; nothing touches the network or the real test split, and the
+EDGAR stand-in of layer 2 since PR 17) and a fake web; nothing touches the network or the real test split, and the
 repository's audit/test_access_log.jsonl is never written (checked at the end of this file).
 """
 
@@ -18,6 +18,7 @@ import pytest
 import builders as b
 import dg_fixture
 import grab_rag_fixture as gfx
+import sec_helpers
 import live_fakes as lf
 import run_helpers as h
 import sealqa_fixture as sfx
@@ -60,7 +61,7 @@ TAG = "prereg-freeze-3"
 
 PAIRS = [
     ("test_live.toml", "dev_live.toml", {"max_usd", "max_usd_by_model", "max_searches"}),
-    ("test_grab_rag_supportive.toml", "dev_grab_rag_supportive.toml", {"max_usd", "max_usd_by_model"}),
+    ("test_sec.toml", "dev_sec_gated.toml", {"max_usd", "max_usd_by_model", "seed_responses_from"}),  # PR 17
 ]
 SPLIT_DEPENDENT_TOP = {"name", "description", "split"}
 
@@ -88,17 +89,17 @@ def test_test_live_runs_slots_a_and_e_with_the_planned_caps_and_a_month_of_searc
     assert settings.max_searches == 250  # SerpApi Free plan, month 2; resumed in month 3
 
 
-def test_test_grab_rag_runs_slot_a_with_no_gate_and_gated_and_the_planned_cap():
-    config = load_config(CONFIGS / "test_grab_rag_supportive.toml")
+def test_test_sec_runs_the_primary_models_with_the_layer_1_gate_arms_and_the_planned_caps():
+    """PR 17: layer 2 is SEC financial filings, confirmatory for H1 and H2 per model."""
+    config = load_config(CONFIGS / "test_sec.toml")
     settings = runner.RunnerSettings.from_config(config)
-    assert [m.label for m in config.models] == ["openai-low"]
-    assert [a.label for a in config.arms] == ["no_gate", "gated"]  # the gated arm: the cost side (M2)
-    assert config.dataset.options["conditions"] == ["supportive"]
-    assert {s.name for s in config.scorers} == {"provenance", "grab_rag_answer"}
-    assert settings.cap_for("openai-low") == 0.6
+    assert [m.label for m in config.models] == ["openai-low", "google-low", "zai-low"]
+    assert [a.label for a in config.arms][:3] == ["no_gate", "faithfulness_checker", "gated"]
+    assert [s.name for s in config.scorers] == ["sec_answer"]
+    assert {m.label: settings.cap_for(m.label) for m in config.models} == {"openai-low": 0.5, "google-low": 1.2, "zai-low": 1.05}
 
 
-@pytest.mark.parametrize("name", ["test_live.toml", "test_grab_rag_supportive.toml", "test_layer1.toml"])
+@pytest.mark.parametrize("name", ["test_live.toml", "test_sec.toml", "test_layer1.toml"])
 def test_committed_test_configs_pass_every_frozen_run_check_that_does_not_depend_on_git(name):
     config = load_config(CONFIGS / name)
     reasons = frozen_run.config_refusals(config, CONFIGS / name, REAL_REPO, REAL_REPO / "runs")
@@ -110,9 +111,11 @@ def test_config_check_refuses_a_layer_without_its_rule_scorer_or_an_unknown_data
     path = CONFIGS / "test_live.toml"
     no_scorer = dataclasses.replace(config, scorers=(ComponentSpec("provenance", {}),))
     assert any("'sealqa_answer' score" in r for r in frozen_run.config_refusals(no_scorer, path, REAL_REPO, REAL_REPO / "runs"))
-    layer2 = load_config(CONFIGS / "test_grab_rag_supportive.toml")
+    layer2 = load_config(CONFIGS / "test_sec.toml")
     no_scorer2 = dataclasses.replace(layer2, scorers=(ComponentSpec("provenance", {}),))
-    assert any("'grab_rag_answer' score" in r for r in frozen_run.config_refusals(no_scorer2, path, REAL_REPO, REAL_REPO / "runs"))
+    assert any("'sec_answer' score" in r for r in frozen_run.config_refusals(no_scorer2, path, REAL_REPO, REAL_REPO / "runs"))
+    grab = dataclasses.replace(config, dataset=ComponentSpec("grab_rag", {}))  # PR 17: extended design, no layer
+    assert any("no pre-registered layer" in r for r in frozen_run.config_refusals(grab, path, REAL_REPO, REAL_REPO / "runs"))
     other = dataclasses.replace(config, dataset=ComponentSpec("some_other_dataset", {}))
     assert any("no pre-registered layer" in r for r in frozen_run.config_refusals(other, path, REAL_REPO, REAL_REPO / "runs"))
 
@@ -355,53 +358,70 @@ class Doc1BlockingGate:
         return ArmOutput((Attempt(answer, evidence, verdict),), final, model_calls=output.model_calls)
 
 
-def layer2_raw(tmp_path: Path) -> dict:
-    options = gfx.write_checkout(tmp_path / "grab-rag", export=False)
-    options["supportive_questions"] = "all"
+def layer2_raw(tmp_path: Path, split: str = "test") -> dict:
+    """PR 17: layer 2 is sec_financials (the generated fixture dataset)."""
+    options = sec_helpers.write_dataset(tmp_path / "sec")
     return {
         "config_version": 1,
-        "name": "frozen-grab-rag-test",
-        "split": "test",
+        "name": "frozen-sec-test",
+        "split": split,
         "repeats": prereg.REPEATS,
-        "dataset": {"name": "grab_rag", "options": options},
-        "models": [{"name": "pr16_first_passage_fake", "label": "fake", "options": {"model_id": "fake-cheap"}}],
+        "dataset": {"name": "sec_financials", "options": options},
+        "models": [{"name": "sec_scripted_fake", "label": "fake", "options": {"model_id": "fake-cheap"}}],
         "arms": [
-            {"name": "no_gate", "label": "no_gate", "options": {"presentation": "grab_rag_context"}},
-            {"name": "pr16_test_gate", "label": "gated", "options": {"presentation": "grab_rag_context"}},
+            {"name": "no_gate", "label": "no_gate", "options": {"presentation": "sec_filings"}},
+            {"name": "pr16_test_gate", "label": "gated", "options": {"presentation": "sec_filings"}},
         ],
-        "scorers": [{"name": "provenance"}, {"name": "grab_rag_answer"}],
+        "scorers": [{"name": "sec_answer"}],
         "runner": {"concurrency": 2, "max_usd": 5.0},
     }
 
 
-def test_layer2_frozen_run_reports_grab_rag_answer_metrics_without_a_decision(tmp_path, capsys):
+def test_layer2_frozen_run_decides_h1_and_h2_with_the_sec_answer_rule(tmp_path, capsys):
     repo = frozen_repo(tmp_path, layer2_raw(tmp_path))
     result = run_frozen(repo)
     assert events(repo) == [EVENT_LOADED]
     records = list(read_traces(result.run_dir))
     assert records and {r.split for r in records} == {Split.TEST}
-    labels = {(r.arm, r.item_id): next(s.label for s in r.scores if s.scorer == "grab_rag_answer") for r in records}
+    labels = {(r.arm, r.item_id): next(s.label for s in r.scores if s.scorer == "sec_answer") for r in records}
 
     analysis = json.loads((result.analysis_dir / "analysis.json").read_text(encoding="utf-8"))
-    assert analysis["layer"] == 2 and analysis["outcome_rule"]["scorer"] == "grab_rag_answer"
-    assert analysis["outcome_rule"]["decision"].startswith("none")
+    assert analysis["layer"] == 2 and analysis["outcome_rule"]["scorer"] == "sec_answer"
+    assert analysis["outcome_rule"]["decision"].startswith("H1 and H2")
     fake = analysis["models"]["fake"]
-    # Correct answers are grab_rag_answer's "correct" labels (not provenance's target-grounded).
     n_correct = sum(1 for (arm, _i), label in labels.items() if arm == "no_gate" and label == "correct")
+    n_wrong = sum(1 for (arm, _i), label in labels.items() if arm == "no_gate" and label == "wrong_entity")
     assert fake["outcome_counts"]["no_gate"].get("target_grounded", 0) == n_correct > 0
-    assert fake["estimates"]["arm/gated/m2"]["value"] is not None  # the cost side is measured
-    assert all(fake["hypotheses"][name]["status"] == "NOT EVALUABLE" for name in ("H1", "H2", "H3", "H4"))
-    assert not any(fake["hypotheses"][name]["confirmatory"] for name in ("H1", "H2", "H3", "H4"))
-    assert fake["controlled_layer_claim"].startswith("no decision")
-    assert set(analysis["layer2"]["misled_counts"]["fake"]) == {"gated", "no_gate"}
+    assert fake["outcome_counts"]["no_gate"].get("wrong_entity", 0) == n_wrong > 0  # the peer shown first
+    assert fake["hypotheses"]["H1"]["status"] != "NOT EVALUABLE" and fake["hypotheses"]["H2"]["status"] != "NOT EVALUABLE"
+    assert fake["hypotheses"]["H3"]["status"] == "NOT EVALUABLE" and fake["hypotheses"]["H4"]["status"] == "NOT EVALUABLE"
+    assert fake["controlled_layer_claim"] != "not evaluable"
+    assert set(fake["factors"]) == {"x_document", "competing_document"}
+    assert set(analysis["layer2"]["label_counts"]["fake"]) == {"gated", "no_gate"}
 
     record = json.loads((result.run_dir / frozen_run.FROZEN_RUN_LOG).read_text(encoding="utf-8").splitlines()[-1])
-    assert record["layer"] == 2 and record["outcome_rule"] == "grab_rag_answer (layer 2)"
-    assert record["decision"].startswith("none")
+    assert record["layer"] == 2 and record["outcome_rule"] == "sec_answer (layer 2)"
+    assert record["decision"].startswith("H1-H2")
 
     capsys.readouterr()
     assert cli.main(["analyze", str(result.run_dir), "--out", str(tmp_path / "re"), "--no-figures"]) == cli.EXIT_OK
-    assert json.loads(capsys.readouterr().out)["outcome_rule"] == "grab_rag_answer (layer 2)"
+    assert json.loads(capsys.readouterr().out)["outcome_rule"] == "sec_answer (layer 2)"
+
+
+def test_grab_rag_run_directories_are_refused_as_extended_design(tmp_path):
+    """PR 17: GRAB-RAG belongs to no layer; its run directories are not analysed as layer 2."""
+    options = gfx.write_checkout(tmp_path / "grab-rag", export=False)
+    options["supportive_questions"] = "all"
+    raw = layer2_raw(tmp_path, split="dev")
+    raw = {**raw, "dataset": {"name": "grab_rag", "options": options}, "scorers": [{"name": "provenance"}, {"name": "grab_rag_answer"}],
+           "arms": [{"name": "no_gate", "label": "no_gate", "options": {"presentation": "grab_rag_context"}}]}
+    raw["models"] = [{"name": "pr16_first_passage_fake", "label": "fake", "options": {"model_id": "fake-cheap"}}]
+    repo, _config, _ = h.setup(tmp_path / "grab-dummy")
+    from binding_gate.config import parse_config
+
+    summary = runner.execute_run(parse_config(raw), repo_root=repo, runs_dir=tmp_path / "runs-g", confirm_spend=True, log=lambda m: None)
+    with pytest.raises(LayerError, match="extended design"):
+        layer_of_run_dirs([summary.run_dir])
 
 
 # -- one layer per analysis ---------------------------------------------------------- #
@@ -423,8 +443,7 @@ def test_layer1_dispatch_is_the_unchanged_provenance_analysis(tmp_path):
 def test_mixed_layers_are_refused(tmp_path):
     summary1 = layer1_run(tmp_path)
     repo2, config2, _ = h.setup(tmp_path / "l2-dummy")
-    raw2 = layer2_raw(tmp_path)
-    raw2["split"] = "dev"
+    raw2 = layer2_raw(tmp_path, split="dev")
     from binding_gate.config import parse_config
 
     summary2 = runner.execute_run(parse_config(raw2), repo_root=repo2, runs_dir=tmp_path / "runs2", confirm_spend=True,
@@ -531,13 +550,13 @@ def test_refusal_rules():
 
 def test_preregistration_closes_items_37_and_39_in_version_0_7():
     text = (REAL_REPO / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert "**Document version:** 0.7" in text and "**Status:** DRAFT" in text
+    assert "**Status:** DRAFT" in text and "0.7 (2026-11-22, PR 16)" in text
     section17 = text.split("## 17.", 1)[1].split("## 18.", 1)[0]
     for number in (37, 39):
         item = section17.split(f"\n{number}. ", 1)[1].split(f"\n{number + 1}. ", 1)[0]
         assert "Closed in version 0.7 (PR 16)" in item, number
     section12 = text.split("## 12. Test-split discipline", 1)[1].split("## 13.", 1)[0]
-    assert "configs/test_live.toml" in section12 and "configs/test_grab_rag_supportive.toml" in section12
+    assert "configs/test_live.toml" in section12 and "configs/test_sec.toml" in section12  # PR 17: layer 2
 
 
 def test_the_real_repository_access_log_was_not_written():
@@ -551,18 +570,16 @@ def test_the_real_repository_access_log_was_not_written():
 # --------------------------------------------------------------------------- #
 
 
-def test_test_grab_rag_config_dry_runs_on_dev_without_any_key(tmp_path, monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    repo = h.make_repo(tmp_path)
-    (repo / "configs" / "prices.toml").write_text((CONFIGS / "prices.toml").read_text(), encoding="utf-8")
-    raw = load_config(CONFIGS / "test_grab_rag_supportive.toml").to_dict()
-    options = gfx.write_checkout(tmp_path / "grab-rag", export=False)
+def test_test_sec_config_dry_runs_on_dev_without_any_key(tmp_path, monkeypatch):
+    for var in ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "SEC_CONTACT_EMAIL"):
+        monkeypatch.delenv(var, raising=False)
+    raw = load_config(CONFIGS / "test_sec.toml").to_dict()
     raw["split"] = "dev"
-    raw["dataset"]["options"] = {**raw["dataset"]["options"], **{k: options[k] for k in ("root", "commit", "data_sha256")}}
+    raw["dataset"]["options"] = sec_helpers.write_dataset(tmp_path / "sec")
     from binding_gate.config import parse_config
 
-    report = runner.dry_run(parse_config(raw), repo_root=repo)
-    assert report.split == "dev" and report.arms == ("no_gate", "gated")
+    report = runner.dry_run(parse_config(raw), repo_root=REAL_REPO)
+    assert report.split == "dev" and report.arms[:3] == ("no_gate", "faithfulness_checker", "gated")
     assert {a.role for rows in report.auxiliary.values() for a in rows} == {"decomposer"}
 
 

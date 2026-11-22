@@ -8,7 +8,7 @@ Modules
 ``metrics``     trace records -> per-item column totals; the metric definitions.
 ``hypotheses``  H1-H4 decision rules.
 ``analysis``    loading run directories, the full analysis, JSON output.
-``layers``      one analysis rule per layer (PR 16): provenance, grab_rag_answer, sealqa_answer.
+``layers``      one analysis rule per layer (PR 16, 17): provenance, sec_answer, sealqa_answer.
 ``report``      Markdown rendering of the analysis.
 
 Statistics read trace files only; they never call a model. Command line:

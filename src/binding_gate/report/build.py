@@ -52,7 +52,7 @@ from binding_gate.report.document import (
 REPORT_VERSION = 1
 SUPPORTED, NOT_SUPPORTED, TRADE_OFF, NOT_EVALUABLE = "SUPPORTED", "NOT SUPPORTED", "TRADE-OFF", "NOT EVALUABLE"
 HYPOTHESES = ("H1", "H2", "H3", "H4")
-LAYERS = {1: "deceptive_grounding", 2: "grab_rag", 3: "sealqa"}
+LAYERS = {1: "deceptive_grounding", 2: "sec_financials", 3: "sealqa"}
 RESERVED_ARMS = ("no_gate", "prompt_entity_check", "faithfulness_checker", "llm_judge_checks", "gated", "gated_research")
 KEY_ARMS = ("no_gate", "gated", "faithfulness_checker", "gated_research")
 LAYER1_CX = ("absent", "partial", "complete")
@@ -693,9 +693,10 @@ def _exploratory_section(inputs: ReportInputs) -> list[Block]:
             blocks.append(Callout("warning", "Not confirmatory", "Reasons given by the analysis:", list(analysis["confirmatory_blockers"])))
         if analysis["layer"] == 2:
             blocks.append(Callout(
-                "info", "Layer 2 is exploratory and has no threshold",
-                "GRAB-RAG's misleading condition substitutes the answer, not the entity; it is a scope boundary for "
-                "the gate (pre-registration section 3), not evidence for or against H1.",
+                "info", "Layer 2: SEC financial filings",
+                "H1 and H2 are decided per model with the layer-1 thresholds (pre-registration section 11). Correct "
+                "means the stated amount equals the XBRL value of the filing (sec_answer); wrong entity means it is the "
+                "peer company's figure. Wrong-period-or-scale answers count as answered, not wrong-entity.",
             ))
         for figure in sorted(entry.figures, key=lambda p: (p.name != "primary_pair.png", p.name)):
             blocks.append(Figure(figure, f"figures/{_figure_name(analysis, figure)}", f"{analysis_title(analysis)}: `{figure.name}`"))

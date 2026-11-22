@@ -1,31 +1,48 @@
-# PR 13 layer 2, cost side only (PREREGISTRATION.md section 3, layer 2; configs/budget.toml, run
-# "dev_grab_rag_supportive"): GRAB-RAG's SUPPORTIVE condition (gold passages only) for every dev
-# question (394), slot A, 1 repeat, arms no_gate and gated, dev split only. Exploratory.
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# PR 17: moved here from configs/ when layer 2 became the SEC financial-filings layer
+# (PREREGISTRATION.md section 3). GRAB-RAG does not test entity binding: its "misleading" edit
+# substitutes the answer, not the entity, and its misleading contexts are not shipped. Kept unchanged
+# apart from this header, the name and the price file (configs/extended/prices.toml); not run.
+# GRAB-RAG belongs to no layer since PR 17 (binding_gate.stats.prereg.EXTENDED_DATASETS).
 #
-# Why only this: the misleading contexts are not shipped and need a GPU export with GRAB-RAG's
-# own code (section 17, item 17), and the misleading condition is a scope boundary, not a test of
-# H1. The supportive items measure layer-2 M2 (correct answers blocked by the gate) on natural
-# questions, which needs no export (dataset option conditions = ["supportive"],
-# supportive_questions = "all"). The paired misleading configs are kept as
-# configs/extended/dev_grab_rag_*.toml.
+# PR 16: the frozen layer-2 TEST run, cost side only (PREREGISTRATION.md section 3, layer 2; sections 7,
+# 11 and 12; configs/budget.toml, run "test_grab_rag_supportive"). Section 17, item 39. EXPLORATORY.
 #
-# Models and sampling: slot A as in configs/dev_baseline.toml (lowest reasoning setting); gate
-# parameters and decomposer as in configs/dev_gated.toml. Nothing in this file is read from environment variables; only API keys are
+# Run ONLY through the one-command frozen test run, after the pre-registration (the stage that covers
+# layer 2) is FROZEN and tagged, on your own computer (not in the workflow):
+#
+#   python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
+#       --tag prereg-freeze-<n> --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
+#
+# GRAB-RAG's SUPPORTIVE condition (gold passages only) for every test question (606), slot A, 1
+# repeat, arms no_gate and gated: the gated arm judges the no_gate answer (one paid answer per item;
+# the decomposer is the only other paid call), so layer-2 M2 (correct answers blocked by the gate on
+# natural questions) is measured on test. The misleading condition is not run (no export; a scope
+# boundary, section 17 item 17). The analysis uses the grab_rag_answer rule and REPORTS the metrics
+# without a decision: layer 2 has no pass/fail threshold (section 11).
+#
+# Identical to configs/dev_grab_rag_supportive.toml except the split-dependent fields
+# (tests/test_pr16_frozen_layers.py): name, description, split and the cap.
+#
+# Caps: the test split cannot be dry-run; the plan's HIGH estimate is the dev dry run scaled by
+# 606 / 394 questions (0.13-0.56 USD); cap 0.60 USD, the "test_grab_rag_supportive" entry of
+# configs/budget.toml. PROPOSED - requires owner approval before freeze.
+# Nothing in this file is read from environment variables; only API keys are
 # (src/binding_gate/secrets.py).
 
 config_version = 1
-name = "dev-grab-rag-supportive"
-description = "PR 13 layer-2 cost side: no_gate and gated on GRAB-RAG supportive items, dev split, 1 repeat, slot A."
-split = "dev"
+name = "extended-test-grab-rag-supportive"
+description = "PR 16 frozen layer-2 test run, cost side: no_gate and gated on GRAB-RAG supportive items, test split, 1 repeat, slot A; exploratory."
+split = "test"
 repeats = 1
 
 [runner]
 # Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
 # calls such as the decomposer and the judge included). Each cap is this run's allotment in
-# configs/budget.toml, just above its HIGH estimate; sum of caps 0.4 USD. PROPOSED.
+# configs/budget.toml ("test_grab_rag_supportive"), above its HIGH estimate; sum of caps 0.6 USD. PROPOSED.
 concurrency = 8
-prices = "configs/prices.toml"
-max_usd = 0.4
+prices = "configs/extended/prices.toml"
+max_usd = 0.6
 
 [dataset]
 name = "grab_rag"

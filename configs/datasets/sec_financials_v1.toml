@@ -1,0 +1,25 @@
+# PR 17: builder config of the layer-2 dataset sec_financials (PREREGISTRATION.md section 3, layer 2).
+# NOT a run config: it holds only the fair-access settings of `python -m binding_gate.cli
+# dataset-prepare` (src/binding_gate/datasets/sec_build.py and sec_edgar.py) and, after the first
+# generation, the committed company selection. The pre-registered build rules (universe, concepts,
+# conditions, size budget) are constants of sec_build.py, recorded in the dataset manifest and pinned
+# by its content hash (data_sha256 in the configs/*sec*.toml run configs). Changing this file does
+# not change any run config hash.
+#
+# SEC fair-access rules (UNVERIFIED in PR 17: sec.gov was unreachable from the build sandbox):
+# declare a User-Agent with a contact e-mail; at most 10 requests per second.
+#   - The User-Agent is built at run time as "<user_agent_project> <e-mail>". Only the project part
+#     is committed here; the e-mail is the owner's and comes ONLY from the repository secret
+#     SEC_CONTACT_EMAIL (src/binding_gate/secrets.py). Without it dataset-prepare refuses. The
+#     e-mail is never written to the dataset, its manifest, logs, traces or artifacts.
+#   - max_requests_per_second: 5 (the client refuses more than 8).
+# Nothing in this file is read from environment variables.
+
+config_version = 1
+user_agent_project = "binding-gate-dataset-builder/0.1.0 (+https://github.com/giladscore494/binding-gate)"
+max_requests_per_second = 5
+max_retries = 4
+# After the first generation in GitHub Actions, commit data/raw/sec-financials/selection.json as
+# configs/datasets/sec_financials_selection_v1.json and set the path here, so that every later
+# generation reads only immutable EDGAR sources (archived filings, facts filtered by accession).
+selection_file = ""

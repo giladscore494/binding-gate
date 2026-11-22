@@ -36,12 +36,24 @@ limits in the runner, and together they are at most 50 USD.
 | 6 | LLM-judge arm, 60 dev items (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
 | 7 | layer 3 smoke (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
 | 7 | layer 3 dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
-| 8 | layer 2 cost side (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
+| 8 | layer 2 smoke, SEC filings (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
+| 8 | layer 2 dev baseline (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
+| 8 | layer 2 gate and ablations (`configs/dev_sec_gated.toml`; answers reused) | 0.00 | 0.15 | 0.30 |
 | 10 | **layer 1 test, confirmatory** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | mid-tier check, 225 test items (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
-| 10b | layer 2 test, cost side, exploratory (`configs/test_grab_rag_supportive.toml`) | 0.13 | 0.56 | 0.60 |
+| 10b | **layer 2 test, confirmatory** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
 | 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **Total** | **13.16** | **39.21** | **43.70** |
+| | **Total** | **14.25** | **42.57** | **47.75** |
+
+**Layer 2 since PR 17: SEC financial filings.** Layer 2 is a second
+confirmatory layer (H1 and H2 per model, the layer-1 thresholds): questions
+about a figure in a US public company's annual report (Form 10-K), answered from
+the financial statements of that filing and/or of a same-industry peer's filing;
+gold values are the filings' XBRL facts. The dataset is generated once, for
+free, from SEC EDGAR (step 8). GRAB-RAG, layer 2 until PR 17, is kept under
+`configs/extended/` and not run. The layer-2 estimates are conservative dry runs
+on a synthetic stand-in; the free dry run on the real dev data replaces them
+before the freeze.
 
 What makes it fit: three low-cost primary models (`openai-low`, `google-low`,
 `zai-low`) on every item with one repeat, at their lowest reasoning setting;
@@ -195,7 +207,7 @@ A paid run happens only with "Dry run" unchecked **and** the confirmation box
 checked. Model labels: primary `openai-low`, `google-low`, `zai-low`; mid-tier
 `openai-mid`, `google-mid`, `zai-mid` (only in the smoke run and the mid-tier
 test run). `configs/dev_llm_judge_checks.toml`,
-`configs/dev_live_smoke.toml` and `configs/dev_grab_rag_supportive.toml` have
+`configs/dev_live_smoke.toml` have
 `openai-low` only; `configs/dev_live.toml` has `openai-low` and `google-low`.
 With `all`, each model runs as its own parallel job, except live-web configs
 (layer 3), which run as one job over every model whose API key is set.
@@ -238,8 +250,9 @@ repository secret**. Name exactly as below, value = the key.
 | `MOONSHOT_API_KEY` | Moonshot / Kimi | the judge (slot J): `configs/dev_llm_judge_checks.toml` and the judge re-scoring |
 | `SERPAPI_API_KEY` | SerpApi (web search, Free plan) | layer 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | a long passphrase you choose and keep | layer 3: the run artifacts are encrypted with it; a paid live-web run refuses without it |
+| `SEC_CONTACT_EMAIL` | your contact e-mail address (not a key; costs nothing) | layer 2: ONLY the free generation of the SEC dataset (`python -m binding_gate.cli dataset-prepare` with a `configs/*sec*.toml` config). SEC's fair-access rules ask automated clients to declare a contact e-mail in their User-Agent; the address is never committed and never written to the dataset, logs, traces or artifacts. Without it the generation refuses |
 
-These six are all the study needs. The workflow also passes
+These seven are all the study needs. The workflow also passes
 `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` if they exist, but no config of the
 USD 50 study uses them: do not add them. A model
 whose key is missing is **skipped with a warning**; the other models still run. A missing key of an auxiliary client (the decomposer's OpenAI key,
@@ -543,22 +556,41 @@ writes `data/raw/sealqa/conversion.json`, whose dev-split counts go into
 PREREGISTRATION.md section 3 (section 17, item 25). Decrypted page text is
 third-party material: never commit or publish it.
 
-## 8. Layer 2, cost side (estimate 0.09-0.36 USD, cap 0.40 USD)
+## 8. Layer 2, SEC financial filings: generate the dataset, then smoke, baseline, gate
 
-Workflow. GRAB-RAG's supportive items (394 dev questions, slot A, `no_gate` and
-`gated`); no export is needed. The misleading condition is not run (its configs
-are under `configs/extended/`; section 17, item 17).
+**8.0 Generate the dataset (free; once).** Needs the secret `SEC_CONTACT_EMAIL`
+only (no model key). `python -m binding_gate.cli dataset-prepare --config
+configs/dev_sec_baseline.toml` selects about 300 large US filers from EDGAR by
+the pre-registered rule, reads the income statement and balance sheet of each
+company's 10-K and the XBRL facts, and writes `data/raw/sec-financials/`
+(`manifest.json`, `items.jsonl`, `selection.json`; git-ignored). It makes a few
+thousand requests at 5 per second (about 15 minutes) and caches every response
+under `data/raw/sec-financials/cache/`. It prints `content_sha256`. Then, in one
+pull request: set `data_sha256` in the four `configs/*sec*.toml` files to that
+value, and commit `data/raw/sec-financials/selection.json` as
+`configs/datasets/sec_financials_selection_v1.json` and name it as
+`selection_file` in `configs/datasets/sec_financials_v1.toml` (later generations
+then read only archived filings and give the same hash). Until `data_sha256` is
+set, every run and dry run of a sec config refuses. The workflow step that runs
+the generation passes the secret as an environment variable (see the workflow).
+
+**8.1 Smoke, then dev baseline, then the gate** (workflow; the three primary
+models; keys `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`).
 
 | Field | Value |
 |---|---|
 | Use workflow from (Branch) | `main` |
-| Run config (path in the repository) | `configs/dev_grab_rag_supportive.toml` |
+| Run config (path in the repository) | `configs/dev_sec_smoke.toml`, then `configs/dev_sec_baseline.toml`, then `configs/dev_sec_gated.toml` |
 | Model label from the config, or "all" (one parallel job per model) | `all` |
-| Dry run: count calls and estimate cost; no model API is called | unchecked |
-| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
+| Dry run: count calls and estimate cost; no model API is called | checked first (free), then unchecked |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked for the paid run |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty, except for `configs/dev_sec_gated.toml`: the workflow run id of the `configs/dev_sec_baseline.toml` run |
 
-Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> --out analysis-dev-grab-rag`.
+`configs/dev_sec_gated.toml` runs the arms of the frozen layer-2 test run
+(`no_gate` seeded, `faithfulness_checker`, `gated`, five ablations); only the
+decomposer is paid. Analysis, CLI: `python -m binding_gate.cli analyze
+runs/<run_id> --out analysis-dev-sec` (H1 and H2 per model, labelled not
+confirmatory on dev).
 
 ## 9. Freeze
 
@@ -568,7 +600,7 @@ Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> --out analysis-
    measured dev usage (item 13).
 2. In one pull request: approve the test configs of the layer(s) being frozen
    (layer 1: `configs/test_layer1.toml` and `configs/test_layer1_midtier.toml`;
-   layer 2: `configs/test_grab_rag_supportive.toml`; layer 3:
+   layer 2: `configs/test_sec.toml`; layer 3:
    `configs/test_live.toml`), update `PARAMETERS_STATUS` in
    `src/binding_gate/mcp/core.py` (item 42), change the status line of
    PREREGISTRATION.md to `**Status:** FROZEN` and its version. Merge it into
@@ -639,19 +671,20 @@ python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.
 A run stopped by a budget cap is continued with `--resume runs/<run_id>` (a
 further logged access).
 
-### 10b. Layer 2, cost side (exploratory; estimate 0.13-0.56 USD, cap 0.60 USD)
+### 10b. Layer 2, SEC filings (H1 and H2; estimate 0.78-2.55 USD, caps 0.50 + 1.20 + 1.05 USD)
 
-GRAB-RAG's supportive items of the 606 test questions, slot A, `no_gate` and
-`gated`. The analysis uses the `grab_rag_answer` rule and reports M1, M2 and the
-outcome tables **without a decision** (layer 2 has no threshold; every
-hypothesis shows NOT EVALUABLE there). Needs `OPENAI_API_KEY` only.
+The three primary models on every test item of `sec_financials`: `no_gate`,
+`faithfulness_checker`, `gated` and the five ablations; the analysis uses the
+`sec_answer` rule and decides H1 and H2 per model. Needs `OPENAI_API_KEY`,
+`GEMINI_API_KEY`, `ZAI_API_KEY`, the pinned dataset in `data/raw/sec-financials/`
+(step 8.0; regenerate it with `SEC_CONTACT_EMAIL` set if it is not on this
+computer: the adapter checks the pinned hash) and the MiniCheck weights
+(`python -m binding_gate.arms.faithfulness_checker prepare`).
 
 ```bash
-python -m pip install -e ".[dev,plots]"
-git clone https://github.com/andre44s/grab-rag data/raw/grab-rag      # if not already there
-git -C data/raw/grab-rag checkout 2006561476b39a6cd1ebc0ab5df1b09af01dbcab
-python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
-    --tag prereg-freeze-2 --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
+python -m pip install -e ".[dev,plots,faithfulness]"
+python -m binding_gate.cli frozen-test-run --config configs/test_sec.toml \
+    --tag prereg-freeze-2 --purpose "layer-2 confirmatory test run (SEC filings)" --confirm-spend
 ```
 
 Use the tag of the stage that froze layer 2 (`prereg-freeze-1` if every layer
@@ -716,7 +749,7 @@ python -m binding_gate.audit_tool analyze --sample audit/sample.json --labels au
 python -m binding_gate.report build \
     --analysis results/layer1/<test_run_id>/analysis --run-dir results/layer1/<test_run_id> \
     --analysis results/layer1/<midtier_run_id>/analysis --run-dir results/layer1/<midtier_run_id> \
-    --analysis results/layer2/<grab_rag_test_run_id>/analysis --run-dir results/layer2/<grab_rag_test_run_id> \
+    --analysis results/layer2/<sec_test_run_id>/analysis --run-dir results/layer2/<sec_test_run_id> \
     --analysis results/layer3/<live_test_run_id>/analysis --run-dir results/layer3/<live_test_run_id> \
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```
@@ -756,12 +789,16 @@ supplied is listed as absent.
 | 6 | זרוע שופט LLM, 60 פריטי dev (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
 | 7 | smoke של שכבה 3 (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
 | 7 | שכבה 3 על dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
-| 8 | שכבה 2, צד העלות (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
+| 8 | smoke של שכבה 2, דוחות SEC (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
+| 8 | baseline של שכבה 2 על dev (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
+| 8 | ה-gate וה-ablations של שכבה 2 (`configs/dev_sec_gated.toml`; תשובות משוחזרות) | 0.00 | 0.15 | 0.30 |
 | 10 | **test של שכבה 1, מאשש** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | בדיקת מודלי הביניים, 225 פריטי test (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
-| 10ב | test של שכבה 2, צד העלות, גישושי (`configs/test_grab_rag_supportive.toml`) | 0.13 | 0.56 | 0.60 |
+| 10ב | **test של שכבה 2, מאשש** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
 | 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **סך הכול** | **13.16** | **39.21** | **43.70** |
+| | **סך הכול** | **14.25** | **42.57** | **47.75** |
+
+**שכבה 2 מאז PR 17: דוחות כספיים מ-SEC.** שכבה 2 היא שכבה מאששת שנייה (H1 ו-H2 לכל מודל, עם הספים של שכבה 1): שאלות על נתון מהדוח השנתי (Form 10-K) של חברה ציבורית אמריקאית, שעונים עליהן מתוך הדוחות הכספיים של אותו דוח ו/או של דוח של חברה מקבילה מאותו ענף; התשובות הנכונות הן עובדות ה-XBRL של הדוחות. מאגר הנתונים נבנה פעם אחת, בחינם, מ-SEC EDGAR (שלב 8). GRAB-RAG, שהייתה שכבה 2 עד PR 17, שמורה תחת `configs/extended/` ולא רצה. ההערכות של שכבה 2 הן dry runs שמרניים על נתונים סינתטיים; ה-dry run החינמי על נתוני ה-dev האמיתיים מחליף אותן לפני ההקפאה.
 
 למה זה נכנס: שלושה מודלים ראשיים זולים (`openai-low`, `google-low`, `zai-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `google-mid`, `zai-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בתוכנית החינמית של SerpApi. התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
 
@@ -809,7 +846,7 @@ supplied is listed as absent.
 
 GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלית **baseline** ← כפתור **Run workflow** מימין ← למלא את השדות בדיוק לפי הטבלה של השלב ← הכפתור הירוק **Run workflow**. "מסומן" / "לא מסומן" מתייחס לשתי תיבות הסימון. ריצה בתשלום קורית רק כש-"Dry run" לא מסומן **וגם** תיבת האישור מסומנת. השדה השישי, "Seed runs" (`seed_run_id`), נשאר ריק, חוץ מבשלב 6, שבו כותבים בו את המספר של ריצת ה-workflow של שלב 4.
 
-תוויות המודלים: ראשיים `openai-low`, `google-low`, `zai-low`; מודלי ביניים `openai-mid`, `google-mid`, `zai-mid` (רק ב-smoke ובריצת ה-test של מודלי הביניים). ב-`configs/dev_llm_judge_checks.toml`, `configs/dev_live_smoke.toml` ו-`configs/dev_grab_rag_supportive.toml` יש רק `openai-low`; ב-`configs/dev_live.toml` יש `openai-low` ו-`google-low`. עם `all` כל מודל רץ כ-job נפרד במקביל, חוץ מקונפיגים של web חי (שכבה 3) שרצים כ-job אחד על כל המודלים שיש להם מפתח.
+תוויות המודלים: ראשיים `openai-low`, `google-low`, `zai-low`; מודלי ביניים `openai-mid`, `google-mid`, `zai-mid` (רק ב-smoke ובריצת ה-test של מודלי הביניים). ב-`configs/dev_llm_judge_checks.toml`, `configs/dev_live_smoke.toml` יש רק `openai-low`; ב-`configs/dev_live.toml` יש `openai-low` ו-`google-low`. עם `all` כל מודל רץ כ-job נפרד במקביל, חוץ מקונפיגים של web חי (שכבה 3) שרצים כ-job אחד על כל המודלים שיש להם מפתח.
 
 התוצאות נמצאות בעמוד הריצה תחת **Artifacts**: `runs-<תווית מודל>` (manifest, traces, דוח לכל מודל) ו-`baseline-report` (תוצאת כלל העצירה לכל המודלים). בריצות web חי: `runs-encrypted-all-models` (תיקיית הריצה, מוצפנת) ו-`snapshot-manifest-all-models` (כתובות, זמנים, hash; בלי טקסט של דפים). לניתוח מקומי לפרוס כל `runs-<תווית>` לתוך `runs/`: `unzip runs-openai-low.zip -d runs/`, או `gh run download <מזהה הריצה> -n runs-openai-low -D runs/`.
 
@@ -837,8 +874,9 @@ GitHub ← הריפו ← **Settings ← Secrets and variables ← Actions ← N
 | `MOONSHOT_API_KEY` | Moonshot / Kimi | השופט (סלוט J): `configs/dev_llm_judge_checks.toml` וה-re-scoring של השופט |
 | `SERPAPI_API_KEY` | SerpApi (חיפוש, תוכנית Free) | שכבה 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | סיסמה ארוכה שבוחרים ושומרים | שכבה 3: ה-artifacts מוצפנים בה; ריצה בתשלום של web חי מסרבת בלעדיה |
+| `SEC_CONTACT_EMAIL` | כתובת המייל שלך ליצירת קשר (לא מפתח; לא עולה כסף) | שכבה 2: רק לבניית מאגר ה-SEC בחינם (`python -m binding_gate.cli dataset-prepare` עם קונפיג `configs/*sec*.toml`). כללי הגישה ההוגנת של SEC מבקשים שכל לקוח אוטומטי יצהיר על מייל ליצירת קשר ב-User-Agent; הכתובת לא נכנסת לריפו ולא נכתבת למאגר, ללוגים, ל-traces או ל-artifacts. בלעדיה הבנייה מסרבת |
 
-שש אלה הן כל מה שהמחקר צריך. ה-workflow מעביר גם `ANTHROPIC_API_KEY` ו-`DEEPSEEK_API_KEY` אם הם קיימים, אבל אף קונפיג של מחקר ה-50 דולר לא משתמש בהם: לא להוסיף אותם. מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים. מפתח חסר של רכיב עזר (מפתח OpenAI של ה-decomposer, מפתח Moonshot של השופט, מפתח SerpApi) מדלג על כל המודלים של קונפיג שמשתמש ברכיב הזה.
+שבעה אלה הם כל מה שהמחקר צריך. ה-workflow מעביר גם `ANTHROPIC_API_KEY` ו-`DEEPSEEK_API_KEY` אם הם קיימים, אבל אף קונפיג של מחקר ה-50 דולר לא משתמש בהם: לא להוסיף אותם. מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים. מפתח חסר של רכיב עזר (מפתח OpenAI של ה-decomposer, מפתח Moonshot של השופט, מפתח SerpApi) מדלג על כל המודלים של קונפיג שמשתמש ברכיב הזה.
 
 ### שלב 2 — Dry run (חינם)
 
@@ -1047,25 +1085,27 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 
 `cli analyze` מזהה ריצת SealQA ומפעיל את כלל שכבה 3 (`sealqa_answer`). `dataset-prepare` כותב את `data/raw/sealqa/conversion.json`; את הספירות של ה-dev split מכניסים לסעיף 3 (פריט 25). טקסט של דפים אחרי פענוח הוא חומר של צד שלישי: לא לעשות לו commit ולא לפרסם.
 
-### שלב 8 — שכבה 2, צד העלות (הערכה 0.09 עד 0.36 דולר, תקרה 0.40)
+### שלב 8 — שכבה 2, דוחות כספיים מ-SEC: בניית המאגר, ואז smoke, baseline ו-gate
 
-Workflow. הפריטים התומכים של GRAB-RAG (394 שאלות dev, סלוט A, `no_gate` ו-`gated`); לא צריך export. התנאי המטעה לא רץ (הקונפיגים שלו תחת `configs/extended/`; פריט 17).
+**8.0 בניית המאגר (חינם; פעם אחת).** צריך רק את ה-secret `SEC_CONTACT_EMAIL` (בלי מפתח של מודל). הפקודה `python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml` בוחרת כ-300 חברות אמריקאיות גדולות מ-EDGAR לפי הכלל שנרשם מראש, קוראת את דוח הרווח והפסד והמאזן מה-10-K של כל חברה ואת עובדות ה-XBRL, וכותבת את `data/raw/sec-financials/` (`manifest.json`, `items.jsonl`, `selection.json`; לא נכנס ל-git). היא שולחת כמה אלפי בקשות בקצב 5 לשנייה (כ-15 דקות) ושומרת כל תשובה ב-cache תחת `data/raw/sec-financials/cache/`. בסוף היא מדפיסה `content_sha256`. אחר כך, ב-pull request אחד: לכתוב את הערך הזה כ-`data_sha256` בארבעת קבצי `configs/*sec*.toml`, ולהכניס ל-commit את `data/raw/sec-financials/selection.json` בשם `configs/datasets/sec_financials_selection_v1.json` ולרשום אותו כ-`selection_file` ב-`configs/datasets/sec_financials_v1.toml` (כך בנייה מאוחרת יותר קוראת רק דוחות בארכיון ומקבלת אותו hash). עד ש-`data_sha256` נקבע, כל ריצה ו-dry run של קונפיג sec מסרבים. שלב ה-workflow שמריץ את הבנייה מעביר את ה-secret כמשתנה סביבה.
+
+**8.1 Smoke, ואז baseline על dev, ואז ה-gate** (workflow; שלושת המודלים הראשיים; מפתחות `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`).
 
 | שדה | ערך |
 |---|---|
 | Use workflow from (Branch) | `main` |
-| Run config (path in the repository) | `configs/dev_grab_rag_supportive.toml` |
+| Run config (path in the repository) | `configs/dev_sec_smoke.toml`, אחר כך `configs/dev_sec_baseline.toml`, אחר כך `configs/dev_sec_gated.toml` |
 | Model label from the config, or "all" (one parallel job per model) | `all` |
-| Dry run: count calls and estimate cost; no model API is called | לא מסומן |
-| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
+| Dry run: count calls and estimate cost; no model API is called | קודם מסומן (חינם), אחר כך לא מסומן |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן בריצה בתשלום |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק, חוץ מ-`configs/dev_sec_gated.toml`: מספר ה-workflow run של ריצת `configs/dev_sec_baseline.toml` |
 
-ניתוח (CLI): `python -m binding_gate.cli analyze runs/<run_id> --out analysis-dev-grab-rag`.
+`configs/dev_sec_gated.toml` מריץ את הזרועות של ריצת ה-test המוקפאת של שכבה 2 (`no_gate` משוחזר, `faithfulness_checker`, `gated`, חמשת ה-ablations); משלמים רק על ה-decomposer. ניתוח (CLI): `python -m binding_gate.cli analyze runs/<run_id> --out analysis-dev-sec` (H1 ו-H2 לכל מודל, מסומנים כלא מאששים על dev).
 
 ### שלב 9 — הקפאה
 
 1. לסגור כל פריט בסעיף 17 שנוגע לשכבה שמוקפאת (אישורים והחלטות עם תאריך), כולל תוכנית התקציב (פריט 43) והתקרות שחושבו מחדש לפי השימוש שנמדד ב-dev (פריט 13).
-2. ב-pull request אחד: לאשר את קונפיגי ה-test של השכבה (או השכבות) שמוקפאות (שכבה 1: `configs/test_layer1.toml` ו-`configs/test_layer1_midtier.toml`; שכבה 2: `configs/test_grab_rag_supportive.toml`; שכבה 3: `configs/test_live.toml`), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
+2. ב-pull request אחד: לאשר את קונפיגי ה-test של השכבה (או השכבות) שמוקפאות (שכבה 1: `configs/test_layer1.toml` ו-`configs/test_layer1_midtier.toml`; שכבה 2: `configs/test_sec.toml`; שכבה 3: `configs/test_live.toml`), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
 3. לתייג בדיוק את ה-merge commit בשם `prereg-freeze-1` (לשכבות הבאות `-2`, `-3`; אם שלוש השכבות מוקפאות יחד, תג אחד משמש את כל הריצות המוקפאות). ב-GitHub: **Releases ← Draft a new release ← Choose a tag** ← להקליד `prereg-freeze-1` ← **Create new tag on publish** ← Target: `main` ← **Publish release**. או ב-CLI:
 
    ```bash
@@ -1112,16 +1152,14 @@ python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.
 
 ריצה שנעצרה בתקרה ממשיכים עם `--resume runs/<run_id>` (גישה נוספת שנרשמת).
 
-#### 10ב — שכבה 2, צד העלות (גישושי; הערכה 0.13 עד 0.56 דולר, תקרה 0.60)
+#### 10ב — שכבה 2, דוחות SEC (H1 ו-H2; הערכה 0.78 עד 2.55 דולר, תקרות 0.50 + 1.20 + 1.05)
 
-הפריטים התומכים של GRAB-RAG ב-606 שאלות ה-test, סלוט A, `no_gate` ו-`gated`. הניתוח משתמש בכלל `grab_rag_answer` ומדווח M1, M2 וטבלאות התוצאות **בלי החלטה** (לשכבה 2 אין סף; כל ההשערות יופיעו שם כ-NOT EVALUABLE). צריך רק `OPENAI_API_KEY`.
+שלושת המודלים הראשיים על כל פריטי ה-test של `sec_financials`: `no_gate`, `faithfulness_checker`, `gated` וחמשת ה-ablations; הניתוח משתמש בכלל `sec_answer` ומכריע H1 ו-H2 לכל מודל. צריך `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`, את המאגר המוצמד ב-`data/raw/sec-financials/` (שלב 8.0; אם הוא לא על המחשב הזה, לבנות אותו מחדש עם `SEC_CONTACT_EMAIL`: ה-adapter בודק את ה-hash המוצמד) ואת משקלות MiniCheck (`python -m binding_gate.arms.faithfulness_checker prepare`).
 
 ```bash
-python -m pip install -e ".[dev,plots]"
-git clone https://github.com/andre44s/grab-rag data/raw/grab-rag      # אם עוד לא קיים
-git -C data/raw/grab-rag checkout 2006561476b39a6cd1ebc0ab5df1b09af01dbcab
-python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
-    --tag prereg-freeze-2 --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
+python -m pip install -e ".[dev,plots,faithfulness]"
+python -m binding_gate.cli frozen-test-run --config configs/test_sec.toml \
+    --tag prereg-freeze-2 --purpose "layer-2 confirmatory test run (SEC filings)" --confirm-spend
 ```
 
 להשתמש בתג של השלב שהקפיא את שכבה 2 (`prereg-freeze-1` אם כל השכבות הוקפאו יחד).
@@ -1164,7 +1202,7 @@ python -m binding_gate.audit_tool analyze --sample audit/sample.json --labels au
 python -m binding_gate.report build \
     --analysis results/layer1/<test_run_id>/analysis --run-dir results/layer1/<test_run_id> \
     --analysis results/layer1/<midtier_run_id>/analysis --run-dir results/layer1/<midtier_run_id> \
-    --analysis results/layer2/<grab_rag_test_run_id>/analysis --run-dir results/layer2/<grab_rag_test_run_id> \
+    --analysis results/layer2/<sec_test_run_id>/analysis --run-dir results/layer2/<sec_test_run_id> \
     --analysis results/layer3/<live_test_run_id>/analysis --run-dir results/layer3/<live_test_run_id> \
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```

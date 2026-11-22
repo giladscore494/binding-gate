@@ -72,11 +72,22 @@ def test_the_caps_of_all_configs_referenced_by_the_plan_sum_to_at_most_50_usd():
 
 
 def test_no_planned_run_is_left_without_a_config():
-    """PR 16 (section 17, item 39): the test configs of layers 2 and 3 exist and enforce their planned caps."""
+    """PR 16 (section 17, item 39) and PR 17: the test configs of layers 2 and 3 exist and enforce their planned caps."""
     assert [r for r in RUNS if r["kind"] == "planned"] == []
     by_id = {r["id"]: r for r in RUNS}
     assert by_id["test_live"]["config"] == "configs/test_live.toml"
-    assert by_id["test_grab_rag_supportive"]["config"] == "configs/test_grab_rag_supportive.toml"
+    assert by_id["test_sec"]["config"] == "configs/test_sec.toml"
+    assert not any("grab_rag" in r["config"] for r in RUNS)  # PR 17: GRAB-RAG is in the extended design only
+
+
+def test_pr17_totals_and_the_layer_2_entries():
+    """PR 17: layer 2 is the SEC financial-filings layer; GRAB-RAG left the plan; nothing else changed."""
+    by_id = {r["id"]: r for r in RUNS}
+    sec = [by_id[i] for i in ("dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated", "test_sec")]
+    assert round(sum(r["high_usd"] for r in sec), 2) == 4.28 and round(sum(r["cap_usd"] for r in sec), 2) == 5.05
+    assert round(sum(r["high_usd"] for r in RUNS), 2) == 42.57 and round(sum(r["cap_usd"] for r in RUNS), 2) == 47.75
+    assert by_id["test_layer1"]["cap_usd"] == 16.75 and by_id["test_layer1_midtier"]["cap_usd"] == 6.95
+    assert by_id["rescore_dev_llm_judge"]["cap_usd"] == 4.75 and by_id["dev_baselines"]["cap_usd"] == 1.10
 
 
 def test_every_paid_config_is_in_the_plan_or_marked_extended():
