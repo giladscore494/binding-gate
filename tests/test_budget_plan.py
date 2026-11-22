@@ -85,7 +85,8 @@ def test_pr17_totals_and_the_layer_2_entries():
     by_id = {r["id"]: r for r in RUNS}
     sec = [by_id[i] for i in ("dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated", "test_sec")]
     assert round(sum(r["high_usd"] for r in sec), 2) == 4.28 and round(sum(r["cap_usd"] for r in sec), 2) == 5.05
-    assert round(sum(r["high_usd"] for r in RUNS), 2) == 42.57 and round(sum(r["cap_usd"] for r in RUNS), 2) == 47.75
+    # PR 18 added dev_gated_scope and dev_sec_gated_scope (0.21 HIGH, 0.60 caps); see test_pr18_scope_runs
+    assert round(sum(r["high_usd"] for r in RUNS), 2) == 42.78 and round(sum(r["cap_usd"] for r in RUNS), 2) == 48.35
     assert by_id["test_layer1"]["cap_usd"] == 16.75 and by_id["test_layer1_midtier"]["cap_usd"] == 6.95
     assert by_id["rescore_dev_llm_judge"]["cap_usd"] == 4.75 and by_id["dev_baselines"]["cap_usd"] == 1.10
 
@@ -159,3 +160,14 @@ def test_the_plan_reproduces_the_dry_run_of_the_dev_baseline():
     (entry,) = [r for r in RUNS if r["id"] == "dev_baseline"]
     assert entry["low_usd"] == pytest.approx(sum(report.model_total(m.label, "cost_low") for m in report.models), abs=0.01)
     assert entry["high_usd"] == pytest.approx(sum(report.model_total(m.label, "cost_high") for m in report.models), abs=0.01)
+
+
+def test_pr18_scope_runs_cost_what_their_gated_counterparts_cost_and_fit_the_room_left():
+    """PR 18: the binding-scope candidate runs pay only the decomposer (answers seeded), like dev_gated / dev_sec_gated."""
+    by_id = {r["id"]: r for r in RUNS}
+    for scope, base in (("dev_gated_scope", "dev_gated"), ("dev_sec_gated_scope", "dev_sec_gated")):
+        entry = by_id[scope]
+        assert entry["config"] == f"configs/{scope}.toml" and entry["invocations"] == 1
+        assert (entry["low_usd"], entry["high_usd"], entry["cap_usd"]) == (
+            by_id[base]["low_usd"], by_id[base]["high_usd"], by_id[base]["cap_usd"])
+        assert entry["cap_usd"] <= 50.0 - 47.75 - 0.30  # within the room PR 17 left, with the other scope run

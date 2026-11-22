@@ -130,6 +130,7 @@ lead_max_tokens = 4                # longest lead term considered a document sub
 lead_min_repeats = 2               # a lead term must recur in its document
 premise_scope = "document"         # key terms looked up in the whole cited document
 competitor_tie = "fail"            # equal distance of entity and competitor blocks
+binding_scope = "window"           # PR 18: THE line set to the setting chosen by section 5.1 (calibration --select-scope)
 [arms.options.decomposer]
 name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
 [arms.options.decomposer.options]

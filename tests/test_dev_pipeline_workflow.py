@@ -218,7 +218,8 @@ def test_the_sec_dataset_is_prepared_with_a_cache_and_reports_the_hash_to_pin():
 
 
 def test_layer2_dev_is_wired_smoke_check_baseline_gated_analysis():
-    assert [JOBS[n]["with"]["config"] for n in ("layer2-smoke", "layer2-baseline", "layer2-gated")] == list(pipeline.STAGES["layer2-dev"])
+    assert [JOBS[n]["with"]["config"] for n in ("layer2-smoke", "layer2-baseline", "layer2-gated", "layer2-gated-scope")] == list(
+        pipeline.STAGES["layer2-dev"])  # PR 18: the binding-scope candidates after the gated run
     smoke_if = JOBS["layer2-smoke"]["if"]
     assert "inputs.stage == 'layer2-dev'" in smoke_if and "inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success'" in smoke_if
     assert "dev-analysis" in JOBS["layer2-smoke"]["needs"]  # all-dev: layer 2 after dev-rest
@@ -226,7 +227,9 @@ def test_layer2_dev_is_wired_smoke_check_baseline_gated_analysis():
     (pattern,) = [s["with"]["pattern"] for s in steps(JOBS["layer2-smoke-check"]) if "download-artifact" in str(s.get("uses"))]
     assert pattern == "layer2-dev--dev_sec_smoke--runs-*"
     patterns = [s["with"]["pattern"] for s in steps(JOBS["layer2-analysis"]) if "download-artifact" in str(s.get("uses"))]
-    assert patterns == ["layer2-dev--dev_sec_baseline--runs-*", "layer2-dev--dev_sec_gated--runs-*"]
+    assert patterns == ["layer2-dev--dev_sec_baseline--runs-*", "layer2-dev--dev_sec_gated--runs-*",
+                        "layer2-dev--dev_sec_gated_scope--runs-*"]
+    assert "layer2-gated-scope" in JOBS["layer2-analysis"]["needs"]
     # layer 3 waits for layer 2 in all-dev but does not depend on its success (e.g. while the SEC pin is UNPINNED)
     assert "layer2-analysis" in JOBS["layer3-smoke"]["needs"] and "layer2" not in JOBS["layer3-smoke"]["if"]
     assert "dev-grab-rag" not in JOBS

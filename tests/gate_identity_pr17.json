@@ -1,0 +1,37 @@
+{
+  "groups": {
+    "dg/lead2_rep3": {
+      "n": 480,
+      "sha256": "751602b2fa4bcc85cc62faa94bf565a4cbc130fd4a44ff89cfae4e233c7b6a94"
+    },
+    "dg/proposed": {
+      "n": 480,
+      "sha256": "175725222c7a45e0255462081aa23e0880ecabe73cebc86e8faea6ad46adebf3"
+    },
+    "dg/w10_pass": {
+      "n": 480,
+      "sha256": "47bdb490ff88bb6e0c3e611489a445b95611a4c3cae787d6b99bd76db9d2bef5"
+    },
+    "dg/w80_premise_window": {
+      "n": 480,
+      "sha256": "249a8d2fc1e1768b0cd4e30eefcb16172ecdc5694e33710e8c17e46e4495c1c6"
+    },
+    "sec/lead2_rep3": {
+      "n": 432,
+      "sha256": "ba85cdde7fe219c8b5ed95ec1d270ee4696d75bf556af6507253f5f03032deee"
+    },
+    "sec/proposed": {
+      "n": 432,
+      "sha256": "d607cc6e99d46aa1a8bc2f3a4d53e8b6c4e024e746506a5e15db46d8204fb42a"
+    },
+    "sec/w10_pass": {
+      "n": 432,
+      "sha256": "72bd26f7ae4cf6fa8112c6fc597bee492847a0bc5089b35582b5a63deac5218b"
+    },
+    "sec/w80_premise_window": {
+      "n": 432,
+      "sha256": "5cb632d11a904f0e2b484cfc7b0eb44266110873056aca9a384c524a194577b3"
+    }
+  },
+  "source": "main at d8c33f8 (PRs 1-17), computed before any PR 18 change to src/"
+}

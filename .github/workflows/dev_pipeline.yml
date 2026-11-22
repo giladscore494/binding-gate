@@ -408,9 +408,24 @@ jobs:
       artifact_prefix: dev-rest--dev_gated--
     secrets: inherit
 
+  dev-gated-scope:
+    name: dev_gated_scope (PR 18 binding-scope candidates)
+    needs: [dev-rest-gate, dev-gated]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_gated_scope.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_gated_scope--
+    secrets: inherit
+
   ablation-quote-verbatim:
     name: dev_ablation_quote_verbatim
-    needs: [dev-rest-gate, dev-gated]
+    needs: [dev-rest-gate, dev-gated-scope]
     if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
     uses: ./.github/workflows/baseline.yml
     with:
@@ -608,7 +623,7 @@ jobs:
           path: dev-runs/dev-baseline
           run-id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
           github-token: ${{ github.token }}
-      - name: Calibration (dev-gated traces) and cli analyze per config
+      - name: Calibration (dev-gated traces), cli analyze per config and the binding-scope selection (PR 18)
         id: analysis
         run: |
           set +e
@@ -768,9 +783,24 @@ jobs:
       artifact_prefix: layer2-dev--dev_sec_gated--
     secrets: inherit
 
+  layer2-gated-scope:
+    name: dev_sec_gated_scope (PR 18 binding-scope candidates; answers seeded from dev_sec_baseline of this workflow run)
+    needs: [plan, layer2-baseline, layer2-gated]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_sec_gated_scope.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ github.run_id }}
+      seed_pattern: layer2-dev--dev_sec_baseline--runs-*
+      artifact_prefix: layer2-dev--dev_sec_gated_scope--
+    secrets: inherit
+
   layer2-analysis:
-    name: analysis of the SEC dev runs (no model call)
-    needs: [layer2-baseline, layer2-gated]
+    name: analysis of the SEC dev runs and the binding-scope selection (no model call)
+    needs: [layer2-baseline, layer2-gated, layer2-gated-scope]
     if: ${{ !cancelled() && needs.layer2-baseline.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -791,7 +821,12 @@ jobs:
         with:
           pattern: layer2-dev--dev_sec_gated--runs-*
           path: sec-runs/gated
-      - name: cli analyze per config (layer-2 rule, from the sec_answer score)
+      - name: Download the SEC binding-scope run directories of this workflow run (PR 18)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: layer2-dev--dev_sec_gated_scope--runs-*
+          path: sec-runs/gated-scope
+      - name: cli analyze per config (layer-2 rule, from the sec_answer score) and the binding-scope selection (PR 18)
         id: analysis
         run: |
           set +e

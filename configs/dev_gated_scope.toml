@@ -1,0 +1,217 @@
+# PR 18 dev run of the binding-scope candidates on layer 1 (PREREGISTRATION.md section 5.1, "Binding
+# scope"; configs/budget.toml, run "dev_gated_scope"). Same dataset, models, sampling, scorer, decomposer
+# and gate parameters as configs/dev_gated.toml; the only difference between its four gated arms is the
+# gate parameter `binding_scope` (src/binding_gate/gates/binding.py, BINDING_SCOPES):
+#
+#   gated                      binding_scope = "window"         (the PROPOSED default; = dev_gated's gate)
+#   gated_scope_subject        binding_scope = "subject"        (entity and qualifiers also bound by the
+#                                                                cited document's subject)
+#   gated_scope_table          binding_scope = "table"          (qualifiers bound by table cells)
+#   gated_scope_subject_table  binding_scope = "subject_table"  (both)
+#
+# The pre-registered rule chooses the frozen setting from THIS run's dev traces, per layer:
+#   python -m binding_gate.gates.calibration --select-scope <run dirs of this config>
+# (run automatically by the dev-analysis job of the dev pipeline). The chosen line `binding_scope = "..."`
+# then goes into the gated arm of configs/test_layer1.toml (and test_layer1_midtier.toml) before the tag.
+#
+# Cost: `seed_responses_from = ["seeds/*"]` reuses the dev baseline's answers (zero answer calls), and the
+# four gated arms share ONE decomposition per distinct question per model job (the decomposer cache of a
+# process is shared by all gated arms), so the run costs what configs/dev_gated.toml costs: the decomposer
+# only (45 dev questions per model job). A paid run refuses if no seed run was downloaded.
+#
+# Gate parameters are PROPOSED values (section 5.1) and require owner approval before the freeze.
+# Nothing in this file is read from environment variables; only API keys are (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-gated-scope"
+description = "PR 18: no_gate (seeded) and the gated arm under each candidate binding_scope (section 5.1 selection) on the dev split, 1 repeat, primary models."
+split = "dev"
+repeats = 1
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer included). This run's allotment in configs/budget.toml (run
+# "dev_gated_scope"), above its HIGH estimate; sum of caps 0.3 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+seed_responses_from = ["seeds/*"]      # PR 13: every run of the workflow run given in seed_run_id
+max_usd = 0.1
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot H
+name = "zai_chat"
+label = "zai-low"
+[models.options]
+model_id = "glm-5.3-flash"
+max_output_tokens = 4096
+temperature = 0.0                        # documented range [0.0, 1.0] (docs.z.ai); UNVERIFIED live, see the header
+thinking = { type = "enabled" }          # GLM-5.3 models cannot disable thinking (docs.z.ai, read 2026-11-22)
+reasoning_effort = "low"                 # lowest setting for GLM-5.3 / GLM-5.3-Flash (section 9; docs.z.ai)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+binding_scope = "window"           # PR 18 candidate setting (section 5.1, "Binding scope")
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_scope_subject"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+binding_scope = "subject"          # PR 18 candidate setting (section 5.1, "Binding scope")
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_scope_table"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+binding_scope = "table"            # PR 18 candidate setting (section 5.1, "Binding scope")
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_scope_subject_table"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+binding_scope = "subject_table"    # PR 18 candidate setting (section 5.1, "Binding scope")
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

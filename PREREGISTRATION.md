@@ -2,9 +2,28 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.8 (2026-11-22, PR 17)
+**Document version:** 0.9 (2026-11-22, PR 18)
 
-**Changelog.** 0.8 (2026-11-22, PR 17): layer 2 replaced (decided by the
+**Changelog.** 0.9 (2026-11-22, PR 18): binding-scope options of the gate and a
+pre-registered rule that chooses among them on dev data (section 5.1, "Binding
+scope"), written before any real model output exists. Two signals obtained
+without real outputs - the orchestrator's integration run with a scripted fake
+model on the layer-1 dev split (29.5% of correct answers blocked) and the
+layer-2 fixtures (correct figures far below the statement title blocked; a
+prior-year figure in the same row accepted) - showed that window proximity is the
+wrong test for a document whose whole subject is one entity and for tables. New
+gate options `entity_scope`, `qualifier_scope` (window, document subject, or
+either), `table_binding` (row/column binding of table cells) and the shorthand
+`binding_scope` (four candidate settings); `premise_scope` gains two subject
+values that are not candidates. The defaults reproduce the gate of version 0.8
+byte for byte (tested), so nothing changes until the rule is applied. New dev
+runs `configs/dev_gated_scope.toml` and `configs/dev_sec_gated_scope.toml`
+(answers reused, decomposer only; budget plan: planned HIGH 42.78 USD, sum of
+caps 48.35 USD; section 9). The chosen setting is frozen per layer as one line
+in the gated arm of the layer's test config. No threshold, model, sample-size
+rule or existing gate parameter value changed. Status stays DRAFT; every new
+value is PROPOSED.
+0.8 (2026-11-22, PR 17): layer 2 replaced (decided by the
 orchestrator under the owner's delegation). Layer 2 is now **financial facts from
 US public-company annual reports** (SEC EDGAR, dataset `sec_financials`), a
 **second confirmatory layer** for H1 and H2, evaluated per primary model with the
@@ -968,6 +987,94 @@ using `python -m binding_gate.gates.calibration`, which re-evaluates recorded
 dev traces under other parameter values without calling any model and refuses
 any run or record that is not from the dev split.
 
+**Binding scope (version 0.9, PR 18).** **PROPOSED — requires owner approval
+before freeze.** Window proximity is the right test in running prose that
+discusses several entities. It is the wrong test (a) in a document whose whole
+subject is one entity (a drug monograph, one company's statements), where a
+correct statement can lie far from the nearest repetition of the name or of
+the condition, and (b) in tables, where a value is bound to its conditions by
+its row and column, not by distance (every year of a multi-year row is within a
+few tokens of every value of that row). Three gate options, all deterministic,
+gold-free and domain-agnostic, address this; their defaults are the behaviour
+of version 0.8 (byte-identical verdicts, tested on the layer-1 and layer-2
+fixtures and on the real layer-1 dev split with scripted answers):
+
+- *Document subject.* The subject of a document is its lead term (the rule of
+  "Competing entity" above, same `lead_max_tokens` and `lead_min_repeats`)
+  after skipping one leading article (a, an, the). The cited document is *bound
+  to the question's entity by its subject* when (1) it has a subject; (2) the
+  subject contains the token sequence of the entity name or an alias (a leading
+  article of the name ignored), so a longer name of the entity binds it and a
+  generic shorter word does not; (3) the subject is not related (equal,
+  containing or contained) to any competitor candidate; and (4) no competitor
+  candidate is mentioned within the window of the anchor (mentions overlapping
+  an entity mention ignored).
+- `entity_scope` (`entity_in_window`): `"window"` (default; the rule of check
+  2), `"document_subject"` (pass iff the cited document is bound to the entity
+  by its subject), `"window_or_document_subject"` (pass if either passes).
+- `qualifier_scope` (`qualifiers_in_window`), per qualifier, the same three
+  values: within the window; anywhere in a cited document bound to the entity
+  by its subject; or either. Justification: a condition a single-subject
+  document is about (the disease of a drug-for-disease document) is stated
+  once and governs the whole document; the subject guard keeps the window rule
+  for documents about another entity or about several.
+- `table_binding` (`qualifiers_in_window`; default false). Table lines are
+  detected deterministically in three formats (`checks/_tables.py`): flattened
+  rows `"row label | column header: cell | ..."` (the statement format of the
+  layer-2 builder), pipe tables (`| a | b |`, header row first, separator rows
+  ignored, equal cell counts) and tab tables (at least two lines with the same
+  number of tab-separated fields, header row first); a table's caption is the
+  nearest text line above it that does not end with a colon and has at most 40
+  tokens. When the anchor occurrence of the quote overlaps value cells, the
+  *bound cells* are those cells, narrowed (if more than one) to the cells
+  containing a number of the answer's value (compared by digits only). Each
+  qualifier is then decided by the table first: if one of its forms is
+  mentioned in some column header of the bound cells' tables, it passes iff it
+  is mentioned in the column header of every bound cell (so a same-row value in
+  another column FAILS, whatever the window says); else, if a form is in some
+  row label of those tables, it passes iff it is in the row label of every
+  bound cell; else it passes if it is in the caption, or by `qualifier_scope`.
+  A quote in no value cell is decided by `qualifier_scope` alone. Limits: no
+  HTML, space-aligned or multi-row-header tables; captions are a heuristic.
+- `premise_scope` gains `"document_subject"` and
+  `"window_or_document_subject"` (the key-term rule restricted to a cited
+  document bound to the entity by its subject, or the window). They are not
+  candidates: the default `"document"` already accepts a key term anywhere in
+  the cited document, so they can only block more answers; they exist for
+  ablation.
+- `binding_scope` is a shorthand for the three options, with four fixed
+  candidate settings: `window` (window, window, false; the default), `subject`
+  (window_or_document_subject for entity and qualifiers, false), `table`
+  (window, window, true) and `subject_table` (both). Each option can also be
+  set on its own (calibration, ablations).
+
+**Selection rule (PROPOSED numbers; fixed before any real model output).** The
+binding scope is the one gate setting chosen **per layer** (layers 1 and 2;
+layer 3 keeps the default `window`, its gate is not part of this selection). For each layer, the dev run of its
+scope config (`configs/dev_gated_scope.toml`, `configs/dev_sec_gated_scope.toml`:
+one gated arm per candidate, identical except for `binding_scope`, judging the
+same reused answers) is analysed with the layer's own rule (section 8; M1 and
+M2 per model). For each candidate, `M2max` is the largest dev M2 over the
+primary models and `M1mean` the unweighted mean of their dev M1. A candidate is
+*feasible* when `M2max ≤ 0.08` (a margin below the H2 threshold of 0.10). The
+chosen setting is the feasible candidate with the smallest `M1mean`; ties are
+broken by fewer enabled options, then by the order window, subject, table,
+subject_table. If no candidate is feasible, the chosen setting is the one with
+the smallest `M2max` (ties: smaller `M1mean`, then as before) and the report
+states that H2 is at risk on that layer. A candidate with an undefined M1 or M2
+for some model is not feasible; if a candidate is missing or every `M2max` is
+undefined, nothing is chosen. `python -m binding_gate.gates.calibration
+--select-scope RUN_DIR...` computes this from the dev traces (the dev
+pipeline's analysis jobs run it) and prints the chosen setting. Before the
+freeze tag of a layer, the chosen setting is written as the one line
+`binding_scope = "<name>"` in the gated arm of that layer's test config
+(`configs/test_layer1.toml`, mirrored in the exploratory
+`configs/test_layer1_midtier.toml`; `configs/test_sec.toml`); tests require
+the test arm to equal the chosen candidate arm of the dev scope config. The
+ablation arms remain ablations of the default (`window`) gate. Fake-model
+indications (`tests/scope_effect.py`) are not evidence and played no part in
+this rule.
+
 ## 6. Scoring
 
 ### 6.1 Text normalisation for "verbatim"
@@ -1735,11 +1842,13 @@ reported size; searches free (SerpApi Free plan).
 | layer 2 smoke (`dev_sec_smoke.toml`) | A, E, H | first 2 dev companies (6 items) | 0.01 | 0.03 | 0.30 |
 | layer 2 dev baseline (`dev_sec_baseline.toml`) | A, E, H | SEC dev items (about 300; at most 360) | 0.52 | 1.55 | 1.70 |
 | layer 2 gate and ablations (`dev_sec_gated.toml`) | A, E, H | SEC dev items (answers reused): decomposer | 0.00 | 0.15 | 0.30 |
+| layer 1 binding-scope candidates (`dev_gated_scope.toml`, version 0.9) | A, E, H | 1,455 dev items (answers reused): decomposer | 0.00 | 0.06 | 0.30 |
+| layer 2 binding-scope candidates (`dev_sec_gated_scope.toml`, version 0.9) | A, E, H | SEC dev items (answers reused): decomposer | 0.00 | 0.15 | 0.30 |
 | **layer 1 test, confirmatory** (`test_layer1.toml`) | A, E, H | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 5.98 | 15.85 | 16.75 |
 | mid-tier check (`test_layer1_midtier.toml`) | B, F, I | 225 test items | 2.47 | 6.55 | 6.95 |
 | layer 3 test, confirmatory (`test_live.toml`) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
 | **layer 2 test, confirmatory** (`test_sec.toml`) | A, E, H | SEC test items (about 450; at most 540) | 0.78 | 2.55 | 2.75 |
-| **Total** | | | **14.25** | **42.57** | **47.75** |
+| **Total** | | | **14.25** | **42.78** | **48.35** |
 
 *Version 0.8.* GRAB-RAG's two runs (0.22 / 0.92 / 1.00 USD) left the plan; the
 four layer-2 runs were estimated by dry runs on a synthetic EDGAR stand-in with
@@ -2209,7 +2318,19 @@ section in the generator.
   window, `qualifiers_in_window` cannot catch a prior-year figure from the same
   row. These are properties of the pre-registered gate on tabular evidence; no
   gate parameter was changed for layer 2. Names that start with a function word
-  ("The ... Company") yield no competitor candidate.
+  ("The ... Company") yield no competitor candidate. Version 0.9 adds
+  binding-scope options for exactly these cases (section 5.1); whether they are
+  used is decided by the pre-registered selection rule on dev data.
+- **Binding-scope selection (version 0.9).** Choosing among four candidate
+  settings on dev data is a small, pre-registered garden of forking paths: the
+  dev M1 and M2 of the chosen setting are optimistic for that layer, which the
+  margin of 0.08 below the H2 threshold only partly offsets; the test result is
+  the confirmatory estimate. The subject rule trusts a document's leading name:
+  a document that names the entity first but is about another entity can be
+  bound wrongly (conditions 3 and 4 guard only against competitor candidates the
+  gate can see). Table detection is limited to three line formats, and a
+  qualifier that matches no column header falls back to the window or the
+  subject rule.
 - **Layer 2: conversion and data errors.** EDGAR's rendering of the statements,
   our HTML-to-text flattening, the size cut and the concept rules can drop or
   mislabel rows; an item whose gold value is not displayed in the kept text is
@@ -2402,7 +2523,8 @@ named, with the result entered in the section named.
     the quote, or not in the cited document). Real models may quote
     differently, so this is not an estimate of M2; it is the reason the window
     and the qualifier and premise checks are calibrated on dev traces before
-    the freeze.
+    the freeze. Version 0.9 adds the binding-scope options and their selection
+    rule (section 5.1; items 56 and 57).
 
 **(D) Engineering items.** Closed by a pull request (or, for item 41, by the
 owner in the repository settings).
@@ -2477,7 +2599,9 @@ owner in the repository settings).
     repeats, `llm_judge_checks` on test, the judges beyond 60 dev items, layer 3
     for slot H, the misleading condition of layer 2), the subsample sizes and
     the reserve (version 0.6: planned high 39.21 USD, caps 43.70 USD; version
-    0.8: planned high 42.57 USD, caps 47.75 USD, with layer 2 replaced).
+    0.8: planned high 42.57 USD, caps 47.75 USD, with layer 2 replaced; version
+    0.9: planned high 42.78 USD, caps 48.35 USD, with the two binding-scope dev
+    runs).
 44. Repository secret `ZAI_API_KEY` (slots H, I; version 0.6) and a monthly
     spending limit or prepaid balance set by the owner at every provider used
     (OpenAI, Google, Z.ai, Moonshot) as the outer safety net (docs/RUNNING.md,
@@ -2516,9 +2640,24 @@ owner in the repository settings).
 54. The risk for H2 on layer 2 from the window rule on tables (section 16):
     accepted as a pre-registered property of the gate, or addressed by an
     amendment before any layer-2 dev result is seen (any change of a gate
-    parameter would apply to every layer).
+    parameter would apply to every layer). *Addressed in version 0.9 (PR 18):
+    binding-scope options and a per-layer selection rule (section 5.1, "Binding
+    scope"); closed when items 56 and 57 are.*
 55. Whether the dev baseline of layer 2 gets a stop rule like section 10 (none
     is pre-registered; the layer is run regardless of its baseline rate).
+
+**(F) Binding scope (version 0.9, PR 18).**
+
+56. Owner approval of the binding-scope options, their definitions, the four
+    candidate settings and the selection rule with its PROPOSED margin
+    `M2max ≤ 0.08` (section 5.1, "Binding scope").
+57. Apply the rule to the dev runs of `configs/dev_gated_scope.toml` and
+    `configs/dev_sec_gated_scope.toml` (`python -m binding_gate.gates.calibration
+    --select-scope`), record the chosen setting with every candidate's dev
+    `M1mean` and `M2max` in section 5.1, and set the one line `binding_scope =
+    "<name>"` in the gated arm of `configs/test_layer1.toml` (and
+    `configs/test_layer1_midtier.toml`) and of `configs/test_sec.toml` before
+    the tag of the layer.
 
 *Closed earlier, kept for the record:* layer-1 facts from the real files
 (PR 2; section 3, facts 1-11); "correct" for layer 1 cannot be tightened to a

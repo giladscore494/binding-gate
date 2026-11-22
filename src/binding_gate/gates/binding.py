@@ -23,10 +23,42 @@ lead_max_tokens     4          no_closer_competitor
 lead_min_repeats    2          no_closer_competitor
 premise_scope       document   premise_present
 competitor_tie      fail       no_closer_competitor
+entity_scope        window     entity_in_window                         (PR 18)
+qualifier_scope     window     qualifiers_in_window                     (PR 18)
+table_binding       false      qualifiers_in_window                     (PR 18)
+binding_scope       window     shorthand for the three above, see below (PR 18)
 ==================  =========  ==================================================
+
+(PR 18) ``lead_max_tokens`` and ``lead_min_repeats`` are also passed to
+``entity_in_window``, ``qualifiers_in_window`` and ``premise_present``, which use
+them only under a document-subject scope (the subject of a document is read with
+the same lead-term rule as a competing entity). With the defaults of the three
+new options every check behaves, and reports, exactly as before PR 18.
 
 All PROPOSED values require owner approval before the pre-registration is
 frozen (PREREGISTRATION.md section 5.1).
+
+Binding-scope profiles (PR 18)
+------------------------------
+``binding_scope`` names one of the fixed profiles :data:`BINDING_SCOPES`, each a
+value of ``entity_scope``, ``qualifier_scope`` and ``table_binding``; they are the
+candidate settings of the pre-registered selection rule (PREREGISTRATION.md
+section 5.1, "Binding scope"), so that the frozen choice is ONE line
+(``binding_scope = "<name>"``) in the gated arm of a test config:
+
+=================  ==========================  ==========================  =============
+binding_scope      entity_scope                qualifier_scope             table_binding
+=================  ==========================  ==========================  =============
+window (default)   window                      window                      false
+subject            window_or_document_subject  window_or_document_subject  false
+table              window                      window                      true
+subject_table      window_or_document_subject  window_or_document_subject  true
+=================  ==========================  ==========================  =============
+
+The three options can also be set one by one (ablations, calibration). Setting
+``binding_scope`` together with one of them to a DIFFERENT value than the
+profile's is an error. ``gate.parameters["binding_scope"]`` reports the profile
+that matches the effective three values, or ``"custom"`` when none does.
 
 Decision table (function :func:`decide`)
 ----------------------------------------
@@ -61,7 +93,7 @@ the attribute and the qualifier texts joined by single spaces.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from binding_gate import registry
 from binding_gate.canonical import canonical_json
@@ -95,15 +127,65 @@ DEFAULT_PARAMETERS: dict[str, Any] = {
     "lead_min_repeats": 2,
     "premise_scope": "document",
     "competitor_tie": "fail",
+    "entity_scope": "window",
+    "qualifier_scope": "window",
+    "table_binding": False,
+    "binding_scope": "window",
 }
-"""PROPOSED values (PREREGISTRATION.md section 5.1); the run config states them explicitly."""
+"""PROPOSED values (PREREGISTRATION.md section 5.1); the run config states them explicitly (the PR 18
+options ``entity_scope``, ``qualifier_scope``, ``table_binding`` and ``binding_scope`` may be left out: their
+defaults are the behaviour before PR 18)."""
+
+SCOPE_OPTIONS: tuple[str, ...] = ("entity_scope", "qualifier_scope", "table_binding")
+BINDING_SCOPES: dict[str, dict[str, Any]] = {
+    "window": {"entity_scope": "window", "qualifier_scope": "window", "table_binding": False},
+    "subject": {"entity_scope": "window_or_document_subject", "qualifier_scope": "window_or_document_subject",
+                "table_binding": False},
+    "table": {"entity_scope": "window", "qualifier_scope": "window", "table_binding": True},
+    "subject_table": {"entity_scope": "window_or_document_subject", "qualifier_scope": "window_or_document_subject",
+                      "table_binding": True},
+}
+"""The binding-scope profiles (candidate settings of the section 5.1 selection rule), in their canonical order."""
+CUSTOM_SCOPE = "custom"
+SCOPE_PARAMETERS: tuple[str, ...] = (*SCOPE_OPTIONS, "binding_scope")
+"""The gate parameters added by PR 18; a run config that leaves them out gets the pre-PR-18 behaviour."""
+
+
+def enabled_scope_options(profile: str) -> int:
+    """How many of the three scope options a profile turns on (the tie-break of the selection rule)."""
+    values = BINDING_SCOPES[profile]
+    return sum(values[key] != BINDING_SCOPES["window"][key] for key in SCOPE_OPTIONS)
+
+
+def resolve_scope(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    """The effective ``entity_scope``, ``qualifier_scope``, ``table_binding`` and the matching ``binding_scope``.
+
+    ``parameters`` are the EXPLICIT gate parameters. A given ``binding_scope`` sets the three options; an option
+    given as well must agree with it. Without ``binding_scope`` the options default one by one.
+    """
+    profile_name = parameters.get("binding_scope")
+    if profile_name is not None and profile_name not in BINDING_SCOPES:
+        raise ValueError(f"binding_scope must be one of {list(BINDING_SCOPES)}, got {profile_name!r}")
+    base = BINDING_SCOPES[profile_name] if profile_name is not None else BINDING_SCOPES["window"]
+    effective: dict[str, Any] = {}
+    for key in SCOPE_OPTIONS:
+        if key in parameters and profile_name is not None and parameters[key] != base[key]:
+            raise ValueError(
+                f"{key} = {parameters[key]!r} contradicts binding_scope = {profile_name!r} "
+                f"(which sets {key} = {base[key]!r}); give one or the other"
+            )
+        effective[key] = parameters.get(key, base[key])
+    matching = [name for name, values in BINDING_SCOPES.items() if values == effective]
+    effective["binding_scope"] = matching[0] if matching else CUSTOM_SCOPE
+    return effective
+
 
 CHECK_PARAMETERS: dict[str, tuple[str, ...]] = {
     "quote_verbatim": ("min_quote_tokens",),
-    "entity_in_window": ("window_tokens",),
-    "qualifiers_in_window": ("window_tokens",),
+    "entity_in_window": ("window_tokens", "entity_scope", "lead_max_tokens", "lead_min_repeats"),
+    "qualifiers_in_window": ("window_tokens", "qualifier_scope", "table_binding", "lead_max_tokens", "lead_min_repeats"),
     "no_closer_competitor": ("window_tokens", "lead_max_tokens", "lead_min_repeats", "competitor_tie"),
-    "premise_present": ("premise_scope", "window_tokens"),
+    "premise_present": ("premise_scope", "window_tokens", "lead_max_tokens", "lead_min_repeats"),
 }
 """Which shared parameters each check receives. A check not listed here gets none."""
 
@@ -172,7 +254,7 @@ class BindingGate:
             raise ValueError(
                 f"unknown gate parameter(s) {unknown}; allowed: {sorted(DEFAULT_PARAMETERS)}"
             )
-        self.parameters = {**DEFAULT_PARAMETERS, **parameters}
+        self.parameters = {**DEFAULT_PARAMETERS, **parameters, **resolve_scope(parameters)}
         self._checks = [
             registry.create(
                 "check",

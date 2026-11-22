@@ -23,7 +23,9 @@ Tests: `tests/test_mcp_core.py`, `tests/test_mcp_config.py`,
 - **The parameters are not final.** The default gate parameters
   (`window_tokens = 40`, `min_quote_tokens = 5`, `lead_max_tokens = 4`,
   `lead_min_repeats = 2`, `premise_scope = "document"`,
-  `competitor_tie = "fail"`) are the **PROPOSED** values of a pre-registration
+  `competitor_tie = "fail"`; since PR 18 also `entity_scope = "window"`,
+  `qualifier_scope = "window"`, `table_binding = false`, shorthand
+  `binding_scope = "window"`, which reproduce the earlier gate exactly) are the **PROPOSED** values of a pre-registration
   that is still DRAFT. They may change on dev data before the freeze. Every
   result states the parameters used and this status.
 - **No results yet.** The study that measures whether the gate reduces

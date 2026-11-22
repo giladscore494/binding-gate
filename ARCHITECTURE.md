@@ -28,6 +28,13 @@ gave way to financial facts from US public-company annual reports, generated
 from SEC EDGAR by a deterministic builder (`datasets/sec_build.py`,
 `datasets/sec_edgar.py`), read by the adapter `datasets/sec_financials.py`,
 scored by `scorers/sec_answer.py` and analysed with H1-H2 per model.
+PR 18 added config-selectable binding scopes to the gate (document-subject
+binding in `checks/_evidence.py`, table-cell binding in `checks/_tables.py`;
+gate options `entity_scope`, `qualifier_scope`, `table_binding`, shorthand
+`binding_scope`; defaults byte-identical to the earlier gate, tested by
+`tests/test_gate_scope_identity.py`), the dev runs of the candidates
+(`configs/dev_gated_scope.toml`, `configs/dev_sec_gated_scope.toml`) and the
+pre-registered selection rule in `gates/calibration.py` (`--select-scope`).
 "PR n" below names the PR that added a part. No model has been run yet; the pre-registration
 is still DRAFT.
 
@@ -128,6 +135,7 @@ src/binding_gate/
   decomposers/   gate function (A), its cache, the layer-1 reference            PR 3
   evaluation/    separate measurement of the decomposer                         PR 3
   checks/        gate functions (C) and (D), one module per check               PR 4
+  checks/_tables.py              table-line detection for table-cell binding    PR 18
   gates/         gate function (E) (`binding`), dev-only calibration            PR 4
   arms/          one module per experimental arm                                PR 2, 4, 5, 8
   scorers/       one module per scorer                                          PR 2, 5, 7, 8, 17

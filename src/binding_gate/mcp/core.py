@@ -62,7 +62,7 @@ from binding_gate.contracts import (
     QuestionConstraints,
     Verdict,
 )
-from binding_gate.gates.binding import ALL_CHECKS, DEFAULT_PARAMETERS
+from binding_gate.gates.binding import ALL_CHECKS, DEFAULT_PARAMETERS, resolve_scope
 from binding_gate.gates.binding import NAME as GATE_NAME
 from binding_gate.mcp import schemas
 from binding_gate.mcp.config import Limits, ServerConfig
@@ -302,11 +302,18 @@ def parse_parameters(value: Any) -> dict[str, Any]:
             allowed = list(schemas.PARAMETER_ENUMS[name])
             if item not in allowed:
                 raise _invalid(path, f"must be one of {allowed}, got {item!r}")
+        elif name in schemas.PARAMETER_BOOLEANS:
+            if not isinstance(item, bool):
+                raise _invalid(path, f"must be true or false, got {item!r}")
         else:
             minimum = schemas.PARAMETER_MINIMUMS[name]
             if isinstance(item, bool) or not isinstance(item, int) or item < minimum:
                 raise _invalid(path, f"must be an integer >= {minimum}, got {item!r}")
         overrides[name] = item
+    try:  # PR 18: binding_scope and a contradicting scope option
+        resolve_scope(overrides)
+    except ValueError as exc:
+        raise _invalid("parameters", str(exc)) from None
     return overrides
 
 

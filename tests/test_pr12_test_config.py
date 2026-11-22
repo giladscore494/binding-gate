@@ -28,12 +28,24 @@ SPLIT_DEPENDENT = {"llm_judge_checks": {"judge_max_usd"}}
 """Options that may differ between the dev counterpart and the test config, per arm name."""
 
 
-def dev_counterpart(label: str):
-    """The dev config and arm whose options the test arm must reproduce."""
+def chosen_scope(arm) -> str | None:
+    """PR 18: the ``binding_scope`` frozen in a test config's gated arm (the ONE line set by the section 5.1 rule)."""
+    return arm.options.get("parameters", {}).get("binding_scope")
+
+
+def dev_counterpart(label: str, scope: str | None = None):
+    """The dev config and arm whose options the test arm must reproduce.
+
+    PR 18: a gated arm with ``binding_scope`` set reproduces the candidate arm of ``dev_gated_scope.toml`` with that
+    setting (``gated`` for ``window``, ``gated_scope_<name>`` otherwise), i.e. the arm the selection rule chose."""
+    dev_label = label
     if label == "no_gate":
         path = "dev_baseline.toml"
     elif label in ("prompt_entity_check", "faithfulness_checker"):
         path = "dev_baselines.toml"
+    elif label == "gated" and scope is not None:
+        path = "dev_gated_scope.toml"
+        dev_label = "gated" if scope == "window" else f"gated_scope_{scope}"
     elif label == "gated":
         path = "dev_gated.toml"
     elif label.startswith("gated_minus_"):
@@ -41,13 +53,13 @@ def dev_counterpart(label: str):
     else:  # pragma: no cover - a new arm needs a counterpart here
         raise AssertionError(f"no dev counterpart for test arm {label!r}")
     config = load_config(CONFIGS / path)
-    (arm,) = [a for a in config.arms if a.label == label]
+    (arm,) = [a for a in config.arms if a.label == dev_label]
     return config, arm
 
 
 @pytest.mark.parametrize("arm", TEST_CONFIG.arms, ids=lambda a: a.label)
 def test_every_test_arm_has_the_options_of_its_dev_counterpart(arm):
-    _config, dev_arm = dev_counterpart(arm.label)
+    _config, dev_arm = dev_counterpart(arm.label, chosen_scope(arm))
     assert arm.name == dev_arm.name
     allowed = SPLIT_DEPENDENT.get(arm.name, set())
 
@@ -123,8 +135,22 @@ MIDTIER = load_config(CONFIGS / "test_layer1_midtier.toml")
 
 @pytest.mark.parametrize("arm", MIDTIER.arms, ids=lambda a: a.label)
 def test_every_midtier_arm_has_the_options_of_its_dev_counterpart(arm):
-    _config, dev_arm = dev_counterpart(arm.label)
+    _config, dev_arm = dev_counterpart(arm.label, chosen_scope(arm))
     assert (arm.name, arm.options) == (dev_arm.name, dev_arm.options)
+
+
+def test_pr18_the_frozen_binding_scope_is_one_line_and_the_midtier_gate_follows_it():
+    """The chosen setting is frozen by ONE line in the gated arm of test_layer1.toml; the exploratory mid-tier run
+    must run the same gate, so its gated arm must carry the same line (this test fails until both agree)."""
+    from binding_gate.gates.binding import BINDING_SCOPES
+
+    (gated,) = [a for a in TEST_CONFIG.arms if a.label == "gated"]
+    (midtier,) = [a for a in MIDTIER.arms if a.label == "gated"]
+    assert chosen_scope(gated) in BINDING_SCOPES and chosen_scope(midtier) == chosen_scope(gated)
+    assert midtier.options == gated.options
+    text = (CONFIGS / "test_layer1.toml").read_text(encoding="utf-8")
+    assert text.count("binding_scope = ") == 1  # one line, in the gated arm only (ablations: default gate)
+    assert all(chosen_scope(a) is None for a in TEST_CONFIG.arms if a.label != "gated")
 
 
 def test_midtier_run_is_a_subsample_of_the_test_split_with_the_smoke_runs_mid_tier_models():
