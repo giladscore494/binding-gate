@@ -15,6 +15,14 @@ Commands
     itself; enforces the budget cap of the config.
 ``report RUN_DIR [RUN_DIR ...] [--json FILE]``
     The PR 2 baseline report and stop-rule outcome, from trace files only.
+``analyze RUN_DIR [RUN_DIR ...] [--out DIR] [--no-figures]``
+    The PR 6 statistics (metrics, cluster-bootstrap intervals, H1-H4) from
+    trace files only; writes ``analysis.json``, ``report.md`` and figures.
+``frozen-test-run --config C --tag prereg-freeze-N --purpose TEXT --confirm-spend``
+    The one-command frozen test run: refuses unless every test-lock condition
+    holds (the refusal is logged), runs the config on the test split, then
+    writes the analysis under ``runs/<run_id>/analysis/``
+    (``binding_gate.frozen_run``).
 ``models --config C``
     The model labels of a config as a JSON array (used by the workflow matrix).
 ``dataset-pin --config C``
@@ -33,7 +41,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from binding_gate import baseline_report, registry, runner, secrets
+from binding_gate import baseline_report, frozen_run, registry, runner, secrets
 from binding_gate.config import ConfigError, load_config
 from binding_gate.pricing import PricingError
 from binding_gate.registry import RegistryError
@@ -82,6 +90,20 @@ def _parser() -> argparse.ArgumentParser:
     report.add_argument("run_dirs", nargs="+", help="one or more run directories")
     report.add_argument("--arm", default="no_gate", help="arm label to report (default: no_gate)")
     report.add_argument("--json", default=None, help="also write the report to this JSON file")
+
+    analyze = commands.add_parser("analyze", help="statistics, intervals and H1-H4 from traces (PR 6)")
+    analyze.add_argument("run_dirs", nargs="+", help="one or more run directories")
+    analyze.add_argument("--out", default=None, help="output directory (default: <first run dir>/analysis)")
+    analyze.add_argument("--no-figures", action="store_true", help="do not draw figures")
+
+    frozen = with_config("frozen-test-run", "the one-command frozen test run (test split, then analysis)")
+    frozen.add_argument("--tag", required=True, help="the freeze tag prereg-freeze-N that HEAD must be")
+    frozen.add_argument("--purpose", required=True, help="stated purpose of this test-split access (logged)")
+    frozen.add_argument("--confirm-spend", action="store_true", help="confirm that paid API calls may be made")
+    frozen.add_argument("--runs-dir", default="runs", help="where the run directory is created (default: runs)")
+    frozen.add_argument("--resume", default=None, help="run directory of an unfinished frozen run to continue")
+    with_model(frozen)
+    frozen.add_argument("--no-figures", action="store_true", help="do not draw figures")
 
     with_config("models", "print the model labels of a config as a JSON array")
     with_config("dataset-pin", "print repository, commit and root of the config's dataset")
@@ -179,6 +201,50 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_analyze(args: argparse.Namespace) -> int:
+    from binding_gate.stats.analysis import analyse_run_dirs, write_outputs
+
+    analysis = analyse_run_dirs(args.run_dirs)
+    out = Path(args.out) if args.out else Path(args.run_dirs[0]) / frozen_run.ANALYSIS_DIRNAME
+    written = write_outputs(analysis, out, figures=not args.no_figures)
+    print(json.dumps({"written": written, "summary": analysis["summary"]}, indent=2, sort_keys=True))
+    return EXIT_OK
+
+
+def _cmd_frozen_test_run(args: argparse.Namespace) -> int:
+    config = load_config(Path(args.repo_root) / args.config if not Path(args.config).is_absolute() else args.config)
+    missing = _missing_keys(config, args.model)
+    if missing:
+        for label, secret in missing:
+            print(f"model {label}: API key {secret} is not set; nothing was run", file=sys.stderr)
+        return EXIT_NO_KEY
+    result = frozen_run.frozen_test_run(
+        args.config,
+        repo_root=args.repo_root,
+        tag=args.tag,
+        purpose=args.purpose,
+        confirm_spend=args.confirm_spend,
+        runs_dir=args.runs_dir,
+        selection=args.model,
+        resume_dir=args.resume,
+        figures=not args.no_figures,
+    )
+    print(json.dumps({"run": result.summary, "written": result.written}, indent=2, sort_keys=True))
+    if result.aborted:
+        print(
+            f"ABORTED: budget cap reached. {result.run_dir} is unfinished; no analysis was written. "
+            "Resume with --resume (a further logged test-split access).",
+            file=sys.stderr,
+        )
+        return EXIT_BUDGET
+    print(
+        f"Frozen test run finished. Analysis: {result.analysis_dir}. Now commit "
+        "audit/test_access_log.jsonl (ARCHITECTURE.md section 6).",
+        file=sys.stderr,
+    )
+    return EXIT_OK
+
+
 def _cmd_models(args: argparse.Namespace) -> int:
     print(json.dumps([spec.label for spec in load_config(args.config).models]))
     return EXIT_OK
@@ -200,6 +266,8 @@ _COMMANDS = {
     "preflight": _cmd_preflight,
     "run": _cmd_run,
     "report": _cmd_report,
+    "analyze": _cmd_analyze,
+    "frozen-test-run": _cmd_frozen_test_run,
     "models": _cmd_models,
     "dataset-pin": _cmd_dataset_pin,
 }

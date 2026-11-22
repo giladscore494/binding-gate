@@ -1,0 +1,203 @@
+# PR 6: the frozen layer-1 TEST run (PREREGISTRATION.md sections 5, 8, 11 and 12).
+#
+# Run ONLY through the one-command frozen test run, after the pre-registration is
+# FROZEN and tagged:
+#
+#   python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml \
+#       --tag prereg-freeze-1 --purpose "layer-1 confirmatory test run" --confirm-spend
+#
+# It refuses (and logs the refusal in audit/test_access_log.jsonl) unless HEAD is
+# exactly the freeze tag, the working tree is clean and PREREGISTRATION.md says
+# FROZEN. Then it runs every arm below on the test split and writes the analysis
+# (binding_gate.stats) under runs/<run_id>/analysis/.
+#
+# STATE OF THIS FILE (2026-11-22, PR 6): DRAFT. It is validated for its schema
+# and names only (tests/test_frozen_run.py). The arms prompt_entity_check,
+# faithfulness_checker and llm_judge_checks (PR 5) and gated (PRs 3 and 4) did
+# not exist when it was written, so their options below are the ones frozen in
+# ARCHITECTURE.md section 3 (the gated arm's `checks` list) plus TODO markers.
+# Before the freeze, PRs 3-5 must complete these options, a dry run of the same
+# arms on the dev split must succeed, and the owner must approve the file.
+#
+# Models, sampling, dataset pin and scorer are identical to configs/dev_baseline.toml
+# (PREREGISTRATION.md section 9); only the split, the arms and the budget differ.
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "test-layer1"
+description = "Frozen layer-1 test run: all pre-registered arms, 6 models, 3 repeats, test split."
+split = "test"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/prices.toml"
+# Hard budget cap in US dollars PER MODEL LABEL. PLACEHOLDER VALUES, NOT A
+# MEASUREMENT: the PR 2 dev caps scaled by (2,505 test items x 3 repeats x 2
+# distinct answer prompts) / (1,455 dev items x 3 repeats x 1 prompt) = 3.44,
+# rounded up. They bound only the answering calls of the models under test;
+# decomposer and judge calls are not priced by these caps (the runner lists
+# unpriced clients in its summary). PROPOSED - requires owner approval before
+# freeze, after the dev baseline has measured real usage. The test split cannot
+# be dry-run without unlocking it, so the estimate must come from dev runs.
+max_usd = 21.0
+[runner.max_usd_by_model]
+openai-mid = 380.0
+anthropic-mid = 380.0
+google-low = 59.0
+google-mid = 345.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+# ---- Arms (PREREGISTRATION.md section 5). Labels are what the analysis reads:
+# "no_gate" is the reference, "gated" is H1/H2, "faithfulness_checker" is H3.
+# The ablations and llm_judge_checks / prompt_entity_check are exploratory.
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "prompt_entity_check"             # PR 5; TODO(PR 5): confirm option names
+label = "prompt_entity_check"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "faithfulness_checker"            # PR 5; TODO(PR 5): pinned checker and its options
+label = "faithfulness_checker"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "llm_judge_checks"                # PR 5; TODO(PR 5): judge model (other family) and options
+label = "llm_judge_checks"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "gated"                           # PRs 3, 4; TODO(PR 3/4): decomposer component and window options
+label = "gated"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+
+# Per-check ablations (exploratory): the gated arm with one check removed.
+[[arms]]
+name = "gated"
+label = "gated-minus-quote_verbatim"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+
+[[arms]]
+name = "gated"
+label = "gated-minus-entity_in_window"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+
+[[arms]]
+name = "gated"
+label = "gated-minus-qualifiers_in_window"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "no_closer_competitor", "premise_present"]
+
+[[arms]]
+name = "gated"
+label = "gated-minus-no_closer_competitor"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "premise_present"]
+
+[[arms]]
+name = "gated"
+label = "gated-minus-premise_present"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor"]
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

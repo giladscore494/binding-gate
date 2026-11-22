@@ -16,6 +16,7 @@ dependencies = []
 # Later PRs append ONE line each here for their own optional extras
 # (see ARCHITECTURE.md, "Shared files"). The core package has no runtime dependencies.
 dev = ["pytest>=8"]
+plots = ["matplotlib>=3.7"]
 
 [tool.setuptools.dynamic]
 version = { attr = "binding_gate.__version__" }

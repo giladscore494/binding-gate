@@ -421,28 +421,103 @@ Always reported as a pair, never one without the other.
 
 ## 8. Statistics
 
-- **Paired design.** All arms run on the same items; comparisons are differences
-  within item.
-- **Repeats.** 3 runs per configuration (item × arm × model). Per-item outcomes
-  are averaged over the 3 repeats before comparison; the spread across repeats
-  is reported.
-- **Confidence intervals.** 95% percentile intervals from a cluster bootstrap
-  that resamples *groups* ((X, C) pairs for layer 1, questions for layer 2,
-  rows for layer 3), 10,000 resamples, fixed
-  seed recorded in the run config. Resampling groups respects the dependence
-  between the conditions of one triple and between the triples of one (X, C)
-  pair. (Interval level and resample count:
-  **PROPOSED — requires owner approval before freeze.**)
-- **Relative reduction** is the ratio of M1 between arms, with its interval from
-  the same bootstrap.
+Implemented in `src/binding_gate/stats/` (PR 6). The parameters below are
+mirrored in `src/binding_gate/stats/prereg.py`, and
+`tests/test_stats_prereg.py` fails if this section and the code disagree:
+
+```
+CI_LEVEL                 = 0.95
+BOOTSTRAP_RESAMPLES      = 10000
+BOOTSTRAP_SEED           = 20261122
+REPEATS                  = 3
+VALIDITY_MAX_FAILED_RATE = 0.05
+```
+
+All five values: **PROPOSED — requires owner approval before freeze.** The
+seed was fixed on 2026-11-22, before any model output existed, and is not
+tuned. `VALIDITY_MAX_FAILED_RATE` is the 5% of section 6.4 item 6.
+
+- **Input.** Statistics read trace files only (`traces.jsonl` plus the run
+  manifest, whose trace SHA-256 is verified); they never call a model and never
+  re-score. The outcome category of each record is the one stored by the
+  `provenance` scorer; a record with an error is `error`. One analysis covers
+  one dataset and one split; mixing them is refused.
+- **Paired design.** All arms run on the same items. For one model, the
+  analysis units are the (item, repeat) pairs for which *every* arm has a
+  record, so all arms are compared on exactly the same items and repeat
+  indices. Because the runner writes a record for every item × arm × model ×
+  repeat (an error record if the arm fails), a complete run has no unpaired
+  record; any unpaired record is counted and makes that model's analysis not
+  confirmatory.
+- **Repeats.** 3 runs per configuration (item × arm × model). For item *i* with
+  repeats *R_i*, the per-item value of an indicator *X* of an arm is
+  *x_i* = (1/|R_i|) Σ_{r ∈ R_i} X(i, r). Every metric is a ratio of sums over
+  items of such per-item averages. With complete data this equals pooling all
+  records. The repeats are not resampled on their own: they stay inside their
+  item and cluster. The spread across repeats is reported by computing each
+  metric separately for each repeat index (per-repeat values, minimum, maximum).
+- **Metrics** (section 7), with *N* the number of items and sums over items:
+  M1 = Σ wrong-entity / Σ answered; M2 = Σ lost / Σ correct(no_gate), where
+  *lost* is "no_gate gave a target-grounded answer and the arm did not" on the
+  same (item, repeat); per-all rates = Σ *x_i* / *N*. Section 6.4 is applied
+  literally: unparseable and error records are in *N*, are not answered, and an
+  unparseable or error record of an arm where `no_gate` was correct is a lost
+  correct answer. A ratio with a zero denominator is *undefined*.
+- **Exact decisions.** Point estimates are computed in exact rational
+  arithmetic, and every threshold of section 11 is compared exactly, so a value
+  at a boundary is decided by the rule as written, not by rounding.
+- **Confidence intervals.** Cluster bootstrap. The cluster is the split unit
+  `group_id`: the (X, C) pair for layer 1, the question for layer 2, the row for
+  layer 3. Resampling groups respects the dependence between the conditions of
+  one triple and between the triples of one (X, C) pair. For one model with *G*
+  clusters (sorted by `group_id`), each of `BOOTSTRAP_RESAMPLES` resamples draws
+  *G* clusters with replacement with Python's
+  `random.Random(BOOTSTRAP_SEED).choices`, adds up the integer column totals of
+  the drawn clusters, and recomputes every statistic. All statistics of one
+  model share the same resamples, so paired differences between arms are
+  resampled jointly. The interval is the percentile interval at `CI_LEVEL`:
+  the 2.5% and 97.5% quantiles of the resample values, with linear
+  interpolation between order statistics (Hyndman–Fan type 7). Resamples in
+  which a statistic is undefined are left out of its interval and their number
+  is reported next to it.
+- **Paired difference** of M1: M1(arm) − M1(no_gate), computed on the same
+  units in every resample. "The interval excludes zero" (section 11) means that
+  its upper bound is below zero, i.e. the arm is better; an interval entirely
+  above zero is not support.
+- **Relative reduction** is 1 − M1(arm) / M1(no_gate), with its interval from
+  the same bootstrap; it is undefined when M1(no_gate) is zero or undefined.
+- **Sensitivity bound** (section 6.4 item 7), reported with H1 and never
+  decisive: the H1 rule is re-applied with every unparseable/error record of
+  `gated` counted as a wrong-entity answer
+  (M1 = (wrong + failed) / (answered + failed); wrong per all records
+  = (wrong + failed) / *N*) and every such record of `no_gate` counted as an
+  answered, not-wrong record (M1 = wrong / (answered + failed)).
+- **Confirmatory status.** A hypothesis result is confirmatory only if: all
+  records are from the test split; every run is finished; the model's data are
+  complete with `REPEATS` repeats; the bootstrap used the parameters above; no
+  arm involved in the comparison exceeds `VALIDITY_MAX_FAILED_RATE`
+  (unparseable + error) / *N*; and, for H4, the layer-3 correctness rule of
+  PR 8 is in place. Otherwise the result is reported with its status and the
+  reasons it is not confirmatory.
 - **Per model.** Every hypothesis is evaluated for each model separately; a
-  pooled estimate is descriptive only.
+  pooled estimate (sums over models) is descriptive only and has no interval.
+- **Breakdowns.** Point estimates are reported per condition (15 for layer 1)
+  and per factor level (X completeness; competing-document condition), together
+  with the full outcome table and the cost per arm. They are exploratory.
 - **Multiplicity.** Confirmatory claims are limited to H1-H4 as defined in
   section 11. Everything else (per-condition tables, ablations, layer 2) is
   labelled exploratory. No correction is applied across models; the report
   states for how many of the frozen models each hypothesis held.
-- Implemented in PR 6; the analysis code is frozen (tagged) before the test
-  split is unlocked.
+- **M4** (recovery after re-search) is computed from the first attempt's
+  verdict; until PR 8 fixes the layer-3 correctness rule it uses
+  "target-grounded" as a placeholder and is labelled as such.
+- **Frozen analysis.** The analysis code is part of the tagged commit. The
+  layer-1 test run is started with one command,
+  `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml
+  --tag prereg-freeze-<n> --purpose "..." --confirm-spend`, which refuses (and
+  logs the refusal) unless every condition of section 12 holds, runs every arm
+  of the config on the test split, and writes `analysis.json`, `report.md` and
+  figures under `runs/<run_id>/analysis/`.
 
 ## 9. Models
 
@@ -606,15 +681,31 @@ structured-answer protocol; that is exactly what PR 2 measures.
 ## 11. Success thresholds
 
 All **PROPOSED — requires owner approval before freeze.** Evaluated on the test
-split, per model.
+split, per model, on all test records of the layer (for layer 1: all 15
+conditions, `null_control` included), with the definitions of section 8. The
+values are mirrored in `src/binding_gate/stats/prereg.py` and checked by
+`tests/test_stats_prereg.py`:
+
+```
+H1_MIN_RELATIVE_REDUCTION = 0.50
+H2_MAX_CORRECT_BLOCKED    = 0.10
+H4_MIN_NET_DIFFERENCE     = 0
+```
 
 | Hypothesis | Supported if |
 |---|---|
-| H1 | Layer 1: M1 of `gated` is at least 50% lower than M1 of `no_gate` (relative reduction, point estimate), the 95% interval of the paired difference excludes zero, and wrong-entity answers per all records do not increase. |
-| H2 | Layer 1: M2 of `gated` is at most 10%. |
-| H3 | Layer 1: wrong-entity answers per all records are lower for `gated` than for `faithfulness_checker`, with the 95% interval of the paired difference excluding zero, and M2 of `gated` is not higher than M2 of `faithfulness_checker`. If the gate is better on one and worse on the other, this is reported as a trade-off, not as support. |
+| H1 | Layer 1, all three: (a) M1 of `gated` is at least 50% lower than M1 of `no_gate`, i.e. 1 − M1(`gated`) / M1(`no_gate`) ≥ 0.50 (point estimate); (b) the 95% interval of the paired difference M1(`gated`) − M1(`no_gate`) excludes zero, i.e. its upper bound is below 0; (c) wrong-entity answers per all records do not increase: wrong / all of `gated` ≤ that of `no_gate` (point estimate). |
+| H2 | Layer 1: M2 of `gated` is at most 10% (point estimate ≤ 0.10). |
+| H3 | Layer 1: (a) wrong-entity answers per all records are lower for `gated` than for `faithfulness_checker` (point estimate), with the 95% interval of the paired difference (`gated` − `faithfulness_checker`) entirely below zero; and (b) M2 of `gated` is not higher than M2 of `faithfulness_checker` (point estimate). If the gate is better on one and worse on the other — (a) holds but M2 of `gated` is higher, or wrong / all of `gated` is higher (point estimate) but its M2 is lower — this is reported as a **trade-off**, not as support. Otherwise not supported. |
 | H4 | Layer 3: M3 of `gated_research` is not lower than M3 of `no_gate` (paired difference, point estimate ≥ 0); the interval is reported. |
 
+- Statuses: SUPPORTED, NOT SUPPORTED, TRADE-OFF (H3 only), NOT EVALUABLE (an
+  arm or the layer the hypothesis needs is not in the data). A criterion whose
+  quantity is undefined fails (for example M1 of a `gated` arm that answered
+  nothing, or a relative reduction when M1 of `no_gate` is zero). Each status is
+  also labelled confirmatory or not (section 8).
+- Intervals that are not part of a rule (M2 in H2, the M2 difference in H3, M3
+  in H4) are reported with the decision.
 - The controlled-layer claim ("the gate works") requires H1 **and** H2 for the
   same model. H1 without H2 is reported as "reduces errors at an unacceptable
   cost".
