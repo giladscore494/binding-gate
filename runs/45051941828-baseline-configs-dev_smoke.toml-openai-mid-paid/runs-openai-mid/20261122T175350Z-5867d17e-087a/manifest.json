@@ -1,0 +1,159 @@
+{
+  "config": {
+    "arms": [
+      {
+        "label": "no_gate",
+        "name": "no_gate",
+        "options": {
+          "presentation": "deceptive_grounding_doc_injection"
+        }
+      }
+    ],
+    "config_version": 1,
+    "dataset": {
+      "label": "deceptive_grounding",
+      "name": "deceptive_grounding",
+      "options": {
+        "commit": "61b0281d8d3897f53bef3f7402727c905614c1e4",
+        "data_sha256": "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123",
+        "repository": "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark",
+        "root": "data/raw/deceptive-grounding-benchmark"
+      }
+    },
+    "description": "PR 13/14 smoke run: no_gate on the first dev group, 1 repeat, all six models under test (A, B, E, F, H, I).",
+    "limit": 1,
+    "models": [
+      {
+        "label": "openai-low",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6-luna",
+          "reasoning": {
+            "effort": "none"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "openai-mid",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6.1-sol",
+          "reasoning": {
+            "effort": "low"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-low",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.1-flash-lite",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-mid",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.5-flash",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "zai-low",
+        "name": "zai_chat",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "glm-5.3-flash",
+          "reasoning_effort": "low",
+          "temperature": 0.0,
+          "thinking": {
+            "type": "enabled"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "zai-mid",
+        "name": "zai_chat",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "glm-5.3",
+          "reasoning_effort": "low",
+          "temperature": 0.0,
+          "thinking": {
+            "type": "enabled"
+          },
+          "timeout_seconds": 180
+        }
+      }
+    ],
+    "name": "dev-smoke",
+    "repeats": 1,
+    "runner": {
+      "concurrency": 4,
+      "max_usd": 0.1,
+      "max_usd_by_model": {
+        "google-mid": 0.15,
+        "openai-mid": 0.15,
+        "zai-mid": 0.2
+      },
+      "prices": "configs/prices.toml"
+    },
+    "scorers": [
+      {
+        "label": "provenance",
+        "name": "provenance",
+        "options": {
+          "min_quote_tokens": 5
+        }
+      }
+    ],
+    "split": "dev"
+  },
+  "config_hash": "5867d17e372526f53c560d0d3d6f7220e4965868c528f6b63a6c9b5faa8ea19c",
+  "config_path": "configs/dev_smoke.toml",
+  "ended_at": "2026-11-22T17:54:02+00:00",
+  "git_commit": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "git_dirty": false,
+  "package_version": "0.1.0",
+  "python_version": "3.13.18",
+  "run_id": "20261122T175350Z-5867d17e-087a",
+  "schema_version": 1,
+  "started_at": "2026-11-22T17:53:50+00:00",
+  "test_unlock_tag": null,
+  "trace_count": 15,
+  "traces_sha256": "63f707c83f494018b046ff599d1593209b4381d8776f65fc98f571252bf6bb5a"
+}
