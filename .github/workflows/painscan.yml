@@ -1,0 +1,96 @@
+name: painscan
+
+# PR 28: search public discussions for recent, money-costing pain with AI agents (tools/painscan).
+# Serper free-tier queries only (no model calls, no spend from the USD 50 ledger). Started by hand.
+# Raw results (titles, links, snippets) stay in the workflow artifact; report.md holds aggregates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "smoke (6 queries, checks the date filter), full (stage 1) or dossier (stage 2, shortlist)"
+        required: true
+        default: smoke
+        type: choice
+        options: [smoke, full, dossier]
+      max_queries:
+        description: "full mode: most queries to send in this run (hard cap 1300 in plan.toml)"
+        required: true
+        default: "810"
+      recent_tbs:
+        description: "full mode: recent-window filter override (empty = plan default qdr:m3)"
+        required: false
+        default: ""
+      domains:
+        description: "dossier mode: comma-separated domain ids from plan.toml (shortlist)"
+        required: false
+        default: ""
+      confirm_quota:
+        description: "I confirm this run may use Serper free-tier queries"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: painscan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Refuse without quota confirmation
+        shell: bash
+        env:
+          CONFIRM: ${{ inputs.confirm_quota }}
+        run: |
+          if [ "$CONFIRM" != "true" ]; then
+            echo "::error::confirm_quota is not checked; nothing was searched."
+            exit 1
+          fi
+      - name: Plan
+        shell: bash
+        run: python tools/painscan/painscan.py plan
+      - name: Search (Serper)
+        shell: bash
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          MODE: ${{ inputs.mode }}
+          MAX_QUERIES: ${{ inputs.max_queries }}
+          RECENT_TBS: ${{ inputs.recent_tbs }}
+          DOMAINS: ${{ inputs.domains }}
+        run: |
+          set -o pipefail
+          if [ "$MODE" = "smoke" ]; then
+            python tools/painscan/painscan.py run --mode smoke --out out | tee out_run.log
+          elif [ "$MODE" = "dossier" ]; then
+            python tools/painscan/painscan.py run --mode dossier --domains "$DOMAINS" --max-queries "$MAX_QUERIES" --out out | tee out_run.log
+          else
+            python tools/painscan/painscan.py run --mode full --max-queries "$MAX_QUERIES" --recent-tbs "$RECENT_TBS" --out out | tee out_run.log
+          fi
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          if [ -d out ]; then
+            python tools/painscan/painscan.py report --in out --out out
+            { echo "## painscan"; echo; head -80 out/report.md; if [ -f out/dossiers.md ]; then echo; head -120 out/dossiers.md; fi; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: painscan-results
+          path: |
+            out/
+            out_run.log
+          retention-days: 90
+          if-no-files-found: warn

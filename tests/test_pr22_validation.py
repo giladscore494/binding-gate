@@ -519,7 +519,7 @@ def test_the_running_guide_documents_the_stage_in_both_languages():
         assert "validation_report.json" in part and "configs/dev_validation_freeform.toml" in part
     assert "## 4a. After a layer-1 STOP" in english and "### שלב 4א" in hebrew
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert "Layer-1 baseline: STOP; validation in progress." in readme
+    assert "Status: CLOSED (2026-11-23)" in readme  # PR 28: the study is closed
     architecture = (REPO_ROOT / "ARCHITECTURE.md").read_text(encoding="utf-8")
     assert "`free_form` (PR 22, exploratory" in architecture and "PR 22 changed no contract" in architecture
 
