@@ -20,7 +20,7 @@ test it.
 
 > **Owner: the only setup you do is in [docs/OWNER_SETUP.md](docs/OWNER_SETUP.md)** (Hebrew and
 > English): add seven repository secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`,
-> `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `SEC_CONTACT_EMAIL`) and set a
+> `MOONSHOT_API_KEY`, `SERPER_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `SEC_CONTACT_EMAIL`) and set a
 > spending limit at each provider. Everything else runs in GitHub Actions, with no local command
 > line: the dev phase from the workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`,
 > PR 15; PR 17 added the free SEC dataset stage and the layer-2 stage; PR 22 the stage
@@ -121,7 +121,7 @@ The code is organised as described in [ARCHITECTURE.md](ARCHITECTURE.md).
   dataset-prepare`. Correctness is decided by the deterministic scorer
   `sealqa_answer` (the gold answer must occur in the answer's value).
 - **Search and pages:** the harness, not the model, chooses every query. It
-  searches the question with **SerpApi** (Google engine, `hl=en`, `gl=us`,
+  searches the question with **Serper** (Google results, `hl=en`, `gl=us`; SerpApi before PR 27;
   at most 10 results), fetches result pages in rank order until 5 were fetched
   (robots.txt respected, HTML and plain text only) and shows the first 8,000
   characters of each. `no_gate_live` stops there; `gated_research` applies the
@@ -191,7 +191,7 @@ what the workflows run; none of them is needed on a computer.
 | Per-check ablations | `run --config configs/dev_ablation_<check>.toml --confirm-spend` (one file per check) |
 | Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
 | SEC filings (layer 2): generate the dataset (free; secret `SEC_CONTACT_EMAIL`), then smoke, dev baseline and the gate | `python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml`, pin the printed hash in the `configs/*sec*.toml` files, then `run --config configs/dev_sec_smoke.toml`, `configs/dev_sec_baseline.toml`, `configs/dev_sec_gated.toml` (seeded) with `--confirm-spend`. GRAB-RAG (`configs/extended/*grab_rag*.toml`) is not run |
-| Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
+| Live web (layer 3): smoke, then dev (needs `SERPER_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
 | Statistics: metrics, intervals, H1-H4 (each layer with its own rule: layer 1 `provenance`, layer 2 `sec_answer` (H1-H2), layer 3 `sealqa_answer`; mixed layers refused) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
 | Binding-scope selection on dev (PR 18; no model call; section 5.1 rule) | `python -m binding_gate.gates.calibration --select-scope runs/<run_id of dev_gated_scope> [...]` (layer 2: the runs of `dev_sec_gated_scope`) |
 | Frozen test runs (one layer each, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check), `configs/test_sec.toml` (layer 2, H1-H2) and `configs/test_live.toml` (layer 3, H4) |
@@ -265,7 +265,7 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   repeat, at their lowest reasoning setting; the gate arms reuse
   the answer `no_gate` already paid for; later dev runs reuse the dev
   baseline's answers; mid-tier models, judges and the nondeterminism check run
-  on pre-registered subsamples; web search on SerpApi's free plan. The largest
+  on pre-registered subsamples; web search on Serper's free tier (PR 27; SerpApi's free plan before). The largest
   item is the confirmatory layer-1 test run (5.98-15.85 USD). The previous
   full-scale design (six models, three repeats, every arm on every item; about
   550 USD at the low estimate) is kept, not run, under `configs/extended/`.
@@ -283,7 +283,7 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   | J | `kimi-k3.1-pro` | Moonshot | LLM judge (a family not under test) | 2.00 / 10.00 |
 
   Repository secrets the study needs: `OPENAI_API_KEY`, `GEMINI_API_KEY`,
-  `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPAPI_API_KEY` (Free plan),
+  `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPER_API_KEY` (Serper free tier; PR 27 replaced `SERPAPI_API_KEY`),
   `RUNS_ENCRYPTION_PASSPHRASE` and `SEC_CONTACT_EMAIL` (PR 17: the owner's
   contact e-mail for SEC's fair-access User-Agent, used only by the free
   generation of the layer-2 dataset; never committed or stored). `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are

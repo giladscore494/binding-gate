@@ -224,10 +224,12 @@ def test_threats_rules_and_amendments_are_quoted_from_the_preregistration(dev_an
     assert "Layer-1 STOP applied as written" in section(md, "deviations")
     row = next(line for line in PREREG.splitlines() if line.startswith("| 1 | 2026-11-22 |"))
     row2 = next(line for line in PREREG.splitlines() if line.startswith("| 2 | 2026-11-22 |"))
-    unamended = PREREG.replace(row2 + "\n", "").replace(row, "| (none yet) | | | | | |")
+    row3 = next(line for line in PREREG.splitlines() if line.startswith("| 3 | 2026-11-22 |"))  # PR 27: Serper
+    assert "SerpApi to Serper" in row3 and "before any layer-3 run" in row3
+    unamended = PREREG.replace(row3 + "\n", "").replace(row2 + "\n", "").replace(row, "| (none yet) | | | | | |")
     assert prereg_doc.amendments(unamended) == []
     assert "no amendment recorded" in section(markdown(inputs_for(dev_analysis, prereg_text=unamended)), "deviations")
-    amended = PREREG.replace(row, row + "\n| 3 | 2027-01-02 | 9 | Slot F model id replaced | retired by the provider | no |")
+    amended = PREREG.replace(row, row + "\n| 4 | 2027-01-02 | 9 | Slot F model id replaced | retired by the provider | no |")
     md = markdown(inputs_for(dev_analysis, prereg_text=amended))
     assert "Slot F model id replaced" in section(md, "deviations")
     assert prereg_doc.status(PREREG) == "DRAFT"

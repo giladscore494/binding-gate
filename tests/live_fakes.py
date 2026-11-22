@@ -1,4 +1,4 @@
-"""Test doubles for layer 3: a fake SerpApi, a fake web, a fake answering model and decomposer.
+"""Test doubles for layer 3: a fake Serper (and SerpApi), a fake web, a fake answering model and decomposer.
 
 Nothing here touches the network. :func:`install` replaces the two standard-library
 transports that the search client and the page fetcher use by default, so the
@@ -100,7 +100,14 @@ def organic(*urls: str) -> list[dict[str, Any]]:
 
 
 class FakeSerp:
-    """SerpApi stand-in: ``/search`` answers by query, ``/account.json`` by ``account``."""
+    """Search stand-in for both providers.
+
+    Serper (the study's provider since PR 27): ``POST https://google.serper.dev/search``
+    with a JSON body, key in ``X-API-KEY``; the answer is ``{"organic": [...]}``.
+    Serper's preflight query (``SERPER_PREFLIGHT_QUERY``) is recorded in ``preflights``,
+    not in ``queries``, which therefore holds the study's searches only.
+    SerpApi (PR 8, kept): ``GET /search`` answers by query, ``/account.json`` by ``account``.
+    """
 
     def __init__(self) -> None:
         self.results: dict[str, list[dict[str, Any]]] = {
@@ -111,16 +118,22 @@ class FakeSerp:
         self.account: dict[str, Any] = {"account_status": "Active", "plan_name": "Free", "total_searches_left": 250,
                                         "account_rate_limit_per_hour": 50, "api_key": "should-not-leak"}
         self.queries: list[str] = []
+        self.preflights: list[str] = []
         self.urls: list[str] = []
+        self.requests: list[HttpRequest] = []
         self.status_sequence: list[int] = []  # statuses returned before success (e.g. [429])
         self.fail_queries: set[str] = set()  # queries that always get HTTP 503
+        self.preflight_status = 200  # HTTP status of Serper's preflight search
         self._lock = threading.Lock()
 
     def transport(self, request: HttpRequest) -> HttpResponse:
         parts = urllib.parse.urlsplit(request.url)
-        params = dict(urllib.parse.parse_qsl(parts.query))
         with self._lock:
             self.urls.append(request.url)
+            self.requests.append(request)
+        if request.method == "POST":
+            return self._serper(request)
+        params = dict(urllib.parse.parse_qsl(parts.query))
         if parts.path == "/account.json":
             return HttpResponse(200, json.dumps(self.account).encode())
         with self._lock:
@@ -141,17 +154,37 @@ class FakeSerp:
                     "organic_results": self.results[query]}
         return HttpResponse(200, json.dumps(body).encode())
 
+    def _serper(self, request: HttpRequest) -> HttpResponse:
+        assert urllib.parse.urlsplit(request.url).netloc == "google.serper.dev"
+        payload = json.loads(request.body or b"{}")
+        query = payload["q"]
+        with self._lock:
+            if query == search_mod.SERPER_PREFLIGHT_QUERY:
+                self.preflights.append(query)
+                status = self.preflight_status
+            else:
+                self.queries.append(query)
+                status = self.status_sequence.pop(0) if self.status_sequence else 200
+                if query in self.fail_queries:
+                    status = 503
+        if status != 200:
+            return HttpResponse(status, json.dumps({"message": f"scripted {status}", "statusCode": status}).encode())
+        body = {"searchParameters": {"q": query, "gl": payload.get("gl"), "hl": payload.get("hl"),
+                                     "num": payload.get("num"), "type": "search", "engine": "google"},
+                "organic": list(self.results.get(query, [])), "credits": 1}
+        return HttpResponse(200, json.dumps(body).encode())
 
 def install(monkeypatch, web: FakeWeb | None = None, serp: FakeSerp | None = None, *, key: str | None = "serp-test-key"):
-    """Route the search client and the fetcher to the fakes; set (or unset) the search key."""
+    """Route the search clients and the fetcher to the fakes; set (or unset) the search keys (Serper and SerpApi)."""
     web = web or FakeWeb()
     serp = serp or FakeSerp()
     monkeypatch.setattr(search_mod, "urllib_transport", serp.transport)
     monkeypatch.setattr(fetch_mod, "urllib_fetch_transport", web.transport)
-    if key is None:
-        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
-    else:
-        monkeypatch.setenv("SERPAPI_API_KEY", key)
+    for name in (search_mod.SERPER_SECRET, search_mod.SERPAPI_SECRET):
+        if key is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, key)
     return web, serp
 
 
@@ -263,7 +296,7 @@ class LiveFakeDecomposer:
 
 
 SEARCH_SPEC = {
-    "name": "serpapi_google",
+    "name": "serper_google",
     "label": "search",
     "options": {"max_results": 10, "min_interval_seconds": 0.0, "max_retries": 2, "backoff_seconds": 0.0},
 }

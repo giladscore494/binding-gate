@@ -225,7 +225,7 @@ def test_smoke_check_projects_the_real_plan_from_the_ids_of_each_config():
     ids = {r["id"]: pipeline.run_model_ids(r, repo_root=REAL_REPO) for r in PLAN["run"]}
     assert ids["dev_baseline"] == ["gemini-3.1-flash-lite", "glm-5.3-flash", "gpt-6-luna"]
     assert ids["rescore_dev_llm_judge"] == ["kimi-k3.1-pro"] and ids["decomposer_eval"] == ["gpt-6-luna"]
-    assert "serpapi/google" in ids["dev_live"]
+    assert "serper/google" in ids["dev_live"]  # PR 27: Serper replaced SerpApi
     assert all(ids[r["id"]] is None for r in PLAN["run"] if not r["config"])  # planned runs without a config yet
 
 
@@ -252,7 +252,7 @@ def test_check_secrets_reports_names_never_values_and_skips_missing_keys(tmp_pat
     assert {r["status"] for r in report["preflights"]} == {"SKIPPED"}
     ids = {r["model_id"] for r in report["preflights"]}
     assert {"gpt-6-luna", "gpt-6.1-sol", "gemini-3.1-flash-lite", "gemini-3.5-flash", "glm-5.3-flash", "glm-5.3",
-            "kimi-k3.1-pro", "serpapi/google"} <= ids
+            "kimi-k3.1-pro", "serper/google"} <= ids
 
 
 def test_a_zai_list_models_404_is_diagnosed_with_the_fallback(monkeypatch):

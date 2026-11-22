@@ -30,7 +30,11 @@
 # be dry-run: the dev dry run of the same arms is scaled by 2,505 / 1,455 items (layer 1), or the
 # same subsample definition is dry-run on dev (mid-tier: 15 items per condition on either split).
 # Layer 3 was dry-run on a synthetic stand-in of SealQA's reported size (254 questions, 108 dev);
-# searches cost 0 on SerpApi's Free plan. The runs with slots A and E only (decomposer, layer 3,
+# searches cost 0 on SerpApi's Free plan (until PR 27). PR 27 (section 18, amendment 3): searches use Serper
+# and are priced at $0.001 each (conservative; the study expects to stay inside Serper's 2,500 free queries);
+# the dry run charges every model job every search, so the layer-3 runs were re-derived with the same dry run
+# (dev_live: A 0.23-0.57, E 0.43-1.07; test_live = dev x 146 / 108) and their caps raised by the same rule.
+# The runs with slots A and E only (decomposer, layer 3,
 # layer 2, LLM-judge arm) are unchanged from PR 13; the secondary judge's estimate is 3/4 of PR
 # 13's (three dev-baseline run directories instead of four, the same prompts per directory).
 # Caps = HIGH x 1.05 rounded up to 0.05 USD per model, at least 0.10 USD per model.
@@ -66,6 +70,12 @@ reserve_usd = 5.0
 #     19.12 / 65.21 / 72.00, which no rule bounds because the stopped ones cannot run). Spent so far (ledger,
 #     2026-11-22): 1.14 USD. No layer-2 or layer-3 entry changed.
 # The rules above apply to the runs WITHOUT status = "stopped" (tests/test_budget_plan.py).
+#
+# PR 27 (PREREGISTRATION.md section 18, amendment 3): layer 3 searches with Serper instead of SerpApi, priced at
+# $0.001 per search (configs/prices.toml); the three layer-3 entries were re-derived (dev_live_smoke HIGH 0.02 -> 0.03;
+# dev_live 0.45-1.20 / cap 1.30 -> 0.66-1.64 / 1.75; test_live 0.60-1.63 / 1.80 -> 0.90-2.22 / 2.40). Active totals:
+# low 9.72, HIGH 35.99, caps 39.25 USD (all entries: 19.63 / 66.25 / 73.05; the PR 18 totals below become 14.76 /
+# 43.82 / 49.40). No other entry changed.
 #
 # PR 18 added two dev runs of the binding-scope candidates (dev_gated_scope, dev_sec_gated_scope; decomposer only,
 # 0.00 / 0.21 / 0.60): totals low 14.25, HIGH 42.78, caps 48.35 USD. No other entry changed.
@@ -287,9 +297,9 @@ models = "A"
 items = "SealQA dev, first 5 questions"
 arms = "no_gate (live), gated_research"
 low_usd = 0.01
-high_usd = 0.02
+high_usd = 0.03
 cap_usd = 0.10
-note = "at most 10 searches (SerpApi Free plan, month 1)"
+note = "at most 10 searches (Serper free tier; PR 27: searches priced at $0.001, HIGH 0.02 -> 0.03)"
 
 [[run]]
 id = "dev_live"
@@ -299,10 +309,10 @@ invocations = 1
 models = "A, E"
 items = "SealQA dev, all questions (stand-in: 108)"
 arms = "no_gate (live), gated_research"
-low_usd = 0.45
-high_usd = 1.20
-cap_usd = 1.30
-note = "at most 240 searches (Free plan, month 1); estimate from a synthetic stand-in of 254 questions"
+low_usd = 0.66
+high_usd = 1.64
+cap_usd = 1.75
+note = "at most 240 searches (Serper free tier); estimate from a synthetic stand-in of 254 questions; PR 27: searches priced at $0.001 (before 0.45-1.20, cap 1.30); caps A 0.60 + E 1.15"
 
 [[run]]
 id = "test_layer1"
@@ -342,10 +352,10 @@ invocations = 1
 models = "A, E"
 items = "SealQA test, all questions (stand-in: 146)"
 arms = "no_gate (live), gated_research"
-low_usd = 0.60
-high_usd = 1.63
-cap_usd = 1.80
-note = "CONFIRMATORY (H4); frozen layer-3 run (PR 16, section 17 item 39); caps A 0.55 + E 1.25; at most 250 searches per invocation (Free plan, month 2; resumed in month 3)"
+low_usd = 0.90
+high_usd = 2.22
+cap_usd = 2.40
+note = "CONFIRMATORY (H4); frozen layer-3 run (PR 16, section 17 item 39); caps A 0.85 + E 1.55 (PR 27: searches priced at $0.001; before 0.60-1.63, caps 0.55 + 1.25); at most 250 searches per invocation (Serper free tier; resumed if needed)"
 
 [[run]]
 id = "dev_sec_smoke"

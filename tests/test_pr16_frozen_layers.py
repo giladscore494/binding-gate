@@ -104,8 +104,8 @@ def test_test_live_runs_slots_a_and_e_with_the_planned_caps_and_a_month_of_searc
     assert [(a.name, a.label) for a in config.arms] == [("no_gate_live", "no_gate"), ("gated_research", "gated_research")]
     assert [s.name for s in config.scorers] == ["sealqa_answer"]
     caps = {m.label: settings.cap_for(m.label) for m in config.models}
-    assert caps == {"openai-low": 0.55, "google-low": 1.25}
-    assert settings.max_searches == 250  # SerpApi Free plan, month 2; resumed in month 3
+    assert caps == {"openai-low": 0.85, "google-low": 1.55}  # PR 27: searches priced at $0.001 (before 0.55 / 1.25)
+    assert settings.max_searches == 250  # per invocation (PR 16; Serper free tier since PR 27); resumed if needed
 
 
 def test_test_sec_runs_the_primary_models_with_the_layer_1_gate_arms_and_the_planned_caps():
@@ -187,7 +187,7 @@ def events(repo: Path) -> list[str]:
 
 LIVE_PRICES = h.PRICES + """
 [[price]]
-model_id = "serpapi/google"
+model_id = "serper/google"
 input_per_mtok = 0.0
 output_per_mtok = 0.0
 per_call_usd = 0.0
@@ -604,7 +604,7 @@ def test_test_sec_config_dry_runs_on_dev_without_any_key(tmp_path, monkeypatch):
 
 def test_test_live_config_dry_runs_on_dev_offline_and_its_caps_cover_the_high_estimate(tmp_path, monkeypatch):
     clear_sessions()
-    for var in ("SERPAPI_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"):
+    for var in ("SERPER_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     web, serp = lf.install(monkeypatch, key=None)
     hard = [sfx.row(i) for i in range(60)]

@@ -35,7 +35,7 @@ def test_live_configs_pin_the_data_and_share_the_first_attempt(name):
     dev_gated = load_config(CONFIGS / "dev_gated.toml").arms[1].options
     assert gated.options["parameters"] == dev_gated["parameters"] and gated.options["decomposer"] == dev_gated["decomposer"]
     assert [s.name for s in config.scorers] == ["sealqa_answer"]
-    assert gated.options["search"]["name"] == "serpapi_google"
+    assert gated.options["search"]["name"] == "serper_google"  # PR 27 (amendment 3): Serper, not SerpApi
 
 
 def test_dev_live_uses_primary_models_of_dev_gated_with_one_repeat_and_the_smoke_one():
@@ -49,15 +49,18 @@ def test_dev_live_uses_primary_models_of_dev_gated_with_one_repeat_and_the_smoke
     assert full.to_dict()["arms"] == smoke.to_dict()["arms"]
 
 
-def test_live_configs_keep_to_the_serpapi_free_plan():
-    """PR 13: 250 searches per month at 50 per hour (serpapi.com/pricing, read 2026-11-22)."""
+def test_live_configs_keep_to_the_serper_free_tier():
+    """PR 27: Serper's free tier (2,500 queries on signup, serper.dev, read 2026-11-22); max_searches as in PR 13/16."""
     full = load_config(CONFIGS / "dev_live.toml")
     smoke = load_config(CONFIGS / "dev_live_smoke.toml")
-    limits = [runner.RunnerSettings.from_config(c).max_searches for c in (smoke, full)]
-    assert limits == [10, 240] and sum(limits) <= 250  # month 1: smoke + dev
-    for config in (full, smoke):
+    test = load_config(CONFIGS / "test_live.toml")
+    limits = [runner.RunnerSettings.from_config(c).max_searches for c in (smoke, full, test)]
+    assert limits == [10, 240, 250] and sum(limits) <= 2500
+    for config in (full, smoke, test):
         for arm in config.arms:
-            assert arm.options["search"]["options"]["min_interval_seconds"] >= 3600 / 50
+            search = arm.options["search"]
+            assert search["name"] == "serper_google"
+            assert search["options"]["min_interval_seconds"] == 1.0  # Serper documents no hourly limit (was 72 s)
 
 
 @pytest.mark.parametrize("name", ["dev_live_smoke.toml", "dev_live.toml"])
@@ -71,13 +74,13 @@ def test_every_model_and_auxiliary_client_has_a_price_and_a_cap(name):
     assert problems == [] and {a.role for a in aux} == {"search", "fetch", "decomposer"}
     for entry in aux:
         assert book.has(entry.model_id), entry.model_id
-    # PR 13: SerpApi's Free plan costs nothing; its quota is enforced by [runner] max_searches
-    assert book.get("serpapi/google").per_call_usd == 0.0 and book.get("binding-gate/fetch@1").call_cost(10**6, 10**6) == 0.0
+    # PR 27: Serper searches are priced conservatively at $0.001; the quota is enforced by [runner] max_searches
+    assert book.get("serper/google").per_call_usd == 0.001 and book.get("binding-gate/fetch@1").call_cost(10**6, 10**6) == 0.0
 
 
 def test_the_dev_live_dry_run_works_offline_without_any_key_and_caps_cover_the_high_estimate(tmp_path, monkeypatch):
     clear_sessions()
-    for var in ("SERPAPI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+    for var in ("SERPER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     web, serp = lf.install(monkeypatch, key=None)
     hard = [fx.row(i) for i in range(60)]

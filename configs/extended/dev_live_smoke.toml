@@ -11,7 +11,7 @@
 # low-cost model (slot A), arms no_gate (live) and gated_research. Dev split only.
 #
 # Arms (PREREGISTRATION.md section 5; protocol in src/binding_gate/arms/gated_research.py):
-#   no_gate         component "no_gate_live": the harness searches the question (SerpApi,
+#   no_gate         component "no_gate_live": the harness searches the question (Serper,
 #                   Google), fetches the top results until 5 pages were fetched, shows their
 #                   stored text (first 8,000 characters each) and the model answers. No gate.
 #   gated_research  the SAME first attempt (shared searches, pages and answer request, so the
@@ -23,12 +23,12 @@
 # third-party material: the workflow encrypts the run artifacts of this config.
 #
 # Budget: [runner] max_usd caps EVERYTHING charged to a model's records: its answer calls,
-# the decomposer, web searches (configs/prices.toml: serpapi/google $0.025 per search) and
+# the decomposer, web searches (configs/extended/prices.toml: serper/google $0.001 per search; PR 27) and
 # fetches ($0). Run `python -m binding_gate.cli dry-run --config <this file>` first.
 #
 # All numeric choices marked PROPOSED require owner approval before the freeze.
 # Nothing in this file is read from environment variables; only API keys are
-# (repository secrets for the model providers and for SerpApi, the web search).
+# (repository secrets for the model providers and for Serper, the web search; PR 27).
 
 config_version = 1
 name = "extended-dev-live-smoke"
@@ -71,13 +71,13 @@ presentation = "sealqa_live_web"
 documents_per_attempt = 5                # PROPOSED
 max_document_chars = 8000                # PROPOSED
 [arms.options.search]
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 18.0              # 200 searches per hour = SerpApi Starter plan limit
+min_interval_seconds = 1.0               # PR 27: Serper documents no hourly limit (was 18 s, SerpApi Starter plan)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0
@@ -104,13 +104,13 @@ lead_min_repeats = 2
 premise_scope = "document"
 competitor_tie = "fail"
 [arms.options.search]                    # must equal no_gate's so searches are shared
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10
 hl = "en"
 gl = "us"
-min_interval_seconds = 18.0
+min_interval_seconds = 1.0
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0

@@ -17,40 +17,42 @@
 # both arms with every option (search, fetch, pages, max_attempts, gate parameters, decomposer) and
 # the scorer are those of the dev run, so the frozen run executes what was run on dev.
 #
-# Search quota (section 3, layer 3, item 7): SerpApi's FREE plan, 250 searches per month, 50 per hour
-# (min_interval_seconds = 72). The test run is month 2 of the allocation: max_searches = 250, lowered
-# automatically to what the free account check reports as left. About 146 test questions x at most 2
-# searches (first attempt + one re-search, shared by both models) can exceed 250: the runner then
-# stops before a unit that could exceed the quota, leaves the run unfinished, and it is resumed in
-# month 3 with the same command plus `--resume runs/<run_id>` (a further logged access, section 12).
-# At 72 s per search the run takes up to about 5 hours per month.
+# Search quota (section 3, layer 3, item 7; provider changed to Serper in PR 27, section 18 amendment
+# 3): Serper's free tier (2,500 queries on signup; $0.001 per search in configs/prices.toml,
+# conservative), min_interval_seconds = 1 (was 72 s on SerpApi's Free plan). max_searches = 250 per
+# invocation, unchanged; Serper has no account check, so nothing lowers it. About 146 test questions
+# x at most 2 searches (first attempt + one re-search, shared by both models) can exceed 250: the
+# runner then stops before a unit that could exceed the quota, leaves the run unfinished, and it is
+# resumed with the same command plus `--resume runs/<run_id>` (a further logged access, section 12);
+# with Serper there is no monthly renewal to wait for.
 #
 # Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/ (git-ignored).
 # Page text is third-party material: never commit or publish the run directory; only the files that
 # `python -m binding_gate.report publish` copies to results/layer3/<run_id>/ are published.
 #
 # Caps: the test split cannot be dry-run; the plan's HIGH estimate is the dev dry run of the same
-# arms scaled by 146 / 108 questions (0.60-1.63 USD); caps 0.55 + 1.25 = 1.80 USD, the "test_live"
-# entry of configs/budget.toml. PROPOSED - requires owner approval before freeze.
+# arms scaled by 146 / 108 questions (0.90-2.22 USD; PR 27: searches priced at $0.001, before 0.60-1.63);
+# caps 0.85 + 1.55 = 2.40 USD (before 0.55 + 1.25), the "test_live" entry of configs/budget.toml.
+# PROPOSED - requires owner approval before freeze.
 # Nothing in this file is read from environment variables; only API keys are
 # (src/binding_gate/secrets.py).
 
 config_version = 1
 name = "test-live"
-description = "PR 16: frozen layer-3 test run on SealQA (seal_hard), 1 repeat, slots A and E, no_gate (live) and gated_research; SerpApi Free plan; confirmatory for H4."
+description = "PR 16: frozen layer-3 test run on SealQA (seal_hard), 1 repeat, slots A and E, no_gate (live) and gated_research; Serper free tier; confirmatory for H4."
 split = "test"
 repeats = 1
 
 [runner]
 # Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
 # calls such as the decomposer and the judge included). Each cap is this run's allotment in
-# configs/budget.toml ("test_live"), above its HIGH estimate; sum of caps 1.8 USD. PROPOSED.
+# configs/budget.toml ("test_live"), above its HIGH estimate; sum of caps 2.4 USD. PROPOSED.
 concurrency = 4
 prices = "configs/prices.toml"
-max_searches = 250                       # PROPOSED: the whole Free-plan month (month 2); resumed in month 3
-max_usd = 0.55
+max_searches = 250                       # PROPOSED: per invocation (unchanged from PR 16); resumed if needed
+max_usd = 0.85
 [runner.max_usd_by_model]
-google-low = 1.25
+google-low = 1.55
 
 [dataset]
 name = "sealqa"
@@ -94,13 +96,13 @@ presentation = "sealqa_live_web"
 documents_per_attempt = 5                # PROPOSED
 max_document_chars = 8000                # PROPOSED
 [arms.options.search]
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+min_interval_seconds = 1.0               # PR 27: Serper documents no hourly limit (was 72 s, SerpApi Free plan)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0
@@ -127,13 +129,13 @@ lead_min_repeats = 2
 premise_scope = "document"
 competitor_tie = "fail"
 [arms.options.search]                    # must equal no_gate's so searches are shared
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+min_interval_seconds = 1.0               # PR 27: Serper documents no hourly limit (was 72 s, SerpApi Free plan)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0

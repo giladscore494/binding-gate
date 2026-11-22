@@ -490,7 +490,7 @@ def test_the_amendment_is_recorded_as_post_hoc_and_changes_no_threshold():
     from binding_gate.report import prereg_doc
 
     text = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert prereg_doc.status(text) == "DRAFT" and prereg_doc.version(text).startswith(("0.10 ", "0.11 "))
+    assert prereg_doc.status(text) == "DRAFT" and prereg_doc.version(text).startswith(("0.10 ", "0.11 ", "0.12 "))
     row = prereg_doc.amendments(text)[0]
     assert "AFTER seeing the layer-1 DEV baseline" in row["reason"] and "45053502161" in row["reason"]
     assert "test-split work for layer 1 remains stopped" in row["reason"] and row["test results seen before the change?"].startswith("No")

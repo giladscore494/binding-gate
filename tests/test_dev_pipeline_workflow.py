@@ -446,7 +446,7 @@ def test_owner_page_is_hebrew_first_and_lists_every_secret_with_the_menu_path():
         assert OWNER.count(f"`{secret}`") >= 2, secret  # in both languages
     assert OWNER.count("Settings → Secrets and variables → Actions → New repository secret") >= 2
     assert "unverified" in OWNER.lower() and "לא אומת" in OWNER
-    assert "serpapi.com" in OWNER.lower()
+    assert "serper.dev" in OWNER.lower() and "serpapi.com" not in OWNER.lower()  # PR 27: Serper replaced SerpApi
 
 
 def test_owner_page_gives_the_run_dialog_of_every_stage_as_a_field_value_table():

@@ -91,8 +91,18 @@ note = "secondary judge (slot J); price unverified. Runs at its provider-default
 reasoning_tokens_high = 2000
 
 # PR 8 (layer 3): per-call prices (per_call_usd) for the web search API and the page fetcher.
-# Every call in a trace is priced by the id in its response ("serpapi/google",
+# Every call in a trace is priced by the id in its response ("serper/google",
 # "binding-gate/fetch@1") and charged to the budget cap of the record's model.
+# PR 27: the study searches with Serper ("serper/google"); the SerpApi entry stays for the record.
+
+[[price]]
+model_id = "serper/google"
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+per_call_usd = 0.001
+source = "serper.dev and third-party pricing summaries (read 2026-11-22): free tier 2,500 queries on signup (no card); paid plans about $1 per 1,000 queries - UNVERIFIED"
+accessed = "2026-11-22"
+note = "PR 27: conservative price per successful search (Serper deducts credits only for successful queries). The study expects to stay inside the 2,500 free queries (at most 500 study searches plus one preflight search per invocation), so the real cost is expected to be $0; the price makes the runner's caps cover even a paid plan. The preflight search is not charged"
 
 [[price]]
 model_id = "serpapi/google"

@@ -10,7 +10,7 @@ run-name: "dev pipeline: ${{ inputs.stage }}"   # the results-log workflow names
 #
 # Stages (input "stage"; the configs of each stage: binding_gate.pipeline.STAGES):
 #   check-secrets  free: which secrets exist (names only), every free preflight (model ids, the Z.ai
-#                  list-models fallback, the SerpApi account) and the budget left (ledger).
+#                  list-models fallback, the Serper key: one real search) and the budget left (ledger).
 #   smoke          configs/dev_smoke.toml for every model whose key exists, then a CHECK of the
 #                  measured output/reasoning/input tokens per call against configs/prices.toml: it
 #                  FAILS if the measured usage would take any run of configs/budget.toml over its cap.
@@ -32,7 +32,7 @@ run-name: "dev pipeline: ${{ inputs.stage }}"   # the results-log workflow names
 #                  the pin is UNPINNED.
 #   layer2-dev     (PR 17) dev_sec_smoke, its usage check, dev_sec_baseline, then dev_sec_gated seeded
 #                  with the answers of that baseline (same workflow run), then `cli analyze`.
-#   layer3-dev     SealQA prepared, dev_live_smoke then dev_live within the SerpApi monthly allowance
+#   layer3-dev     SealQA prepared, dev_live_smoke then dev_live within the Serper free-tier credits
 #                  ([runner] max_searches); run directories uploaded only encrypted, next to an
 #                  unencrypted layer-3 summary (costs, outcomes, URLs, hashes; no page text).
 #   validate-layer1  (PR 22; PREREGISTRATION.md section 18, amendment 1; EXPLORATORY, post hoc) the follow-up of
@@ -157,7 +157,7 @@ jobs:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
           SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}   # PR 17: reported as set or not, never its value
         run: |

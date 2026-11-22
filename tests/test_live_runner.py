@@ -12,6 +12,7 @@ import sealqa_fixture as fx
 from binding_gate import cli, runner
 from binding_gate.arms.gated import clear_decomposition_memo
 from binding_gate.config import parse_config
+from binding_gate.research import search as search_mod
 from binding_gate.research.session import clear_sessions
 from binding_gate.research.snapshots import SnapshotStore, verify_run
 from binding_gate.scorers.sealqa_answer import analyse_layer3, layer3_outcome
@@ -21,7 +22,7 @@ from binding_gate.trace import read_traces
 Q_UNKNOWN = "Which city hosted the 2040 Unknown Games?"  # dev split; the search finds nothing
 LIVE_PRICES = """
 [[price]]
-model_id = "serpapi/google"
+model_id = "serper/google"
 input_per_mtok = 0.0
 output_per_mtok = 0.0
 per_call_usd = 0.025
@@ -144,7 +145,7 @@ def test_dry_run_estimates_model_search_fetch_and_upper_bounds_without_any_netwo
     total = report.model_total("good", "cost_low")
     assert total == pytest.approx(report.models[0].cost_low + sum(a.cost_low for a in report.auxiliary["good"]))
     text = report.format()
-    assert "AUXILIARY CALLS" in text and "serpapi/google" in text and "TOTAL per model job" in text
+    assert "AUXILIARY CALLS" in text and "serper/google" in text and "TOTAL per model job" in text
     assert json.loads(json.dumps(report.to_dict()))["auxiliary"]["good"]
 
 
@@ -164,7 +165,7 @@ def test_a_search_client_without_a_price_is_refused_before_any_call(tmp_path, mo
 
 def test_missing_search_key_is_reported_and_stops_a_run_before_any_call(tmp_path, monkeypatch):
     repo, config, _raw, web, serp = make(tmp_path, monkeypatch, key=None)
-    assert runner.missing_keys(config, "all") == [("search search (arm no_gate)", "SERPAPI_API_KEY")]
+    assert runner.missing_keys(config, "all") == [("search search (arm no_gate)", "SERPER_API_KEY")]
     with pytest.raises(SecretError):
         runner.execute_run(config, repo_root=repo, runs_dir=tmp_path / "runs", confirm_spend=True, log=lambda m: None)
     assert serp.urls == []
@@ -175,7 +176,9 @@ def test_preflight_covers_the_search_account_and_the_decomposer_client(tmp_path,
     targets = [where for where, _client in runner.preflight_targets(config)]
     assert targets == ["good", "search search (arm no_gate)", "fetch fetch (arm no_gate)", "decomposer decomposer (arm gated_research)"]
     results = runner.preflight(config)
-    assert [r.ok for r in results] == [True, True, True] and serp.queries == []  # account API only
+    # PR 27: Serper has no account API; its preflight is ONE real search with a fixed query (one credit)
+    assert [r.ok for r in results] == [True, True, True] and serp.queries == []
+    assert serp.preflights == [search_mod.SERPER_PREFLIGHT_QUERY]
 
 
 def test_comma_separated_model_selection(tmp_path, monkeypatch):
@@ -192,7 +195,7 @@ def test_requirements_dataset_pin_and_prepare_commands(tmp_path, monkeypatch, ca
     repo, config, raw, web, serp = make(tmp_path, monkeypatch)
     assert runner.run_requirements(config) == {
         "extras": ["sealqa"],
-        "secrets": ["SERPAPI_API_KEY"],
+        "secrets": ["SERPER_API_KEY"],
         "layer": 3,
         "private_outputs": True,
         "single_job": True,
@@ -218,7 +221,7 @@ def test_cli_preflight_exits_4_when_only_the_search_key_is_missing(tmp_path, mon
     path.write_text(to_toml(raw), encoding="utf-8")
     assert cli.main(["preflight", "--config", str(path)]) == cli.EXIT_NO_KEY
     out = capsys.readouterr().out
-    assert "preflight good: OK" in out and "SKIPPED - repository secret / environment variable SERPAPI_API_KEY" in out
+    assert "preflight good: OK" in out and "SKIPPED - repository secret / environment variable SERPER_API_KEY" in out
     assert cli.main(["run", "--config", str(path), "--confirm-spend", "--repo-root", str(repo)]) == cli.EXIT_NO_KEY
 
 

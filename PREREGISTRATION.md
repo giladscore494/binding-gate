@@ -2,9 +2,18 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.11 (2026-11-22, PR 26: amendment 2, judge temperature)
+**Document version:** 0.12 (2026-11-22, PR 27: amendment 3, search provider Serper)
 
-**Changelog.** 0.10 (2026-11-22, PR 22): **amendment 1** (section 18), decided
+**Changelog.** 0.12 (2026-11-22, PR 27): **amendment 3** (section 18): the
+layer-3 search provider changed from SerpApi to Serper (serper.dev; Google
+organic results, `hl=en`, `gl=us`, at most 10 results) before any layer-3 run,
+because the owner holds a Serper account; searches are spaced 1 s instead of 72
+s, priced at $0.001 each (conservative; the free tier's 2,500 queries are
+expected to cover the study), and the layer-3 budget entries and caps were
+re-derived with the same dry run (dev_live caps 0.60 + 1.15 USD, test_live
+0.85 + 1.55 USD; section 3, layer 3, items 6-8, and section 9). No layer-3
+result has been seen; arms, queries, sample sizes and thresholds are unchanged.
+0.10 (2026-11-22, PR 22): **amendment 1** (section 18), decided
 by the owner on 2026-11-22 **after** seeing the layer-1 dev baseline (workflow
 run 45053502161; R = 2.0% / 2.4% / 1.6% for A / E / H, every model below 5%,
 measurement check not triggered: section 10 says STOP). Layer-1 confirmatory
@@ -675,6 +684,21 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    restriction in its terms and about $1 per 1,000 queries (third-party price
    summary), but less formal documentation and no documented free account
    endpoint. **Chosen: SerpApi, Google engine** (`src/binding_gate/research/search.py`).
+   **Version 0.12 (amendment 3): the study uses Serper instead**
+   (`serper_google` in `src/binding_gate/research/search.py`), because the owner
+   holds a Serper account and no SerpApi account; the change was made before any
+   layer-3 run. Serper (serper.dev and third-party documentation, read
+   2026-11-22): `POST https://google.serper.dev/search` with the key in the
+   `X-API-KEY` header and the body `{"q", "gl": "us", "hl": "en", "num": 10}`;
+   the response's `organic` list holds Google's organic results (title, link,
+   snippet, position); credits are deducted only for successful queries; free
+   tier 2,500 queries on signup (no card), paid plans about $1 per 1,000
+   (third-party summaries, **unverified**); no storage restriction in
+   serper.dev/terms. Serper documents no free account endpoint, so its
+   preflight is one real search with a fixed query (one free-tier credit, not
+   charged to any cap) and reports no remaining quota. Searches are priced at
+   $0.001 each in `configs/prices.toml` (conservative). The SerpApi text below
+   is kept as the record of the original choice.
    Since version 0.5 the study uses SerpApi's **Free plan** (serpapi.com/pricing,
    read again 2026-11-22: "250 searches per month", "50 throughput per hour"),
    which costs nothing and cannot overrun (SerpApi refuses searches beyond the
@@ -684,7 +708,8 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    terms are not a party to this study.
 7. **Agent protocol** (`src/binding_gate/arms/gated_research.py`). The harness,
    not the model, chooses every query. First attempt: the query is the question
-   (whitespace collapsed); SerpApi `engine=google`, `hl=en`, `gl=us`; at most 10
+   (whitespace collapsed); Google results through Serper since version 0.12
+   (SerpApi `engine=google` before), `hl=en`, `gl=us`; at most 10
    organic results are kept in rank order; their pages are fetched in rank
    order until 5 pages were fetched successfully; each page's stored extracted
    text, cut to its first 8,000 characters, is shown as document `web1` ...
@@ -710,9 +735,10 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    `html.parser` (fixed rule, version 1); every failure recorded with its reason
    and never retried. Parameters: `max_attempts = 2`, 10 results, 5 pages,
    8,000 characters per page, fetch limits 2,000,000 bytes, 20 s, 5 redirects,
-   1 s between requests to one host, at most one search per 72 s (the Free
-   plan's 50 per hour; before version 0.5: 18 s, the Starter plan's 200 per
-   hour). **PROPOSED — requires owner approval before freeze.**
+   1 s between requests to one host, at most one search per second (version
+   0.12, Serper, which documents no hourly limit; versions 0.5-0.11: 72 s, the
+   SerpApi Free plan's 50 per hour; before version 0.5: 18 s, the Starter
+   plan's 200 per hour). **PROPOSED — requires owner approval before freeze.**
    *Search quota and allocation (version 0.5).* `[runner] max_searches` caps the
    searches of one invocation, lowered to the searches the free account check
    reports as left; the runner starts no unit (item × model) that could exceed
@@ -727,6 +753,13 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    month 2 = the test run (`configs/test_live.toml`, `max_searches = 250`, the
    whole monthly quota; version 0.7), continued in month 3 with `--resume` (a
    further logged access, section 12) if its re-searches do not fit.
+   *Version 0.12 (amendment 3, Serper):* the `max_searches` values are
+   unchanged (10, 240, 250 per invocation), but nothing lowers them (Serper
+   reports no remaining quota) and there is no monthly renewal: all of them
+   together (at most 500 searches, plus one preflight search per invocation)
+   fit in the free tier's 2,500 queries, and a test run that reaches its limit
+   is resumed with `--resume` without waiting (still a further logged
+   access).
    **PROPOSED — requires owner approval before freeze.**
 8. **Cost** (version 0.5; dry run of `configs/dev_live.toml` on a synthetic
    stand-in of 254 questions, 108 of them dev; nothing spent): slots A and E,
@@ -736,7 +769,11 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    searches 108 to 216, free. Totals: A $0.13-$0.35, E $0.32-$0.85; caps
    $0.40 and $0.90. Smoke (5 dev questions, slot A): $0.01-$0.02, cap $0.10.
    The test run (`configs/test_live.toml`, version 0.7; about 146 questions)
-   is estimated at $0.60-$1.63, caps $0.55 (A) and $1.25 (E). Slots C and G are left out of layer 3 to stay
+   is estimated at $0.60-$1.63, caps $0.55 (A) and $1.25 (E). *Version 0.12
+   (amendment 3):* searches are priced at $0.001 each and the dry run charges
+   every model job all of them (108-216 on dev), so the same dry run now gives
+   A $0.23-$0.57, E $0.43-$1.07 on dev (caps $0.60 and $1.15), the smoke
+   $0.01-$0.03 (cap $0.10) and the test run $0.90-$2.22 (caps $0.85 and $1.55). Slots C and G are left out of layer 3 to stay
    within the budget (section 9). Before version 0.5: six models, three
    repeats, caps $165 (`configs/extended/dev_live.toml`).
 9. **Limitations specific to layer 3.** The queries are chosen by the harness,
@@ -1892,7 +1929,7 @@ reported size; searches free (SerpApi Free plan).
 | LLM-judge arm (`dev_llm_judge_checks.toml`) | A, judge J | 60 dev items | 0.00 | 1.51 | 1.60 |
 | secondary judge (`rescore/dev_llm_judge.toml`) | judge J on A, E, H | 60 dev items × 3 models | 0.92 | 4.52 | 4.75 |
 | layer 3 smoke (`dev_live_smoke.toml`) | A | 5 SealQA dev questions | 0.01 | 0.02 | 0.10 |
-| layer 3 dev (`dev_live.toml`) | A, E | SealQA dev (about 108) | 0.45 | 1.20 | 1.30 |
+| layer 3 dev (`dev_live.toml`) | A, E | SealQA dev (about 108) | 0.66 | 1.64 | 1.75 |
 | layer 2 smoke (`dev_sec_smoke.toml`) | A, E, H | first 2 dev companies (6 items) | 0.01 | 0.03 | 0.30 |
 | layer 2 dev baseline (`dev_sec_baseline.toml`) | A, E, H | SEC dev items (about 300; at most 360) | 0.52 | 1.55 | 1.70 |
 | layer 2 gate and ablations (`dev_sec_gated.toml`) | A, E, H | SEC dev items (answers reused): decomposer | 0.00 | 0.15 | 0.30 |
@@ -1900,9 +1937,9 @@ reported size; searches free (SerpApi Free plan).
 | layer 2 binding-scope candidates (`dev_sec_gated_scope.toml`, version 0.9) | A, E, H | SEC dev items (answers reused): decomposer | 0.00 | 0.15 | 0.30 |
 | **layer 1 test, confirmatory** (`test_layer1.toml`) | A, E, H | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 5.98 | 15.85 | 16.75 |
 | mid-tier check (`test_layer1_midtier.toml`) | B, F, I | 225 test items | 2.47 | 6.55 | 6.95 |
-| layer 3 test, confirmatory (`test_live.toml`) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
+| layer 3 test, confirmatory (`test_live.toml`) | A, E | SealQA test (about 146) | 0.90 | 2.22 | 2.40 |
 | **layer 2 test, confirmatory** (`test_sec.toml`) | A, E, H | SEC test items (about 450; at most 540) | 0.78 | 2.55 | 2.75 |
-| **Total** | | | **14.25** | **42.78** | **48.35** |
+| **Total** | | | **14.76** | **43.82** | **49.40** |
 
 *Version 0.10 (amendment 1).* The table above is the plan before the layer-1
 STOP. The 13 layer-1 runs that the STOP ends - nondeterminism, gated arm,
@@ -1918,6 +1955,12 @@ the judge estimates come from the real judge prompts of the 432 subsample
 records with an 800-character (structured) or 2,000-character (free-form)
 answer. Active totals: low 9.21, high 34.95, caps 38.20 USD; spent so far
 1.14 USD. The smoke run measured about a quarter of the planned high.
+
+*Version 0.12 (amendment 3).* The three layer-3 rows were re-derived after the
+search provider changed to Serper and searches were priced at $0.001 each
+(before: smoke 0.01 / 0.02 / 0.10, dev 0.45 / 1.20 / 1.30, test 0.60 / 1.63 /
+1.80 USD); the table above shows the new values. Active totals: low 9.72, high
+35.99, caps 39.25 USD. No other row changed.
 
 *Version 0.8.* GRAB-RAG's two runs (0.22 / 0.92 / 1.00 USD) left the plan; the
 four layer-2 runs were estimated by dry runs on a synthetic EDGAR stand-in with
@@ -2914,3 +2957,4 @@ freeze, changes are ordinary edits and need no row.
 |---|---|---|---|---|---|
 | 1 | 2026-11-22 | 5, 6.5, 9, 10, 16, 17 | Layer-1 STOP applied as written; layer-1 confirmatory work (gated arms, ablations, comparison arms, H1-H3 on layer 1, `test_layer1`, mid-tier check) stays stopped and its 13 budget entries get status `stopped` (refused by the ledger). Three exploratory, post hoc dev steps added: V1 secondary judge on a fixed 144-item-per-model subsample of the dev-baseline answers with its agreement with the deterministic label; V2 new arm `free_form` (benchmark prompt, no structured answer) on the same items, judge-scored, paired comparison with cluster bootstrap; V3 layer 2 continues with its dev runs under a new layer-2 stop rule (thresholds identical to layer 1) fixed before its baseline is scored. Section 10 made layer-scoped; threats and open items 58-62 added. Version 0.10. | Owner's decision after the layer-1 dev baseline (workflow run 45053502161: R = 2.0% / 2.4% / 1.6%, STOP), on the orchestrator's critique that the quote-provenance metric may undercount claim-level failures, that the structured answer may itself suppress the failure (the paper reports 8-87% free-form), and that the rule did not cover layer 2. Decided AFTER seeing the layer-1 DEV baseline; nothing is re-thresholded; test-split work for layer 1 remains stopped. | No (dev only; no test-split item of any layer has been shown to a model) |
 | 2 | 2026-11-22 | 5, 6.5 | The secondary judge (kimi-k3.1-pro) is called without a temperature (the provider fixes it at 1.0) instead of the benchmark's 0.0. Judge summaries now report the most frequent error messages. | Moonshot's Kimi K3 models reject any temperature other than 1.0 (platform.kimi.ai models overview, read 2026-11-22); in workflow run 45060087457 the judge calls of V1 and V2 failed (V1 290, V2 431 judge errors), so no judgment from that run is used. A judge at temperature 1.0 is not deterministic; its agreement figures are reported as such. | No (dev only) |
+| 3 | 2026-11-22 | 3 (layer 3), 9 | Layer-3 search provider changed from SerpApi to Serper (`serper_google`, secret `SERPER_API_KEY`): the same Google organic results with `hl=en`, `gl=us`, at most 10 per search; searches spaced 1 s instead of 72 s; priced at $0.001 per search (conservative), so the layer-3 budget entries and caps were re-derived (dev_live 0.60 + 1.15 USD, test_live 0.85 + 1.55 USD); `max_searches` unchanged. Version 0.12. | The owner has a Serper account, not a SerpApi account. Changed before any layer-3 run (smoke, dev or test). | No (no layer-3 result of any split has been seen; no test-split item of any layer has been shown to a model) |
