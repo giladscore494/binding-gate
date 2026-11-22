@@ -1,0 +1,7 @@
+{
+  "ledger_version": 1,
+  "note": "Committed snapshot of the budget ledger (PR 15; binding_gate.ledger). Nothing has been spent yet. The orchestrator replaces this file with the ledger.json of the newest ledger artifact (same format) at least once per 90-day artifact retention period, and adds 'manual:<id>' entries ({\"usd\": ..., \"kind\": \"manual\", \"source\": \"...\"}) for spend made outside GitHub Actions.",
+  "total_usd": 0.0,
+  "entries": {},
+  "covered_artifact_ids": []
+}

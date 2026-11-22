@@ -1,0 +1,40 @@
+name: Get the dataset of a config at its pinned version
+description: >-
+  Clones the dataset named in a run config at its pinned commit into data/raw/ (git-ignored),
+  or downloads and converts it when its pin method is "prepare" (SealQA). Shared by
+  .github/workflows/baseline.yml and .github/workflows/dev_pipeline.yml (PR 15). Needs the
+  package installed (with the extras the config needs) and the repository checked out.
+
+inputs:
+  config:
+    description: "Run config (path in the repository) whose [dataset] is fetched"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
+      shell: bash
+      env:
+        CONFIG: ${{ inputs.config }}
+      run: |
+        python -m binding_gate.cli dataset-pin --config "$CONFIG" > dataset-pin.txt
+        cat dataset-pin.txt
+        REPOSITORY="$(sed -n 's/^repository=//p' dataset-pin.txt)"
+        COMMIT="$(sed -n 's/^commit=//p' dataset-pin.txt)"
+        ROOT="$(sed -n 's/^root=//p' dataset-pin.txt)"
+        METHOD="$(sed -n 's/^method=//p' dataset-pin.txt)"
+        case "$ROOT" in data/raw/*) ;; *) echo "::error::dataset root must be under data/raw/"; exit 1 ;; esac
+        if [ "$METHOD" = "prepare" ]; then
+          python -m binding_gate.cli dataset-prepare --config "$CONFIG"
+        elif [ -d "$ROOT/.git" ] && [ "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT" ]; then
+          echo "dataset already at $COMMIT in $ROOT"
+        else
+          mkdir -p "$ROOT"
+          git -C "$ROOT" init -q
+          git -C "$ROOT" remote add origin "$REPOSITORY"
+          git -C "$ROOT" fetch -q --depth 1 origin "$COMMIT"
+          git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
+          test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
+        fi
+        rm -f dataset-pin.txt

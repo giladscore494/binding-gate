@@ -109,6 +109,9 @@ src/binding_gate/
   runner.py      cli.py          the run loop, budget caps, dry run; commands   PR 2
   pricing.py     baseline_report.py  cost model; section 10 stop-rule report    PR 2
   judging.py                     judge-family rule and judge plumbing           PR 5
+  ledger.py      ghapi.py        global budget ledger; GitHub REST client       PR 15
+  pipeline.py                    dev pipeline stages and gates                  PR 15
+  layer3_summary.py              unencrypted layer-3 summary (no page text)     PR 15
   frozen_run.py                  the one-command frozen test run, one layer each PR 6, 16
   datasets/      one module per dataset adapter                                 PR 2, 7, 8
   models/        one module per model client (plain HTTPS)                      PR 2
@@ -129,7 +132,11 @@ src/binding_gate/
 results/layer<N>/<run_id>/       committed, non-sensitive results of a run (section 7)        PR 16
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
-.github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run) PR 2, 8, 12
+.github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run); reusable PR 2, 8, 12, 15
+.github/workflows/dev_pipeline.yml  the whole dev phase by stage (keys-only operation)  PR 15
+.github/actions/                 composite actions: get-dataset, ledger-check            PR 15
+results/ledger.json              committed snapshot of the budget ledger                 PR 15
+docs/OWNER_SETUP.md              the owner's one-time setup (Hebrew, English)            PR 15
 ```
 
 Ownership as delivered. Each PR added files in the places listed and did not
@@ -468,6 +475,29 @@ These are fixed here because every later PR relies on them.
   `group_id`.
 - **Baseline report** (`baseline_report.py`, `cli report`) implements only the
   section 10 stop rule from traces. It is not the statistics package (PR 6).
+- **Keys-only operation (PR 15).** The dev phase runs from
+  `.github/workflows/dev_pipeline.yml`, which calls `baseline.yml` as a reusable
+  workflow (`workflow_call`) once per config of a stage
+  (`binding_gate.pipeline.STAGES`). Conventions every later paid workflow or
+  step must follow:
+  - **Budget ledger before every paid step** (`.github/actions/ledger-check`,
+    `binding_gate.ledger`): it reads the artifacts of every hand-started
+    (`workflow_dispatch`) run of the repository and refuses when the actual
+    spend so far plus the caps about to run exceed `hard_limit_usd` of
+    `configs/budget.toml`, when spend is unknown, or when another hand-started
+    run is active. A paid workflow must be started by `workflow_dispatch` (the
+    ledger trusts no other event) and give the job `actions: read`.
+  - **Artifact names** carry their role (`binding_gate.ledger.artifact_role`):
+    `[<stage>--<config stem>--]runs-<model>` for run directories,
+    `...runs-encrypted-...` with a matching `...layer3-summary-...` in the same
+    workflow run, `...decomposer-eval`, `...rescore`, `...ledger`; a re-run
+    attempt appends `-attempt<N>`. Every upload uses `retention-days: 90`. A
+    new kind of spend record needs a role there, or its spend is not counted.
+  - **No page text leaves a job unencrypted**: a layer-3 run's costs and
+    outcomes are published only through `binding_gate.layer3_summary`, whose
+    allowed fields are enumerated (`ALLOWED_FIELDS`) and tested.
+  - **No expression inside a shell script**: inputs, outputs and secrets reach
+    `run:` scripts only through `env:` (tested for every workflow and action).
 
 ## 9. Out of scope
 
