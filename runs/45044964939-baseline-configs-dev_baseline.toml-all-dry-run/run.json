@@ -1,0 +1,31 @@
+{
+  "artifacts": [
+    "ledger-after-run"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T16:39:26+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45044964939-baseline-configs-dev_baseline.toml-all-dry-run",
+  "head_branch": "main",
+  "head_sha": "80b847ebf9258264c6e268aa25ab5f935619716c",
+  "kept": [
+    {
+      "bytes": 2005,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "4e7327b6b5bd2ee7340c3dba32451588d42be65da2fd8f2d930846f2ae6c07f9"
+    },
+    {
+      "bytes": 137,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "e1d6f3068287fa37b4bf2b11fa82a22ca230ba480436d2b93fc611f3ca071055"
+    }
+  ],
+  "left_out": [],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45044964939,
+  "stage": "baseline-configs-dev_baseline.toml-all-dry-run",
+  "title": "baseline: configs/dev_baseline.toml (all, dry run)",
+  "workflow": "baseline: configs/dev_baseline.toml (all, dry run)"
+}
