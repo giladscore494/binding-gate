@@ -113,7 +113,9 @@ def test_every_model_under_test_runs_at_its_lowest_reasoning_setting():
     for spec in smoke.models:
         options = spec.options
         if spec.name == "openai_responses":
-            assert options["reasoning"] == {"effort": "none"}
+            # gpt-6.1-sol rejects "none" (HTTP 400 in the smoke run, 2026-11-22); "low" is its lowest value
+            lowest = "low" if options["model_id"] == "gpt-6.1-sol" else "none"
+            assert options["reasoning"] == {"effort": lowest}
         elif spec.name == "google_gemini":
             assert options["thinking_config"] == {"thinkingLevel": "minimal"}
         elif spec.name == "zai_chat":  # PR 14: GLM-5.3 models cannot disable thinking; "low" is the lowest effort
@@ -133,6 +135,7 @@ def test_per_model_reasoning_assumption_overrides_the_file_wide_one():
     for glm in ("glm-5.3-flash", "glm-5.3"):  # PR 14: thinking stays on at the lowest setting
         assert (committed.reasoning_low(glm), committed.reasoning_high(glm)) == (100, 2000)
     assert committed.reasoning_low("gpt-6-luna") == 0
+    assert (committed.reasoning_low("gpt-6.1-sol"), committed.reasoning_high("gpt-6.1-sol")) == (100, 2000)
 
 
 def test_per_model_low_reasoning_assumption_overrides_the_file_wide_one():
