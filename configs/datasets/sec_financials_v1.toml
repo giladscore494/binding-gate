@@ -22,4 +22,4 @@ max_retries = 4
 # After the first generation in GitHub Actions, commit data/raw/sec-financials/selection.json as
 # configs/datasets/sec_financials_selection_v1.json and set the path here, so that every later
 # generation reads only immutable EDGAR sources (archived filings, facts filtered by accession).
-selection_file = ""
+selection_file = "configs/datasets/sec_financials_selection_v1.json"   # committed from dev-pipeline run 45057280785 (2026-11-22)

@@ -62,10 +62,15 @@ def test_arm_sets_and_seeding():
     assert smoke.limit == 2 and [a.label for a in smoke.arms] == ["no_gate"]
 
 
-def test_the_dataset_is_unpinned_until_the_first_generation_and_configs_hold_no_address():
+PINNED_SHA256 = "1310f020dd2c47ad1a0d7950cc13564bd3bda16bc7dd048e8f32bf656ec21e2c"  # dev-pipeline run 45057280785
+
+
+def test_every_sec_config_pins_the_first_generation_and_configs_hold_no_address():
     for name in SEC:
         text = (CONFIGS / name).read_text(encoding="utf-8")
-        assert 'data_sha256 = "UNPINNED"' in text and "@" not in text.replace("@0", ""), name
+        assert f'data_sha256 = "{PINNED_SHA256}"' in text and "@" not in text.replace("@0", ""), name
+    selection = CONFIGS / "datasets" / "sec_financials_selection_v1.json"
+    assert selection.is_file() and "@" not in selection.read_text(encoding="utf-8")
     assert "@" not in (CONFIGS / "datasets" / "sec_financials_v1.toml").read_text(encoding="utf-8")
 
 
