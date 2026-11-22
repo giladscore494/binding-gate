@@ -128,6 +128,7 @@ from binding_gate.pricing import PriceBook, PricingError, load_prices
 from binding_gate.research import context as run_context
 from binding_gate.split import select_dev
 from binding_gate.testlock import load_test_split
+from binding_gate.models._http import BALANCE_EXHAUSTED_PREFIX
 from binding_gate.trace import TRACES_NAME, TraceWriter, read_traces
 
 INVOCATIONS_NAME = "invocations.jsonl"
@@ -1329,11 +1330,14 @@ class RunSummary:
     searches: int = 0
     search_limit: int | None = None
     search_limit_reached: bool = False
+    balance_exhausted: bool = False
+    balance_exhausted_records: int = 0
 
     @property
     def budget_exceeded(self) -> bool:
-        """True when the run stopped early: a model's budget cap or the search quota (PR 13) was reached."""
-        return bool(self.aborted_models) or self.search_limit_reached
+        """True when the run stopped early: a model's budget cap, the search quota (PR 13) or a
+        provider's prepaid balance (PR 19) was reached."""
+        return bool(self.aborted_models) or self.search_limit_reached or self.balance_exhausted
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1349,6 +1353,8 @@ class RunSummary:
             "searches": self.searches,
             "search_limit": self.search_limit,
             "search_limit_reached": self.search_limit_reached,
+            "balance_exhausted": self.balance_exhausted,
+            "balance_exhausted_records": self.balance_exhausted_records,
         }
 
 
@@ -1689,6 +1695,31 @@ def execute_run(
         def handle(finished: Iterable[Future[list[TraceRecord]]]) -> None:
             for future in finished:
                 for record in future.result():
+                    if record.error is not None and BALANCE_EXHAUSTED_PREFIX in record.error:
+                        # PR 19: a provider's prepaid balance ran out. The record is NOT written
+                        # (so a resume after topping up retries it) but is logged in
+                        # invocations.jsonl; no further unit is started for any model.
+                        summary.balance_exhausted = True
+                        summary.balance_exhausted_records += 1
+                        _append_invocation(
+                            writer.run_dir,
+                            {
+                                "event": "balance_exhausted",
+                                "at": utc_now_iso(),
+                                "item_id": record.item_id,
+                                "arm": record.arm,
+                                "model": record.model,
+                                "repeat": record.repeat,
+                                "error": record.error[:500],
+                            },
+                        )
+                        if summary.balance_exhausted_records == 1:
+                            log(
+                                f"BALANCE EXHAUSTED ({record.model}, arm {record.arm}): a provider reports "
+                                "that the prepaid balance or quota is used up; no further calls are started. "
+                                "Top up the account and resume this run with the same config and commit."
+                            )
+                        continue
                     writer.append(record)
                     summary.searches += sum(
                         1 for call in record.model_calls if call.purpose == "search" and not is_cache_hit(call)
@@ -1709,6 +1740,8 @@ def execute_run(
             pending: set[Future[list[TraceRecord]]] = set()
             try:
                 for unit in units():
+                    if summary.balance_exhausted:
+                        break
                     if unit.model_label in aborted:
                         continue
                     if search_limit is not None and searches_per_unit:
@@ -1747,7 +1780,7 @@ def execute_run(
         summary.unpriced_clients = sorted(cost.unpriced_clients)
         if summary.unpriced_clients:
             log(f"WARNING: calls by {summary.unpriced_clients} could not be priced and are not in the spend")
-        if not aborted and not summary.search_limit_reached:
+        if not aborted and not summary.search_limit_reached and not summary.balance_exhausted:
             writer.close()
             summary.closed = True
     finally:

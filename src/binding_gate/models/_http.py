@@ -35,6 +35,33 @@ from binding_gate import secrets
 from binding_gate.contracts import ModelRequest, ModelResponse, TokenUsage
 
 RETRYABLE_STATUS = frozenset({408, 429, 500, 502, 503, 504, 529})
+
+# A prepaid balance or quota that has run out is NOT retryable: waiting does not help,
+# and some providers report it with HTTP 429 (the rate-limit code). Detected by HTTP 402
+# or by these phrases in the error body (case-insensitive). See is_balance_exhausted().
+BALANCE_EXHAUSTED_PREFIX = "BALANCE EXHAUSTED"
+_BALANCE_PHRASES = (
+    "insufficient_quota",
+    "exceeded your current quota",
+    "insufficient balance",
+    "insufficient_balance",
+    "balance is insufficient",
+    "balance_insufficient",
+    "credit balance is too low",
+    "insufficient credit",
+    "insufficient funds",
+    "payment required",
+    "account balance",
+    "\u4f59\u989d\u4e0d\u8db3",  # "insufficient balance" in Chinese, as some providers write it
+)
+
+
+def is_balance_exhausted(status: int | None, body: str) -> bool:
+    """True when an error says the account's prepaid balance or quota is used up."""
+    if status == 402:
+        return True
+    lowered = body.lower()
+    return any(phrase in lowered for phrase in _BALANCE_PHRASES)
 _ERROR_BODY_LIMIT = 500
 _REQUEST_PARAM_KEYS = frozenset({"temperature", "max_output_tokens"})
 
@@ -144,6 +171,12 @@ def request_json(
     response = transport(HttpRequest(method, url, all_headers, body, timeout))
     text = response.body.decode("utf-8", errors="replace")
     if not 200 <= response.status < 300:
+        if is_balance_exhausted(response.status, text):
+            raise ModelError(
+                f"{BALANCE_EXHAUSTED_PREFIX}: HTTP {response.status}: {text[:_ERROR_BODY_LIMIT]}",
+                status=response.status,
+                retryable=False,
+            )
         raise ModelError(
             f"HTTP {response.status}: {text[:_ERROR_BODY_LIMIT]}",
             status=response.status,
