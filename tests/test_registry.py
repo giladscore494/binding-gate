@@ -25,15 +25,19 @@ def test_every_kind_has_an_importable_package():
         assert isinstance(available(kind), list)
 
 
-def test_pr2_components_are_registered_and_later_kinds_are_still_empty():
+def test_pr2_and_pr4_components_are_registered():
     # Not isolated on purpose: this is the real registry after discovery.
     assert "deceptive_grounding" in available("dataset")
     assert {"openai_responses", "anthropic_messages", "google_gemini", "moonshot_chat"} <= set(available("model"))
-    assert "no_gate" in available("arm")
+    assert {"no_gate", "gated"} <= set(available("arm"))
     assert "provenance" in available("scorer")
-    assert available("decomposer") == ["model_decomposer"]  # PR 3
-    for kind in ("check", "gate"):
-        assert available(kind) == []
+    # test doubles (tests/gate_fakes.py registers "fake_decomposer") are excluded
+    assert [n for n in available("decomposer") if not n.startswith("fake_")] == ["model_decomposer"]  # PR 3
+    # PR 4: the five reserved check names and the verdict gate
+    assert available("check") == sorted(
+        ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+    )
+    assert available("gate") == ["binding"]
 
 
 def test_register_and_create_with_options(isolated_registry):
