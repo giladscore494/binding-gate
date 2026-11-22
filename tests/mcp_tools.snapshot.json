@@ -1,0 +1,306 @@
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Verify answer binding"
+    },
+    "description": "Check whether an answer you found in a source is bound to the question: is the quote copied verbatim from the document you cite, and is that passage about the entity and the conditions (time, place, version, unit) the question asks about, rather than about a neighbouring entity? Call it before you state an answer taken from a web page or document. Pass the documents you actually read, unchanged. The verdict is computed by deterministic string rules (no model, no network) when you pass 'constraints'.\nVerdicts: ACCEPT - you may give the answer and cite the quote. RESEARCH - the quote exists, but the passage is not clearly about the asked entity or conditions (or another entity is closer to it); look for a better source, using research_request.query, and verify again. ABSTAIN - the quote is not in the cited document, is too short, or the evidence lacks what the question presupposes; do not give this answer: copy the quote exactly, or say you could not verify it.\nLimits: the gate checks binding, not truth. An ACCEPT means the evidence is about the right thing, not that the source is correct or that the value was read correctly.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "description": "The answer value you intend to give.",
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "checks": {
+          "default": [
+            "quote_verbatim",
+            "entity_in_window",
+            "qualifiers_in_window",
+            "no_closer_competitor",
+            "premise_present"
+          ],
+          "description": "Which checks to run (default: all five). Leaving one out is an ablation; they always run in the canonical order shown in the enum.",
+          "items": {
+            "enum": [
+              "quote_verbatim",
+              "entity_in_window",
+              "qualifiers_in_window",
+              "no_closer_competitor",
+              "premise_present"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "constraints": {
+          "additionalProperties": false,
+          "description": "What acceptable evidence must be about. Pass this to run the gate fully deterministically, without calling any model. Same format as the output of decompose_question. Required on this server (no decomposer model is configured).",
+          "properties": {
+            "attribute": {
+              "description": "What is asked about the entity, e.g. 'maximum daily dose'. Used only in the research request.",
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "entity": {
+              "additionalProperties": false,
+              "description": "The entity the question asks about.",
+              "properties": {
+                "aliases": {
+                  "description": "Other names that count as a mention of the same entity (brand names, abbreviations).",
+                  "items": {
+                    "maxLength": 500,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 50,
+                  "type": "array"
+                },
+                "kind": {
+                  "description": "Optional free-text type, e.g. 'drug'. Not used by the checks.",
+                  "maxLength": 500,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "description": "Its name as it would appear in a source, e.g. 'Lisinopril'.",
+                  "maxLength": 500,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            },
+            "presuppositions": {
+              "description": "What the question takes for granted. Every key term must appear in the evidence.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "key_terms": {
+                    "description": "Words whose presence in the evidence the premise check looks for.",
+                    "items": {
+                      "maxLength": 500,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "text": {
+                    "description": "The premise in words.",
+                    "maxLength": 4000,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "type": "object"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "qualifiers": {
+              "description": "Conditions the evidence must also mention near the quote (time, place, version, unit, other).",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "aliases": {
+                    "description": "Other surface forms of the same condition.",
+                    "items": {
+                      "maxLength": 500,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "kind": {
+                    "enum": [
+                      "time",
+                      "place",
+                      "version",
+                      "unit",
+                      "other"
+                    ],
+                    "type": "string"
+                  },
+                  "text": {
+                    "description": "The condition as it would appear in a source, e.g. '2023'.",
+                    "maxLength": 500,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text"
+                ],
+                "type": "object"
+              },
+              "maxItems": 50,
+              "type": "array"
+            }
+          },
+          "required": [
+            "entity",
+            "attribute"
+          ],
+          "type": "object"
+        },
+        "documents": {
+          "description": "Every document you read for this answer, with its full text as you saw it. Other documents matter: their subjects are the competing entities. Ids must be unique. At most 200000 characters per text and 1000000 in total.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "A short id you choose, e.g. 'doc1'.",
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "text": {
+                "description": "The document text.",
+                "maxLength": 200000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "url": {
+                "description": "Optional; recorded only, never fetched.",
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "text"
+            ],
+            "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": false,
+          "description": "Gate parameters. Omit to use the defaults, which are the PROPOSED values of the study's pre-registration (section 5.1; not yet frozen). Any value you set is echoed in the output.",
+          "properties": {
+            "competitor_tie": {
+              "default": "fail",
+              "description": "Whether a competing entity exactly as close to the quote as the question's entity blocks the answer ('fail') or not ('pass').",
+              "enum": [
+                "fail",
+                "pass"
+              ],
+              "type": "string"
+            },
+            "lead_max_tokens": {
+              "default": 4,
+              "description": "Longest lead term (in tokens) that counts as the subject of a document when looking for competing entities.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "lead_min_repeats": {
+              "default": 2,
+              "description": "How often a lead term must occur in its document to count as a competing entity.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "min_quote_tokens": {
+              "default": 5,
+              "description": "Smallest number of whitespace-separated tokens a quote must have.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "premise_scope": {
+              "default": "document",
+              "description": "Where presupposition key terms are looked for: the whole cited document, or only the window around the quote.",
+              "enum": [
+                "document",
+                "window"
+              ],
+              "type": "string"
+            },
+            "window_tokens": {
+              "default": 40,
+              "description": "Largest number of tokens allowed between the quote and a mention of the entity, a qualifier or a competing entity.",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "question": {
+          "description": "The question exactly as it was asked.",
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "quote": {
+          "description": "One continuous passage copied verbatim from the cited document that supports the answer (at least min_quote_tokens words).",
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_id": {
+          "description": "The id of the document the quote is copied from.",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "answer",
+        "quote",
+        "source_id",
+        "documents"
+      ],
+      "type": "object"
+    },
+    "name": "verify_answer",
+    "title": "Verify that an answer's evidence is about the question"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Decompose question"
+    },
+    "description": "Turn a question into the constraints that verify_answer checks: the entity, the asked attribute, qualifiers and presuppositions. Uses a language model configured by the server operator, so it is not deterministic and its API cost is paid by the operator's key. Review the result and pass it to verify_answer as 'constraints'. If no decomposer is configured, this tool returns an error: write the constraints yourself and pass them to verify_answer. No decomposer is configured on this server: calling this tool returns an explanation only.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "description": "The question exactly as it was asked.",
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "type": "object"
+    },
+    "name": "decompose_question",
+    "title": "Decompose a question into constraints (uses a model)"
+  }
+]

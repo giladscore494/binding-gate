@@ -1,0 +1,55 @@
+# Example configuration of the binding-gate MCP server (PR 9; docs/MCP.md).
+#
+#   python -m binding_gate.mcp.server --config configs/mcp/server.example.toml
+#
+# This is a SERVER configuration, not a run config: it lives under configs/mcp/
+# because every configs/*.toml file is loaded as a run config by
+# tests/test_config.py::test_every_committed_config_loads. It is validated by
+# tests/test_mcp_core.py instead.
+#
+# Gate parameters and checks are deliberately NOT set here. Their defaults are the
+# PROPOSED values of PREREGISTRATION.md section 5.1, read from
+# binding_gate.gates.binding; a caller may override them per request (ablations),
+# and the values used are echoed in every verify_answer result.
+#
+# Nothing in this file is read from environment variables. The only environment
+# variable the server can read is the API key of the decomposer's model client,
+# and only if the [decomposer] table below is enabled.
+
+config_version = 1
+
+[server]
+name = "binding-gate"
+
+# Input size limits. Inputs over a limit are refused with an error naming the
+# field and the limit; nothing is truncated. These are the built-in defaults.
+[limits]
+max_documents = 50                  # documents per verify_answer call
+max_document_chars = 200000         # characters of one document text
+max_total_document_chars = 1000000  # characters of all document texts together
+max_question_chars = 4000           # question, answer, quote, presupposition text
+max_id_chars = 200                  # document id and source_id
+max_url_chars = 2048                # document url (recorded only, never fetched)
+max_term_chars = 500                # entity name, alias, kind, attribute, qualifier, key term
+max_list_items = 50                 # aliases, qualifiers, presuppositions, key terms
+
+# Optional decomposer. Without it the server is fully deterministic and callers
+# must pass explicit constraints to verify_answer; decompose_question then only
+# explains that. Uncomment to enable it: decompose_question and verify_answer
+# without constraints will then call this model with the operator's API key
+# (here ANTHROPIC_API_KEY, read through binding_gate.secrets) and the operator pays.
+# The format is that of options.decomposer of the gated arm in a run config.
+#
+# [decomposer]
+# name = "model_decomposer"
+# [decomposer.options]
+# prompt_version = 1
+# [decomposer.options.model]
+# name = "anthropic_messages"
+# label = "mcp-decomposer"
+# [decomposer.options.model.options]
+# model_id = "claude-haiku-5-5"     # example id; use one your key can access
+# max_output_tokens = 4096
+# temperature = 0.0
+# timeout_seconds = 180
+# max_retries = 2
