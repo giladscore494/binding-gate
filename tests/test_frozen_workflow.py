@@ -155,7 +155,8 @@ def test_the_run_job_checks_out_exactly_the_tag_and_satisfies_the_lock():
 def test_only_the_paid_step_holds_model_keys_and_no_job_with_keys_can_write():
     used = set(re.findall(r"secrets\.([A-Z_]+)", TEXT))
     assert used <= set(KNOWN_SECRETS)
-    assert {"OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPAPI_API_KEY"} <= used
+    assert {"OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPER_API_KEY"} <= used
+    assert "SERPAPI_API_KEY" not in used  # PR 27: Serper replaced SerpApi
     for job_name, job in JOBS.items():
         text = yaml.safe_dump(job)
         if "permissions" in job:
@@ -367,7 +368,7 @@ def test_the_real_repository_access_log_was_not_written():
 # --------------------------------------------------------------------------- #
 
 OWNER = (REAL_REPO / "docs" / "OWNER_SETUP.md").read_text(encoding="utf-8")
-FINAL_SECRETS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPAPI_API_KEY",
+FINAL_SECRETS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPER_API_KEY",
                  "RUNS_ENCRYPTION_PASSPHRASE", "SEC_CONTACT_EMAIL")
 
 

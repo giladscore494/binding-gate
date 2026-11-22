@@ -8,7 +8,7 @@ surcharges are not modelled.
 
 PR 8 added ``per_call_usd`` (optional, default 0): a fixed charge per successful
 call, for endpoints billed per request rather than per token (web search APIs).
-A search API is entered with its provider id (for example ``serpapi/google``),
+A search API is entered with its provider id (for example ``serper/google``),
 ``per_call_usd`` and zero token prices; the free page fetcher of
 ``binding_gate.research`` is entered with every price zero, so that its calls
 are priced (at nothing) instead of being reported as unpriced. Files without the

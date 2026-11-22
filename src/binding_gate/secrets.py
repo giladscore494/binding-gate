@@ -28,7 +28,14 @@ KNOWN_SECRETS: dict[str, str] = {
         "study (PR 14 removed slot G)"
     ),
     "ZAI_API_KEY": "Z.ai (GLM) API key; read by models/zai_chat.py (PR 14, slots H and I)",
-    "SERPAPI_API_KEY": "SerpApi key for live web search (layer 3); read by research/search.py (PR 8)",
+    "SERPER_API_KEY": (
+        "Serper (serper.dev) key for live web search (layer 3); read by research/search.py (PR 27, the study's "
+        "search provider)"
+    ),
+    "SERPAPI_API_KEY": (
+        "SerpApi key; read by research/search.py (PR 8). Optional: no longer used by the USD 50 study since PR 27 "
+        "(search provider changed to Serper); kept for the unused serpapi_google client"
+    ),
     "RUNS_ENCRYPTION_PASSPHRASE": (
         "passphrase with which .github/workflows/baseline.yml encrypts the run artifacts of live-web runs, "
         "which contain third-party page text (PR 8); read by the workflow only, never by Python code"

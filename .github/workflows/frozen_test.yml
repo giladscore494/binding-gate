@@ -194,7 +194,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         run: |
           python -m binding_gate.cli frozen-test-run --config "$CONFIG" --tag "$TAG" \
             --purpose "frozen test run of $LAYER from GitHub Actions workflow run $GITHUB_RUN_ID (PREREGISTRATION.md section 12)" \

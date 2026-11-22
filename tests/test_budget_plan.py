@@ -99,8 +99,10 @@ def test_pr17_totals_and_the_layer_2_entries():
     assert round(sum(r["high_usd"] for r in sec), 2) == 4.28 and round(sum(r["cap_usd"] for r in sec), 2) == 5.05
     # PR 18 added dev_gated_scope and dev_sec_gated_scope (0.21 HIGH, 0.60 caps); see test_pr18_scope_runs.
     # PR 22 added the validation runs and stopped 13 layer-1 runs (test_pr22_...); every earlier entry is unchanged.
+    # PR 27 re-derived the three layer-3 entries (searches priced at $0.001, Serper): HIGH +1.04, caps +1.05
+    # (before PR 27: 42.78 / 48.35); see test_pr27_layer3_entries_with_priced_searches.
     before = [r for r in RUNS if r["id"] not in VALIDATION_RUNS]
-    assert round(sum(r["high_usd"] for r in before), 2) == 42.78 and round(sum(r["cap_usd"] for r in before), 2) == 48.35
+    assert round(sum(r["high_usd"] for r in before), 2) == 43.82 and round(sum(r["cap_usd"] for r in before), 2) == 49.40
     assert by_id["test_layer1"]["cap_usd"] == 16.75 and by_id["test_layer1_midtier"]["cap_usd"] == 6.95
     assert by_id["rescore_dev_llm_judge"]["cap_usd"] == 4.75 and by_id["dev_baselines"]["cap_usd"] == 1.10
 
@@ -139,6 +141,9 @@ def test_extended_price_file_has_the_same_token_prices_and_the_old_assumptions()
         if model_id == "serpapi/google":
             assert price.per_call_usd == 0.025 and main.get(model_id).per_call_usd == 0.0
             continue
+        if model_id == "serper/google":  # PR 27: the same conservative price in both files
+            assert price.per_call_usd == main.get(model_id).per_call_usd == 0.001
+            continue
         assert (price.input_per_mtok, price.output_per_mtok) == (
             main.get(model_id).input_per_mtok, main.get(model_id).output_per_mtok
         ), model_id
@@ -155,14 +160,23 @@ def test_judge_only_limits_fit_inside_the_runner_caps():
                 assert all(arm.options["judge_max_usd"] <= settings.cap_for(m.label) for m in config.models)
 
 
-def test_month_one_searches_fit_the_serpapi_free_plan():
-    limits = [runner.RunnerSettings.from_config(load_config(CONFIGS / n)).max_searches for n in ("dev_live_smoke.toml", "dev_live.toml")]
-    assert sum(limits) <= 250
+def test_all_layer3_searches_fit_the_serper_free_tier():
+    """PR 27: Serper's free tier gives 2,500 queries on signup (no monthly renewal); the caps of PR 13/16 stay."""
+    limits = {n: runner.RunnerSettings.from_config(load_config(CONFIGS / n)).max_searches
+              for n in ("dev_live_smoke.toml", "dev_live.toml", "test_live.toml")}
+    assert limits == {"dev_live_smoke.toml": 10, "dev_live.toml": 240, "test_live.toml": 250}
+    # every invocation also spends one preflight search; even two resumes of the test run fit
+    assert sum(limits.values()) + 2 * limits["test_live.toml"] + 10 <= 2500
 
 
-def test_month_two_test_searches_fit_the_serpapi_free_plan():
-    """PR 16: the layer-3 test run is month 2 of the allocation (resumed in month 3 if needed)."""
-    assert runner.RunnerSettings.from_config(load_config(CONFIGS / "test_live.toml")).max_searches <= 250
+def test_pr27_layer3_entries_with_priced_searches():
+    """PR 27 (amendment 3): searches cost $0.001 (Serper); the layer-3 entries were re-derived by the same rule."""
+    by_id = {r["id"]: r for r in RUNS}
+    got = {i: (by_id[i]["low_usd"], by_id[i]["high_usd"], by_id[i]["cap_usd"]) for i in ("dev_live_smoke", "dev_live", "test_live")}
+    assert got == {"dev_live_smoke": (0.01, 0.03, 0.10), "dev_live": (0.66, 1.64, 1.75), "test_live": (0.90, 2.22, 2.40)}
+    assert load_prices(CONFIGS / "prices.toml").get("serper/google").per_call_usd == 0.001
+    # test_live = dev_live x 146 / 108, rounded up
+    assert abs(by_id["dev_live"]["high_usd"] * 146 / 108 - by_id["test_live"]["high_usd"]) < 0.01
 
 
 @pytest.mark.skipif(
@@ -202,7 +216,8 @@ def test_pr22_layer1_runs_stopped_by_section_10_and_the_validation_runs():
     assert round(sum(r["low_usd"] for r in validation), 2) == 4.87
     assert round(sum(r["high_usd"] for r in validation), 2) == 22.43
     assert round(sum(r["cap_usd"] for r in validation), 2) == 23.65
-    assert round(sum(r["high_usd"] for r in ACTIVE), 2) == 34.95 and round(sum(r["cap_usd"] for r in ACTIVE), 2) == 38.20
+    # PR 27: the layer-3 entries rose by HIGH 1.04 and caps 1.05 (before: 34.95 / 38.20)
+    assert round(sum(r["high_usd"] for r in ACTIVE), 2) == 35.99 and round(sum(r["cap_usd"] for r in ACTIVE), 2) == 39.25
     for r in validation:  # caps just above HIGH: HIGH x 1.05 rounded up to 0.05 USD (at least 0.10 per model)
         assert r["high_usd"] <= r["cap_usd"] <= r["high_usd"] * 1.05 + 0.10, r["id"]
 

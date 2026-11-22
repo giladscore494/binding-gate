@@ -91,9 +91,11 @@ that could take the number of web searches made in this invocation (calls with
 purpose ``search`` that were not cache hits) above the limit, counting every
 unit in flight at its upper bound (the sum of ``max_attempts`` over the
 live-web arms). The limit is lowered to the searches the provider's free
-account check reports as left, when it reports them. The run is then left
-unfinished and is resumed after the provider's monthly quota has renewed
-(PREREGISTRATION.md section 3, layer 3, item 7: SerpApi's Free plan).
+account check reports as left, when it reports them (SerpApi did; Serper, the
+study's provider since PR 27, has no account check: its client leaves
+``searches_left = None`` and ``max_searches`` alone is the cap). The run is
+then left unfinished and is resumed with the same command (PREREGISTRATION.md
+section 3, layer 3, item 7).
 
 **Run context (PR 8).** Arms are built inside
 ``binding_gate.research.context.activate`` so that live-web arms can store

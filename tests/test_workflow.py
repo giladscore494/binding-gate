@@ -43,7 +43,7 @@ def test_only_documented_secrets_are_used_and_a_missing_one_skips_the_model():
     used = set(re.findall(r"secrets\.([A-Z_]+)", WORKFLOW))
     assert used == {
         "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY",
-        "SERPAPI_API_KEY", "RUNS_ENCRYPTION_PASSPHRASE",  # PR 8: web search key, artifact encryption
+        "SERPER_API_KEY", "RUNS_ENCRYPTION_PASSPHRASE",  # PR 8: web search key (Serper since PR 27), artifact encryption
         "DEEPSEEK_API_KEY",  # PR 13: slot G (optional since PR 14; unused by the USD 50 study)
         "ZAI_API_KEY",  # PR 14: slots H and I (Z.ai GLM)
         "SEC_CONTACT_EMAIL",  # PR 17: EDGAR User-Agent contact, only for generating the SEC dataset
@@ -130,7 +130,8 @@ def test_dataset_is_cloned_or_prepared_by_its_pin_method():
 
 def test_search_key_reaches_preflight_and_paid_run_and_a_missing_one_skips():
     for name in ("Preflight (free check that the model ids and the search account exist)", "Paid run"):
-        assert "SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}" in RUN_STEPS[name]
+        assert "SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}" in RUN_STEPS[name]  # PR 27: Serper
+        assert "SERPAPI_API_KEY" not in RUN_STEPS[name]
         assert "${SELECTED_MODELS:-$MODEL}" in RUN_STEPS[name]
     assert "web search" in RUN_STEPS["Preflight (free check that the model ids and the search account exist)"]
     single = RUN_STEPS["Single live-web job - select every model whose API key is set"]

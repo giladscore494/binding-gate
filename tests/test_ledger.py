@@ -196,7 +196,8 @@ def test_caps_of_configs_and_stages_are_the_caps_the_plan_lists():
             sum(ledger.config_cap(c, repo_root=REAL_REPO) for c in configs))
     # PR 17: GRAB-RAG (cap 0.40) left all-dev; the three SEC dev runs (0.30 + 1.70 + 0.30) joined it as layer2-dev
     # PR 18: the binding-scope candidate runs (0.30 in dev-rest, 0.30 in layer2-dev) joined all-dev
-    assert ledger.stage_cap("all-dev", repo_root=REAL_REPO) == pytest.approx(19.80)
+    # PR 27: dev_live's caps rose from 1.30 to 1.75 (searches priced at $0.001, Serper)
+    assert ledger.stage_cap("all-dev", repo_root=REAL_REPO) == pytest.approx(20.25)
     assert ledger.stage_cap("layer2-dev", repo_root=REAL_REPO) == pytest.approx(2.60)
     for free in ("check-secrets", "sec-dataset-prepare"):
         assert ledger.stage_cap(free, repo_root=REAL_REPO) == 0

@@ -8,6 +8,7 @@ import run_helpers as h
 from binding_gate import runner
 from binding_gate.config import ConfigError, parse_config
 from binding_gate.contracts import Split
+from binding_gate.research import search as search_mod
 from binding_gate.sampling import SUBSAMPLE_SEED, sample_key, stratified_sample
 from binding_gate.stats.analysis import analyse_run_dirs
 from binding_gate.trace import read_traces
@@ -146,14 +147,58 @@ def test_the_search_quota_stops_starting_units_and_a_resume_finishes_the_run(tmp
     assert len({r.item_id for r in read_traces(second.run_dir)}) == 2
 
 
+SERPAPI_PRICE = """
+[[price]]
+model_id = "serpapi/google"
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+per_call_usd = 0.0
+source = "test"
+accessed = "2026-11-22"
+"""
+
+
 def test_the_quota_is_lowered_to_the_searches_the_account_reports_as_left(tmp_path, monkeypatch):
+    """With a provider that reports its remaining searches (SerpApi's free Account API; PR 13, kept in PR 27)."""
     repo, config, raw, _web, serp = make_live(tmp_path, monkeypatch, repeats=1)
+    prices = repo / "configs" / "prices.toml"
+    prices.write_text(prices.read_text(encoding="utf-8") + SERPAPI_PRICE, encoding="utf-8")
+    for arm in raw["arms"]:
+        arm["options"] = {**arm["options"], "search": {**arm["options"]["search"], "name": "serpapi_google"}}
     serp.account["total_searches_left"] = 2
     limited = parse_config({**raw, "runner": {**raw["runner"], "concurrency": 1, "max_searches": 240}})
     messages: list[str] = []
     summary = runner.execute_run(limited, repo_root=repo, runs_dir=tmp_path / "runs", confirm_spend=True, log=messages.append)
     assert summary.search_limit == 2 and summary.search_limit_reached and summary.searches == 0
     assert any("2 searches left" in m for m in messages)
+    assert serp.queries == [] and any(u.endswith("/account.json") or "/account.json?" in u for u in serp.urls)
+
+
+def test_serper_reports_no_quota_so_max_searches_alone_caps_the_run(tmp_path, monkeypatch):
+    """PR 27: Serper's preflight leaves searches_left = None; the run is NOT refused and max_searches stays the cap."""
+    repo, config, raw, _web, serp = make_live(tmp_path, monkeypatch, repeats=1)
+    assert raw["arms"][0]["options"]["search"]["name"] == "serper_google"
+    limited = parse_config({**raw, "runner": {**raw["runner"], "concurrency": 1, "max_searches": 240}})
+    messages: list[str] = []
+    summary = runner.execute_run(limited, repo_root=repo, runs_dir=tmp_path / "runs", confirm_spend=True, log=messages.append)
+    assert summary.closed and summary.search_limit == 240 and not summary.search_limit_reached
+    assert summary.searches == len(serp.queries) == 3  # the study's searches; the preflight search is not counted
+    assert len(serp.preflights) == 1  # one real preflight search per invocation (one Serper credit)
+    assert not any("the account reports" in m for m in messages)
+    assert any("at most 240 web searches" in m for m in messages)
+    # and a small max_searches still stops units exactly as with SerpApi
+    serp.queries.clear()
+    small = parse_config({**raw, "name": "live-test-small", "runner": {**raw["runner"], "concurrency": 1, "max_searches": 3}})
+    stopped = runner.execute_run(small, repo_root=repo, runs_dir=tmp_path / "runs2", confirm_spend=True, log=lambda m: None)
+    assert stopped.search_limit == 3 and stopped.search_limit_reached and not stopped.closed
+
+
+def test_a_failed_serper_preflight_stops_the_run_before_any_study_search(tmp_path, monkeypatch):
+    repo, config, raw, _web, serp = make_live(tmp_path, monkeypatch, repeats=1)
+    serp.preflight_status = 403
+    with pytest.raises(runner.RunnerError, match="preflight failed"):
+        runner.execute_run(config, repo_root=repo, runs_dir=tmp_path / "runs", confirm_spend=True, log=lambda m: None)
+    assert serp.queries == [] and serp.preflights == [search_mod.SERPER_PREFLIGHT_QUERY]
 
 
 def test_max_searches_is_validated():

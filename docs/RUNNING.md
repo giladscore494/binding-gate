@@ -40,8 +40,8 @@ limits in the runner, and together they are at most 50 USD.
 | 6 | nondeterminism check (`configs/dev_repeats.toml`) | 0.17 | 0.46 | 0.55 |
 | 6 | comparison baselines, 300 dev items (`configs/dev_baselines.toml`) | 0.37 | 0.95 | 1.10 |
 | 6 | LLM-judge arm, 60 dev items (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
-| 7 | layer 3 smoke (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
-| 7 | layer 3 dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
+| 7 | layer 3 smoke (`configs/dev_live_smoke.toml`) | 0.01 | 0.03 | 0.10 |
+| 7 | layer 3 dev (`configs/dev_live.toml`) | 0.66 | 1.64 | 1.75 |
 | 8 | layer 2 smoke, SEC filings (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
 | 8 | layer 2 dev baseline (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
 | 8 | layer 2 gate and ablations (`configs/dev_sec_gated.toml`; answers reused) | 0.00 | 0.15 | 0.30 |
@@ -50,8 +50,8 @@ limits in the runner, and together they are at most 50 USD.
 | 10 | **layer 1 test, confirmatory** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | mid-tier check, 225 test items (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
 | 10b | **layer 2 test, confirmatory** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
-| 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **Total** | **14.25** | **42.78** | **48.35** |
+| 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.90 | 2.22 | 2.40 |
+| | **Total** | **14.76** | **43.82** | **49.40** |
 
 **After the layer-1 STOP (PR 22; PREREGISTRATION.md section 18, amendment 1).**
 The table above is the plan before the STOP. The layer-1 dev baseline (workflow
@@ -65,7 +65,11 @@ the budget ledger refuses to run them. Added, exploratory (step 4a):
 | 4a | V1: judge on the dev-baseline answers, 144 items × 3 models (`configs/rescore/validation_judge_structured.toml`) | 2.23 | 10.87 | 11.45 |
 | 4a | V2: free-form answers, 144 items × A, E, H (`configs/dev_validation_freeform.toml`) | 0.15 | 0.43 | 0.50 |
 | 4a | V2: judge on the free-form answers (`configs/rescore/validation_judge_freeform.toml`) | 2.49 | 11.13 | 11.70 |
-| | **Active total (every run without `status = "stopped"`)** | **9.21** | **34.95** | **38.20** |
+| | **Active total (every run without `status = "stopped"`)** | **9.72** | **35.99** | **39.25** |
+
+PR 27 (PREREGISTRATION.md section 18, amendment 3): the three layer-3 rows were re-derived after the
+search provider changed to Serper and searches were priced at $0.001 each (before: 0.01-0.02 / 0.10,
+0.45-1.20 / 1.30 and 0.60-1.63 / 1.80 USD); no other row changed.
 
 Spent so far: 1.14 USD. The smoke run measured about a quarter of the planned
 HIGH.
@@ -86,7 +90,7 @@ every gate arm reuses the answer `no_gate` already paid for; every dev run after
 the baseline reuses the baseline's answers (seed runs, below); the mid-tier
 models (`openai-mid`, `google-mid`, `zai-mid`), the
 judges and the nondeterminism check run on fixed subsamples; web search uses
-SerpApi's free plan. The full-scale design of earlier versions is kept, not
+Serper's free tier (PR 27; SerpApi's free plan before). The full-scale design of earlier versions is kept, not
 run, under `configs/extended/` ("if funding becomes available").
 
 **Providers (PR 14).** The study uses only the providers the owner funds:
@@ -115,7 +119,7 @@ whole study at that provider, rounded up; together 42 USD, under the 50):
 | Google Gemini (slots E, F) | 14 USD | Google Cloud console → Billing → Budgets & alerts (a budget alerts but does not stop spending; for a hard stop use a prepaid balance or disable billing after the run) |
 | Z.ai (slots H, I) | 12 USD | z.ai API platform (the account that holds `ZAI_API_KEY`): prepaid balance; top up only this amount |
 | Moonshot (judge J) | 7 USD | platform.moonshot.ai: prepaid balance; top up only this amount |
-| SerpApi (web search) | 0 USD | stay on the Free plan (250 searches per month); never enter a payment method |
+| Serper (web search) | 0 USD | stay on the free tier (2,500 searches on signup); never enter a payment method |
 
 With a prepaid balance the top-up itself is the hard limit. The runner's caps
 remain the primary control; these limits only catch what the runner cannot
@@ -133,7 +137,7 @@ configs of each stage are defined once in `binding_gate.pipeline.STAGES`
 
 | Stage | What runs (each config as the reusable workflow `baseline.yml`, one job per model) | Gate |
 |---|---|---|
-| `check-secrets` | which secrets are set (names only), the free preflight of every model id, the decomposer, the judge and the SerpApi account (a Z.ai list-models HTTP 404 is reported with its fallback `preflight_list_models = false`), the budget left | free; red only if a preflight FAILED |
+| `check-secrets` | which secrets are set (names only), the free preflight of every model id, the decomposer, the judge and the Serper key (one real test search: one free-tier credit, not charged to any cap; a Z.ai list-models HTTP 404 is reported with its fallback `preflight_list_models = false`), the budget left | free; red only if a preflight FAILED |
 | `smoke` | `configs/dev_smoke.toml`, then `python -m binding_gate.pipeline smoke-check`: measured output (visible + reasoning) and input tokens per answer call against `configs/prices.toml`; every run of `configs/budget.toml` is projected with the measured ratio | FAILS if a projected HIGH exceeds that run's cap, or if a smoke record ended in an error: re-derive the caps (or fix the setting) in a pull request first |
 | `dev-baseline` | `configs/dev_baseline.toml`, then the section 10 decision (job summary; artifact `dev-baseline--decision`, `decision.json`) | succeeds whatever the decision |
 | `dev-rest` | decomposer measurement, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: the binding-scope candidates), five ablations, `dev_baselines` (MiniCheck prepare/verify inside), `dev_llm_judge_checks`, the judge re-scoring of the dev-baseline runs, then the gate calibration of the `dev-gated` traces, `cli analyze` per config and the binding-scope selection of `dev-gated-scope` (`scope_selection_dev-gated-scope.txt`; artifact `dev-rest--analysis`). (PR 17: the GRAB-RAG run left this stage; layer 2 is `layer2-dev`.) | refused unless the newest `dev-baseline--decision` is CONTINUE (final), or `results/dev_baseline_continue.json` is committed for that workflow run (IN-BETWEEN or MEASUREMENT-CHECK continued by the owner, with the amendment named) |
@@ -351,7 +355,7 @@ repository secret**. Name exactly as below, value = the key.
 | `GEMINI_API_KEY` | Google Gemini | slots E, F |
 | `ZAI_API_KEY` | Z.ai (GLM) | slots H (`glm-5.3-flash`), I (`glm-5.3`) |
 | `MOONSHOT_API_KEY` | Moonshot / Kimi | the judge (slot J): `configs/dev_llm_judge_checks.toml` and the judge re-scoring |
-| `SERPAPI_API_KEY` | SerpApi (web search, Free plan) | layer 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
+| `SERPER_API_KEY` | Serper (web search, free tier; PR 27). Get it at the serper.dev dashboard → GitHub Settings → Secrets and variables → Actions → New repository secret `SERPER_API_KEY`. The old `SERPAPI_API_KEY` secret is no longer used | layer 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml`, `configs/test_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | a long passphrase you choose and keep | layer 3: the run artifacts are encrypted with it; a paid live-web run refuses without it |
 | `SEC_CONTACT_EMAIL` | your contact e-mail address (not a key; costs nothing) | layer 2 only: the free generation of the SEC dataset (`python -m binding_gate.cli dataset-prepare` with a `configs/*sec*.toml` config), in the stage `sec-dataset-prepare` and in the dataset step of every SEC run (which regenerates the pinned dataset, mostly from the EDGAR cache). SEC's fair-access rules ask automated clients to declare a contact e-mail in their User-Agent; the address is never committed and never written to the dataset, logs, traces or artifacts. Without it the generation refuses |
 
@@ -359,7 +363,7 @@ These seven are all the study needs. The workflow also passes
 `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` if they exist, but no config of the
 USD 50 study uses them: do not add them. A model
 whose key is missing is **skipped with a warning**; the other models still run. A missing key of an auxiliary client (the decomposer's OpenAI key,
-the judge's Moonshot key, the SerpApi key) skips every model of a config that
+the judge's Moonshot key, the Serper key) skips every model of a config that
 uses that client.
 
 ## 2. Dry run (free)
@@ -700,18 +704,22 @@ item 57). The tests then require the test arm to equal the chosen candidate arm
 of the dev scope config. A fake-model indication of the options' effect (not
 evidence): `python tests/scope_effect.py`.
 
-## 7. Layer 3 (live web): smoke, then dev, in the same month
+## 7. Layer 3 (live web): smoke, then dev
 
-Needs `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (slot A
+Needs `SERPER_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (slot A
 and the decomposer) and `GEMINI_API_KEY` (slot E). The workflow downloads SealQA
-at its pinned revision itself (`cli dataset-prepare`). SerpApi's Free plan
-allows 250 searches per month and 50 per hour: the smoke run uses at most 10,
-the dev run at most 240 (`[runner] max_searches`), and searches are spaced 72 s
-apart. Each run also stops by itself when the account reports fewer searches
-left; it is then resumed (CLI, `--resume runs/<run_id>`, same config) after the
-monthly quota renews.
+at its pinned revision itself (`cli dataset-prepare`). PR 27: searches use
+Serper (serper.dev; free tier 2,500 queries on signup, credits only for
+successful queries; priced at $0.001 per search in `configs/prices.toml`,
+conservative). The smoke run uses at most 10 searches, the dev run at most 240
+(`[runner] max_searches`), spaced 1 s apart. Serper has no free account check:
+the preflight of each paid invocation (and of `check-secrets`) makes ONE real
+test search ("binding-gate preflight", one free-tier credit, not charged to any
+cap), and the search quota is `max_searches` alone. A run that reaches it is
+resumed with the CLI (`--resume runs/<run_id>`, same config); there is no
+monthly renewal to wait for.
 
-Smoke (5 dev questions, slot A, 1 repeat; estimate 0.01-0.02 USD, cap 0.10 USD):
+Smoke (5 dev questions, slot A, 1 repeat; estimate 0.01-0.03 USD, cap 0.10 USD):
 
 | Field | Value |
 |---|---|
@@ -723,8 +731,9 @@ Smoke (5 dev questions, slot A, 1 repeat; estimate 0.01-0.02 USD, cap 0.10 USD):
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
 
 Dev run (every dev question, slots A and E, 1 repeat, one job; estimate
-0.45-1.20 USD, caps 1.30 USD; about 108 questions at 72 s per search: up to
-about 4.5 hours; run a dry run of the same config first):
+0.66-1.64 USD, caps 0.60 + 1.15 = 1.75 USD (PR 27: searches priced at $0.001;
+before 0.45-1.20, caps 1.30); about 108 questions, no longer 72 s per search,
+so much shorter than the earlier 4.5 hours; run a dry run of the same config first):
 
 | Field | Value |
 |---|---|
@@ -923,13 +932,13 @@ python -m binding_gate.cli frozen-test-run --config configs/test_sec.toml \
 Use the tag of the stage that froze layer 2 (`prereg-freeze-1` if every layer
 was frozen together).
 
-### 10c. Layer 3, live web (H4; workflow input `layer3_live`; estimate 0.60-1.63 USD, caps 0.55 + 1.25 USD)
+### 10c. Layer 3, live web (H4; workflow input `layer3_live`; estimate 0.90-2.22 USD, caps 0.85 + 1.55 USD)
 
 Every SealQA test question (about 146), slots A and E, `no_gate` (live) and
 `gated_research`, one job for both models (they share searches and pages). The
 analysis uses the `sealqa_answer` rule: M3, M4 and H4 with its status. Needs
-`OPENAI_API_KEY`, `GEMINI_API_KEY` and `SERPAPI_API_KEY` in the shell; no
-search may be made in that month before (month 2 of the SerpApi allocation).
+`OPENAI_API_KEY`, `GEMINI_API_KEY` and `SERPER_API_KEY` in the shell (PR 27:
+Serper replaced SerpApi; the free tier's 2,500 queries cover every layer-3 run).
 
 ```bash
 python -m pip install -e ".[dev,plots,sealqa]"
@@ -938,12 +947,13 @@ python -m binding_gate.cli frozen-test-run --config configs/test_live.toml \
     --tag prereg-freeze-3 --purpose "layer-3 confirmatory test run (H4)" --confirm-spend
 ```
 
-`max_searches = 250` (the Free plan's month; lowered automatically to what the
-account reports as left) and one search per 72 s: the run takes up to about 5
-hours (within the workflow's 330-minute limit for the paid step). If the quota is reached, the command ends
-with exit code 3, "ABORTED", and no analysis; after the quota renews (next
-month), run the same command with `--resume runs/<run_id>` added (a further
-logged access). The run directory holds third-party page text: never commit or
+`max_searches = 250` per invocation (Serper has no account check, so nothing
+lowers it) and one search per second: the run is much shorter than the earlier
+5 hours at 72 s per search (the workflow's 330-minute limit for the paid step
+is unchanged). If the quota is reached, the command ends with exit code 3,
+"ABORTED", and no analysis; run the same command with `--resume runs/<run_id>`
+added (a further logged access; with Serper there is no monthly renewal to
+wait for). The run directory holds third-party page text: never commit or
 upload it. Check the snapshots: `python -m binding_gate.research.snapshots
 verify runs/<run_id>`.
 
@@ -1028,8 +1038,8 @@ supplied is listed as absent.
 | 6 | בדיקת אי-דטרמיניזם (`configs/dev_repeats.toml`) | 0.17 | 0.46 | 0.55 |
 | 6 | השוואות, 300 פריטי dev (`configs/dev_baselines.toml`) | 0.37 | 0.95 | 1.10 |
 | 6 | זרוע שופט LLM, 60 פריטי dev (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
-| 7 | smoke של שכבה 3 (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
-| 7 | שכבה 3 על dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
+| 7 | smoke של שכבה 3 (`configs/dev_live_smoke.toml`) | 0.01 | 0.03 | 0.10 |
+| 7 | שכבה 3 על dev (`configs/dev_live.toml`) | 0.66 | 1.64 | 1.75 |
 | 8 | smoke של שכבה 2, דוחות SEC (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
 | 8 | baseline של שכבה 2 על dev (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
 | 8 | ה-gate וה-ablations של שכבה 2 (`configs/dev_sec_gated.toml`; תשובות משוחזרות) | 0.00 | 0.15 | 0.30 |
@@ -1038,8 +1048,8 @@ supplied is listed as absent.
 | 10 | **test של שכבה 1, מאשש** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | בדיקת מודלי הביניים, 225 פריטי test (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
 | 10ב | **test של שכבה 2, מאשש** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
-| 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **סך הכול** | **14.25** | **42.78** | **48.35** |
+| 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.90 | 2.22 | 2.40 |
+| | **סך הכול** | **14.76** | **43.82** | **49.40** |
 
 **אחרי ה-STOP של שכבה 1 (PR 22; תיקון 1 בסעיף 18 של PREREGISTRATION.md).** הטבלה למעלה היא התוכנית לפני ה-STOP. ה-baseline של שכבה 1 על dev (ריצת workflow מספר 45053502161) נתן STOP; 13 הריצות של שכבה 1 שהוא מסיים (השופט המשני של שלב 4, שלבים 6א עד 6ו, ריצת ה-test של שכבה 1 ובדיקת מודלי הביניים) נשארות ב-`configs/budget.toml` עם `status = "stopped"`: הן מחוץ לסכומים, וה-ledger מסרב להריץ אותן. נוספו, כניסוי (שלב 4א):
 
@@ -1048,13 +1058,15 @@ supplied is listed as absent.
 | 4א | V1: שופט על תשובות ה-baseline, ‏144 פריטים × 3 מודלים (`configs/rescore/validation_judge_structured.toml`) | 2.23 | 10.87 | 11.45 |
 | 4א | V2: תשובות חופשיות, 144 פריטים × A, E, H (`configs/dev_validation_freeform.toml`) | 0.15 | 0.43 | 0.50 |
 | 4א | V2: שופט על התשובות החופשיות (`configs/rescore/validation_judge_freeform.toml`) | 2.49 | 11.13 | 11.70 |
-| | **סך הכול הפעיל (כל ריצה בלי `status = "stopped"`)** | **9.21** | **34.95** | **38.20** |
+| | **סך הכול הפעיל (כל ריצה בלי `status = "stopped"`)** | **9.72** | **35.99** | **39.25** |
+
+PR 27 (PREREGISTRATION.md סעיף 18, תיקון 3): שלוש השורות של שכבה 3 חושבו מחדש אחרי שספק החיפוש הוחלף ל-Serper וכל חיפוש מתומחר ב-0.001 דולר (לפני כן: 0.01 עד 0.02 / 0.10, ‏0.45 עד 1.20 / 1.30, ‏0.60 עד 1.63 / 1.80 דולר); שום שורה אחרת לא השתנתה.
 
 הוצאה עד עכשיו: 1.14 דולר. ה-smoke מדד בערך רבע מההערכה הגבוהה.
 
 **שכבה 2 מאז PR 17: דוחות כספיים מ-SEC.** שכבה 2 היא שכבה מאששת שנייה (H1 ו-H2 לכל מודל, עם הספים של שכבה 1): שאלות על נתון מהדוח השנתי (Form 10-K) של חברה ציבורית אמריקאית, שעונים עליהן מתוך הדוחות הכספיים של אותו דוח ו/או של דוח של חברה מקבילה מאותו ענף; התשובות הנכונות הן עובדות ה-XBRL של הדוחות. מאגר הנתונים נבנה פעם אחת, בחינם, מ-SEC EDGAR (שלב 8). GRAB-RAG, שהייתה שכבה 2 עד PR 17, שמורה תחת `configs/extended/` ולא רצה. ההערכות של שכבה 2 הן dry runs שמרניים על נתונים סינתטיים; ה-dry run החינמי על נתוני ה-dev האמיתיים מחליף אותן לפני ההקפאה.
 
-למה זה נכנס: שלושה מודלים ראשיים זולים (`openai-low`, `google-low`, `zai-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `google-mid`, `zai-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בתוכנית החינמית של SerpApi. התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
+למה זה נכנס: שלושה מודלים ראשיים זולים (`openai-low`, `google-low`, `zai-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `google-mid`, `zai-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בשכבת החינם של Serper (PR 27; לפני כן בתוכנית החינמית של SerpApi). התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
 
 **הספקים (PR 14).** המחקר משתמש רק בספקים שיש לך אצלם חשבון בתשלום: OpenAI (סלוטים A, B וה-decomposer), Google (E, F), Z.ai (H `glm-5.3-flash`, I `glm-5.3`) ו-Moonshot (השופט J). אין שימוש ב-Anthropic וב-DeepSeek; הקונפיגים שלהם קיימים רק תחת `configs/extended/`. במודלי GLM אי אפשר לכבות את ה-thinking: הם רצים עם `reasoning_effort = "low"`, ההגדרה הנמוכה ביותר שלהם, וההערכות מניחות 100 עד 2,000 טוקנים נסתרים לקריאה.
 
@@ -1070,7 +1082,7 @@ supplied is listed as absent.
 | Google Gemini (סלוטים E, F) | 14 דולר | Google Cloud console ← Billing ← Budgets & alerts (תקציב שולח התראה אבל לא עוצר; לעצירה קשיחה — יתרה משולמת מראש, או לכבות billing אחרי הריצה) |
 | Z.ai (סלוטים H, I) | 12 דולר | פלטפורמת ה-API של z.ai (החשבון של `ZAI_API_KEY`): יתרה משולמת מראש; להטעין רק את הסכום הזה |
 | Moonshot (השופט J) | 7 דולר | platform.moonshot.ai: יתרה משולמת מראש; להטעין רק את הסכום הזה |
-| SerpApi (חיפוש) | 0 דולר | להישאר בתוכנית Free (250 חיפושים בחודש); לא להזין אמצעי תשלום |
+| Serper (חיפוש) | 0 דולר | להישאר בשכבת החינם (2,500 חיפושים בהרשמה); לא להזין אמצעי תשלום |
 
 ביתרה משולמת מראש, ההטענה עצמה היא הגבול הקשיח. התקרות של ה-runner נשארות הבקרה הראשית; המגבלות האלה רק תופסות מה שה-runner לא יכול (באג, מחיר שגוי ב-`configs/prices.toml`).
 
@@ -1082,7 +1094,7 @@ supplied is listed as absent.
 
 | שלב | מה רץ | תנאי |
 |---|---|---|
-| `check-secrets` | אילו secrets קיימים (רק שמות), כל בדיקות ה-preflight החינמיות (כולל ה-fallback של Z.ai), התקציב שנשאר | חינם |
+| `check-secrets` | אילו secrets קיימים (רק שמות), כל בדיקות ה-preflight החינמיות (כולל ה-fallback של Z.ai; הבדיקה של Serper היא חיפוש אמיתי אחד שצורך קרדיט חינמי אחד ולא נספר בשום תקרה), התקציב שנשאר | חינם |
 | `smoke` | `configs/dev_smoke.toml`, ואז בדיקה של הטוקנים שנמדדו מול ההנחות ב-`configs/prices.toml` | נכשל אם ריצה מתוכננת הייתה עוברת את התקרה שלה: מחשבים תקרות מחדש ב-pull request |
 | `dev-baseline` | `configs/dev_baseline.toml` והחלטת כלל העצירה (artifact `dev-baseline--decision`) | מצליח בכל החלטה |
 | `dev-rest` | מדידת ה-decomposer, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: המועמדים ל-binding scope), חמשת ה-ablations, `dev_baselines`, `dev_llm_judge_checks`, השופט המשני, כיול ה-gate, ניתוח ובחירת ה-binding scope (PR 17: ריצת GRAB-RAG יצאה מהשלב; שכבה 2 היא `layer2-dev`) | רק אחרי CONTINUE, או עם הערה `results/dev_baseline_continue.json` לאותה ריצה |
@@ -1139,11 +1151,11 @@ GitHub ← הריפו ← **Settings ← Secrets and variables ← Actions ← N
 | `GEMINI_API_KEY` | Google Gemini | סלוטים E, F |
 | `ZAI_API_KEY` | Z.ai (GLM) | סלוטים H (`glm-5.3-flash`), I (`glm-5.3`) |
 | `MOONSHOT_API_KEY` | Moonshot / Kimi | השופט (סלוט J): `configs/dev_llm_judge_checks.toml` וה-re-scoring של השופט |
-| `SERPAPI_API_KEY` | SerpApi (חיפוש, תוכנית Free) | שכבה 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
+| `SERPER_API_KEY` | Serper (חיפוש, שכבת החינם; PR 27). משיגים את המפתח ב-dashboard של serper.dev ← ב-GitHub: Settings ← Secrets and variables ← Actions ← New repository secret בשם `SERPER_API_KEY`. ה-secret הישן `SERPAPI_API_KEY` כבר לא בשימוש | שכבה 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml`, `configs/test_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | סיסמה ארוכה שבוחרים ושומרים | שכבה 3: ה-artifacts מוצפנים בה; ריצה בתשלום של web חי מסרבת בלעדיה |
 | `SEC_CONTACT_EMAIL` | כתובת המייל שלך ליצירת קשר (לא מפתח; לא עולה כסף) | שכבה 2 בלבד: לבניית מאגר ה-SEC בחינם (`python -m binding_gate.cli dataset-prepare` עם קונפיג `configs/*sec*.toml`), בשלב `sec-dataset-prepare` ובצעד הנתונים של כל ריצת SEC (שבונה מחדש את המאגר הנעוץ, בעיקר מה-cache של EDGAR). כללי הגישה ההוגנת של SEC מבקשים שכל לקוח אוטומטי יצהיר על מייל ליצירת קשר ב-User-Agent; הכתובת לא נכנסת לריפו ולא נכתבת למאגר, ללוגים, ל-traces או ל-artifacts. בלעדיה הבנייה מסרבת |
 
-שבעה אלה הם כל מה שהמחקר צריך. ה-workflow מעביר גם `ANTHROPIC_API_KEY` ו-`DEEPSEEK_API_KEY` אם הם קיימים, אבל אף קונפיג של מחקר ה-50 דולר לא משתמש בהם: לא להוסיף אותם. מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים. מפתח חסר של רכיב עזר (מפתח OpenAI של ה-decomposer, מפתח Moonshot של השופט, מפתח SerpApi) מדלג על כל המודלים של קונפיג שמשתמש ברכיב הזה.
+שבעה אלה הם כל מה שהמחקר צריך. ה-workflow מעביר גם `ANTHROPIC_API_KEY` ו-`DEEPSEEK_API_KEY` אם הם קיימים, אבל אף קונפיג של מחקר ה-50 דולר לא משתמש בהם: לא להוסיף אותם. מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים. מפתח חסר של רכיב עזר (מפתח OpenAI של ה-decomposer, מפתח Moonshot של השופט, מפתח Serper) מדלג על כל המודלים של קונפיג שמשתמש ברכיב הזה.
 
 ### שלב 2 — Dry run (חינם)
 
@@ -1357,11 +1369,11 @@ python -m binding_gate.gates.calibration --select-scope runs/<run_id> [runs/<run
 
 הפלט מראה לכל מועמד את ממוצע M1 ואת M2 המרבי על dev, ואת השורה `CHOSEN: binding_scope = "<name>"`. ההקפאה היא שורה אחת לכל שכבה, ב-pull request לפני התג של השכבה (שלב 9): בזרוע ה-gated של `configs/test_layer1.toml` (ואותה שורה ב-`configs/test_layer1_midtier.toml`) לשכבה 1, ושל `configs/test_sec.toml` לשכבה 2 — מחליפים את `binding_scope = "window"` בערך שנבחר, ורושמים את הבחירה ואת המספרים של המועמדים בסעיף 5.1 (סעיף 17, פריט 57). הבדיקות דורשות אז שזרוע ה-test תהיה זהה לזרוע המועמד שנבחר בקונפיג ה-scope של dev. הערכה עם מודלים מזויפים (לא ראיה): `python tests/scope_effect.py`.
 
-### שלב 7 — שכבה 3 (web חי): smoke ואז dev, באותו חודש
+### שלב 7 — שכבה 3 (web חי): smoke ואז dev
 
-צריך `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (סלוט A וה-decomposer) ו-`GEMINI_API_KEY` (סלוט E). ה-workflow מוריד את SealQA בגרסה המוצמדת בעצמו. תוכנית Free של SerpApi מאפשרת 250 חיפושים בחודש ו-50 בשעה: ה-smoke משתמש בלכל היותר 10, ריצת ה-dev בלכל היותר 240 (`[runner] max_searches`), והחיפושים במרווח של 72 שניות. כל ריצה גם נעצרת לבד כשהחשבון מדווח שנשארו פחות חיפושים; אז ממשיכים אותה (CLI, `--resume runs/<run_id>`, אותו קונפיג) אחרי שהמכסה החודשית מתחדשת.
+צריך `SERPER_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (סלוט A וה-decomposer) ו-`GEMINI_API_KEY` (סלוט E). ה-workflow מוריד את SealQA בגרסה המוצמדת בעצמו. PR 27: החיפוש עובר דרך Serper (serper.dev; שכבת חינם של 2,500 חיפושים בהרשמה, קרדיט יורד רק על חיפוש מוצלח; בקובץ `configs/prices.toml` כל חיפוש מתומחר ב-0.001 דולר, בזהירות). ה-smoke משתמש בלכל היותר 10 חיפושים, ריצת ה-dev בלכל היותר 240 (`[runner] max_searches`), במרווח של שנייה אחת. ל-Serper אין בדיקת חשבון חינמית: ה-preflight של כל הרצה בתשלום (וגם של `check-secrets`) עושה חיפוש אמיתי אחד ("binding-gate preflight"; קרדיט חינמי אחד, לא נספר בשום תקרה), והמכסה היא `max_searches` בלבד. ריצה שמגיעה למכסה ממשיכים ב-CLI (`--resume runs/<run_id>`, אותו קונפיג); אין חידוש חודשי לחכות לו.
 
-Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.01 עד 0.02 דולר, תקרה 0.10):
+Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.01 עד 0.03 דולר, תקרה 0.10):
 
 | שדה | ערך |
 |---|---|
@@ -1372,7 +1384,7 @@ Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.01 עד 0.02 
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
 
-ריצת dev (כל שאלות ה-dev, סלוטים A ו-E, חזרה אחת, job אחד; הערכה 0.45 עד 1.20 דולר, תקרות 1.30; כ-108 שאלות ב-72 שניות לחיפוש: עד כ-4.5 שעות; קודם dry run של אותו קונפיג):
+ריצת dev (כל שאלות ה-dev, סלוטים A ו-E, חזרה אחת, job אחד; הערכה 0.66 עד 1.64 דולר, תקרות 0.60 + 1.15 = 1.75 (PR 27: חיפושים מתומחרים ב-0.001 דולר; לפני כן 0.45 עד 1.20, תקרות 1.30); כ-108 שאלות, בלי 72 שניות לחיפוש, אז הרבה פחות מ-4.5 השעות של פעם; קודם dry run של אותו קונפיג):
 
 | שדה | ערך |
 |---|---|
@@ -1490,9 +1502,9 @@ python -m binding_gate.cli frozen-test-run --config configs/test_sec.toml \
 
 להשתמש בתג של השלב שהקפיא את שכבה 2 (`prereg-freeze-1` אם כל השכבות הוקפאו יחד).
 
-#### 10ג — שכבה 3, web חי (H4; בטופס `layer3_live`; הערכה 0.60 עד 1.63 דולר, תקרות 0.55 + 1.25)
+#### 10ג — שכבה 3, web חי (H4; בטופס `layer3_live`; הערכה 0.90 עד 2.22 דולר, תקרות 0.85 + 1.55)
 
-כל שאלות ה-test של SealQA (בערך 146), סלוטים A ו-E, `no_gate` (חי) ו-`gated_research`, ריצה אחת לשני המודלים (הם חולקים את החיפושים והדפים). הניתוח משתמש בכלל `sealqa_answer`: M3, M4 ו-H4 עם הסטטוס שלה. צריך `OPENAI_API_KEY`, `GEMINI_API_KEY` ו-`SERPAPI_API_KEY` ב-shell; אסור שיהיה חיפוש אחר באותו חודש לפני כן (חודש 2 בחלוקת המכסה של SerpApi).
+כל שאלות ה-test של SealQA (בערך 146), סלוטים A ו-E, `no_gate` (חי) ו-`gated_research`, ריצה אחת לשני המודלים (הם חולקים את החיפושים והדפים). הניתוח משתמש בכלל `sealqa_answer`: M3, M4 ו-H4 עם הסטטוס שלה. צריך `OPENAI_API_KEY`, `GEMINI_API_KEY` ו-`SERPER_API_KEY` ב-shell (PR 27: Serper החליף את SerpApi; 2,500 החיפושים החינמיים מספיקים לכל ריצות שכבה 3).
 
 ```bash
 python -m pip install -e ".[dev,plots,sealqa]"
@@ -1501,7 +1513,7 @@ python -m binding_gate.cli frozen-test-run --config configs/test_live.toml \
     --tag prereg-freeze-3 --purpose "layer-3 confirmatory test run (H4)" --confirm-spend
 ```
 
-`max_searches = 250` (החודש של התוכנית החינמית; יורד אוטומטית למה שהחשבון מדווח שנשאר) וחיפוש אחד כל 72 שניות: הריצה נמשכת עד בערך 5 שעות, אז המחשב צריך להישאר ער. אם המכסה נגמרת, הפקודה מסתיימת עם קוד יציאה 3, "ABORTED", ובלי ניתוח; אחרי שהמכסה מתחדשת (בחודש הבא) מריצים את אותה פקודה ומוסיפים `--resume runs/<run_id>` (גישה נוספת שנרשמת). תיקיית הריצה מכילה טקסט של דפים של צד שלישי: לעולם לא לעשות לה commit ולא להעלות אותה. בדיקת ה-snapshots: `python -m binding_gate.research.snapshots verify runs/<run_id>`.
+`max_searches = 250` לכל הרצה (ל-Serper אין בדיקת חשבון, אז שום דבר לא מוריד את המספר) וחיפוש אחד בשנייה: הריצה קצרה בהרבה מ-5 השעות של פעם (72 שניות לחיפוש), אבל המחשב צריך להישאר ער עד הסוף. אם המכסה נגמרת, הפקודה מסתיימת עם קוד יציאה 3, "ABORTED", ובלי ניתוח; מריצים את אותה פקודה ומוסיפים `--resume runs/<run_id>` (גישה נוספת שנרשמת; עם Serper אין חידוש חודשי לחכות לו). תיקיית הריצה מכילה טקסט של דפים של צד שלישי: לעולם לא לעשות לה commit ולא להעלות אותה. בדיקת ה-snapshots: `python -m binding_gate.research.snapshots verify runs/<run_id>`.
 
 ### שלב 11 — תוצאות מפורסמות, audit אנושי ודוח ציבורי (בלי מפתח)
 

@@ -12,8 +12,8 @@ Commands (``python -m binding_gate.pipeline <command>``)
     The configs of a stage, one per line (no key, no network).
 ``check-secrets --json FILE [--markdown FILE]``
     Which repository secrets are set (NAMES only, never values) and the free
-    preflight of every model id, judge, decomposer and the SerpApi account the dev
-    configs use. A Z.ai list-models check that fails with HTTP 404 is reported as
+    preflight of every model id, judge, decomposer and the Serper search key the
+    dev configs use (Serper has no free account check: its preflight is one real search, one credit). A Z.ai list-models check that fails with HTTP 404 is reported as
     "endpoint missing" with the documented fallback (``preflight_list_models =
     false``). Exit 1 if any preflight FAILED (a missing key is a skip, not a failure).
 ``smoke-check RUN_DIR ... --json FILE [--markdown FILE]``
@@ -119,9 +119,9 @@ PREFLIGHT_CONFIGS = (
     "configs/dev_smoke.toml",             # the six models under test
     "configs/decomposer_eval_dev.toml",   # the decomposer (slot Dec)
     "configs/dev_llm_judge_checks.toml",  # the judge (slot J)
-    "configs/dev_live_smoke.toml",        # the SerpApi account
+    "configs/dev_live_smoke.toml",        # the Serper search key (one real search: one credit)
 )
-STUDY_SECRETS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPAPI_API_KEY",
+STUDY_SECRETS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPER_API_KEY",
                  "RUNS_ENCRYPTION_PASSPHRASE", "SEC_CONTACT_EMAIL")
 """Secrets the USD 50 study needs (SEC_CONTACT_EMAIL: only the layer-2 SEC dataset, PR 17)."""
 DECISION_ARTIFACT = "dev-baseline--decision"
@@ -154,7 +154,7 @@ def secrets_status() -> list[dict[str, Any]]:
 
 
 def run_preflights(configs: Sequence[str] = PREFLIGHT_CONFIGS, *, repo_root: str | Path = ".") -> list[dict[str, Any]]:
-    """The free preflight of every distinct client of ``configs`` (model ids, decomposer, judge, SerpApi)."""
+    """The free preflight of every distinct client of ``configs`` (model ids, decomposer, judge, Serper search)."""
     from binding_gate import runner, secrets
     from binding_gate.config import load_config
     from binding_gate.evaluation.decomposer import build_decomposer, load_eval_config

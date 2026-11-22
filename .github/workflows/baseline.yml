@@ -13,7 +13,7 @@ run-name: "baseline: ${{ inputs.config }} (${{ inputs.model }}, ${{ inputs.dry_r
 # faithfulness checker, SealQA's data conversion); a dataset whose pin method is
 # "prepare" (SealQA) is downloaded at its pinned revision instead of cloned; a live-web
 # config (layer 3) runs as ONE job over every model whose API key is set (shared searches
-# and one search rate limit), is skipped like a model when SERPAPI_API_KEY is missing, and
+# and one search rate limit), is skipped like a model when SERPER_API_KEY is missing, and
 # its run directory - which holds third-party page text - is uploaded only encrypted with
 # the RUNS_ENCRYPTION_PASSPHRASE secret (the paid run refuses without it), next to an
 # unencrypted publish manifest of URLs, times and hashes (PREREGISTRATION.md section 14).
@@ -330,7 +330,7 @@ jobs:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         run: |
           set +e
           python -m binding_gate.cli preflight --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}"
@@ -364,7 +364,7 @@ jobs:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         run: python -m binding_gate.cli run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}" --runs-dir runs --confirm-spend
 
       - name: Baseline report for this model

@@ -69,8 +69,18 @@ accessed = "2026-11-22"
 note = "secondary judge (slot J); price unverified; not used by any PR 2 config"
 
 # PR 8 (layer 3): per-call prices (per_call_usd) for the web search API and the page fetcher.
-# Every call in a trace is priced by the id in its response ("serpapi/google",
+# Every call in a trace is priced by the id in its response ("serper/google",
 # "binding-gate/fetch@1") and charged to the budget cap of the record's model.
+# PR 27: the extended live-web configs name Serper too ("serper/google"); SerpApi kept for the record.
+
+[[price]]
+model_id = "serper/google"
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+per_call_usd = 0.001
+source = "serper.dev and third-party pricing summaries (read 2026-11-22): paid plans about $1 per 1,000 queries - UNVERIFIED; free tier 2,500 queries on signup"
+accessed = "2026-11-22"
+note = "PR 27: conservative price per successful search; the same entry as configs/prices.toml"
 
 [[price]]
 model_id = "serpapi/google"

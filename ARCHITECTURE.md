@@ -276,7 +276,7 @@ reads, as of PR 11 (model clients and labels updated in PR 14):
 | Gates | `binding` |
 | Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research`, `free_form` (PR 22, exploratory: the benchmark's own prompt, free text; never in a confirmatory analysis) |
 | Scorers | `provenance` (deterministic, primary, layer 1; its logic is reused inside `sec_answer`), `grab_rag_answer` (deterministic, GRAB-RAG, extended design), `sec_answer` (deterministic, primary, layer 2, PR 17), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
-| Search clients (not a registry kind) | `serpapi_google` (`research/search.py`, `SEARCH_CLIENTS`) |
+| Search clients (not a registry kind) | `serper_google` (the study's, PR 27), `serpapi_google` (PR 8, unused) (`research/search.py`, `SEARCH_CLIENTS`) |
 | Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs and in `configs/test_layer1.toml` (one scheme since PR 12) |
 | `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable`; PR 22: `not_applicable` (outcome `not_applicable`, a free-form answer; refused by `baseline_report.record_outcome` and the statistics) |
 | Free-form sentinels (PR 22) | `answering.FREE_FORM_QUOTE` = `[free_form: no verbatim quote was requested]`, `answering.FREE_FORM_SOURCE_ID` = `[free_form: no source id was requested]` (quote and source id of an `answered` free-form candidate; never a document's text or id) |
@@ -495,8 +495,9 @@ These are fixed here because every later PR relies on them.
   (`binding_gate.sampling`). The analysis labels a run with a subsample
   exploratory. Re-scoring configs accept the same table.
 - **Search quota (PR 13).** `[runner] max_searches` caps the non-cached `search`
-  calls of one invocation, lowered to the searches the SerpApi account check
-  reports as left; a unit that could exceed it (counted at the sum of
+  calls of one invocation, lowered to the searches the provider's account check
+  reports as left when it reports them (SerpApi does; Serper, the study's provider since PR 27, does not:
+  `searches_left = None` leaves `max_searches` as the cap); a unit that could exceed it (counted at the sum of
   `max_attempts` of the live-web arms, units in flight included) is not started
   and the run stays unfinished and resumable (`RunSummary.search_limit_reached`).
 - **`[runner]` config table** (optional, hashed when present): `concurrency`,

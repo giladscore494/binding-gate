@@ -24,7 +24,7 @@ English version: [below](#english).
 | `GEMINI_API_KEY` | מפתח API של Google Gemini | aistudio.google.com ← Get API key (חשבון ה-billing שאתה מממן) |
 | `ZAI_API_KEY` | מפתח API של Z.ai (GLM) | z.ai, פלטפורמת ה-API ← API Keys |
 | `MOONSHOT_API_KEY` | מפתח API של Moonshot / Kimi | platform.moonshot.ai ← API Keys |
-| `SERPAPI_API_KEY` | מפתח של SerpApi (תוכנית **Free**) | להירשם ב-serpapi.com לתוכנית החינמית (250 חיפושים בחודש), ואז Dashboard ← Your Private API Key. **לא להזין אמצעי תשלום.** |
+| `SERPER_API_KEY` | מפתח API של Serper (שכבת החינם) | להירשם ב-serper.dev (בהרשמה מקבלים 2,500 חיפושים חינם, בלי כרטיס אשראי), ואז ב-dashboard של serper.dev להעתיק את ה-API key. **לא להזין אמצעי תשלום.** (PR 27: ה-secret הישן `SERPAPI_API_KEY` כבר לא בשימוש; אפשר למחוק אותו.) |
 | `RUNS_ENCRYPTION_PASSPHRASE` | סיסמה ארוכה **שאתה ממציא** (למשל 6 מילים אקראיות) | לשמור אותה אצלך (מנהל סיסמאות). בה מוצפנות ריצות ה-web החי (שכבה 3); בלעדיה אי אפשר לפענח אותן אחר כך. |
 | `SEC_CONTACT_EMAIL` | כתובת האימייל **שלך** | נדרש **רק לשכבה 2** (דוחות SEC): כללי הגישה של SEC מחייבים כל לקוח אוטומטי להצהיר על אימייל ליצירת קשר. הוא נשמר כ-secret כדי שלעולם לא יופיע בריפו הציבורי, ב-artifacts או בלוגים. |
 
@@ -42,7 +42,7 @@ English version: [below](#english).
 | Google Gemini | 14 דולר | Google Cloud console ← Billing ← Budgets & alerts (תקציב רק שולח התראה ולא עוצר; לעצירה קשיחה: יתרה משולמת מראש, או לכבות billing אחרי הריצות) |
 | Z.ai | 12 דולר | פלטפורמת ה-API של z.ai: יתרה משולמת מראש; להטעין רק את הסכום הזה |
 | Moonshot | 7 דולר | platform.moonshot.ai: יתרה משולמת מראש; להטעין רק את הסכום הזה |
-| SerpApi | 0 דולר | להישאר בתוכנית Free; לא להזין אמצעי תשלום |
+| Serper | 0 דולר | להישאר בשכבת החינם (2,500 חיפושים); לא להזין אמצעי תשלום |
 | SEC EDGAR | 0 דולר | חינם; אין חשבון ואין מפתח |
 
 ### שלב 3 — להגיד ל-orchestrator
@@ -105,7 +105,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer2-dev` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
 
-**layer3-dev** (תקרות 1.40 דולר; web חי, חיפושים בתוכנית החינמית של SerpApi; עד כ-5 שעות)
+**layer3-dev** (תקרות 1.85 דולר; web חי, חיפושים בשכבת החינם של Serper; הרבה פחות מ-5 השעות של פעם, כי אין יותר המתנה של 72 שניות בין חיפושים)
 
 | שדה | ערך |
 |---|---|
@@ -160,7 +160,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Freeze tag prereg-freeze-<name>; the run uses exactly that commit | התג שה-orchestrator מסר, למשל `prereg-freeze-1` |
 | I confirm that paid API calls and one logged test-split access may be made | מסומן |
 
-**layer3_live** (שכבה 3, web חי (H4); תקרות 1.80 דולר; עד כ-5.5 שעות)
+**layer3_live** (שכבה 3, web חי (H4); תקרות 2.40 דולר; הרבה פחות מ-5.5 השעות של פעם, כי אין יותר המתנה של 72 שניות בין חיפושים)
 
 | שדה | ערך |
 |---|---|
@@ -221,7 +221,7 @@ Menu path, once per secret: GitHub → repository `giladscore494/binding-gate` �
 | `GEMINI_API_KEY` | Google Gemini API key | aistudio.google.com → Get API key (on the billing account you fund) |
 | `ZAI_API_KEY` | Z.ai (GLM) API key | z.ai API platform → API Keys |
 | `MOONSHOT_API_KEY` | Moonshot / Kimi API key | platform.moonshot.ai → API Keys |
-| `SERPAPI_API_KEY` | SerpApi key (**Free** plan) | sign up at serpapi.com for the free plan (250 searches per month), then Dashboard → Your Private API Key. **Do not enter a payment method.** |
+| `SERPER_API_KEY` | Serper API key (free tier) | sign up at serper.dev (2,500 free searches on signup, no card), then copy the API key from the serper.dev dashboard. **Do not enter a payment method.** (PR 27: the old `SERPAPI_API_KEY` secret is no longer used; you may delete it.) |
 | `RUNS_ENCRYPTION_PASSPHRASE` | a long passphrase **you make up** (for example six random words) | keep it yourself (a password manager). The live-web (layer 3) runs are encrypted with it; without it they cannot be decrypted later. |
 | `SEC_CONTACT_EMAIL` | **your** e-mail address | needed **only for layer 2** (SEC filings): SEC's fair-access rules require every automated client to declare a contact e-mail. It is kept as a secret so that it never appears in the public repository, in artifacts or in logs. |
 
@@ -239,7 +239,7 @@ The study's total budget is **USD 50, hard**. Inside GitHub it is enforced by ev
 | Google Gemini | 14 USD | Google Cloud console → Billing → Budgets & alerts (a budget only alerts, it does not stop; for a hard stop: a prepaid balance, or disable billing after the runs) |
 | Z.ai | 12 USD | z.ai API platform: prepaid balance; top up only this amount |
 | Moonshot | 7 USD | platform.moonshot.ai: prepaid balance; top up only this amount |
-| SerpApi | 0 USD | stay on the Free plan; never enter a payment method |
+| Serper | 0 USD | stay on the free tier (2,500 searches); never enter a payment method |
 | SEC EDGAR | 0 USD | free; no account, no key |
 
 ### Step 3 — tell the orchestrator
@@ -302,7 +302,7 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer2-dev` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
 
-**layer3-dev** (caps 1.40 USD; live web, searches on SerpApi's free plan; up to about 5 hours)
+**layer3-dev** (caps 1.85 USD; live web, searches on Serper's free tier; much shorter than the earlier 5 hours, since searches are no longer spaced 72 s apart)
 
 | Field | Value |
 |---|---|
@@ -357,7 +357,7 @@ One run per layer, from the tag the orchestrator creates at the freeze. Each run
 | Freeze tag prereg-freeze-<name>; the run uses exactly that commit | the tag the orchestrator names, e.g. `prereg-freeze-1` |
 | I confirm that paid API calls and one logged test-split access may be made | checked |
 
-**layer3_live** (layer 3, live web (H4); caps 1.80 USD; up to about 5.5 hours)
+**layer3_live** (layer 3, live web (H4); caps 2.40 USD; much shorter than the earlier 5.5 hours, since searches are no longer spaced 72 s apart)
 
 | Field | Value |
 |---|---|

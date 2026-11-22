@@ -4,7 +4,7 @@
 # that all models share the same searches and pages and one search quota.
 #
 # Arms (PREREGISTRATION.md section 5; protocol in src/binding_gate/arms/gated_research.py):
-#   no_gate         component "no_gate_live": the harness searches the question (SerpApi, Google),
+#   no_gate         component "no_gate_live": the harness searches the question (Serper, Google),
 #                   fetches the top results until 5 pages were fetched, shows their stored text
 #                   (first 8,000 characters each) and the model answers. No gate.
 #   gated_research  the SAME first attempt (shared searches, pages and answer request), then
@@ -13,14 +13,17 @@
 # Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/; page text is
 # third-party material: the workflow encrypts the run artifacts of this config.
 #
-# Search quota (PR 13): the study uses SerpApi's FREE plan (serpapi.com/pricing, read 2026-11-22:
-# 250 searches per month, 50 per hour; $0 in configs/prices.toml). [runner] max_searches caps the
-# searches of one invocation (lowered to what the account check reports as left); a unit that
-# could exceed it is not started, and the run is resumed after the monthly quota has renewed.
-# Allocation (section 3, layer 3, item 7): month 1 = this smoke (at most 10) + dev_live (at most
-# 240); test in month 2 (and month 3 if its re-searches do not fit). min_interval_seconds = 72 keeps
-# to the 50-per-hour limit. Every unit (item x model) runs its first attempt and its re-search
-# together, items in their fixed order, so a stop never cuts an item's re-search.
+# Search quota (PR 13; provider changed to Serper in PR 27, section 18 amendment 3): the study uses
+# Serper's free tier (serper.dev, read 2026-11-22: 2,500 queries on signup, no card; credits only for
+# successful queries), priced conservatively at $0.001 per search in configs/prices.toml (paid plans
+# about $1 per 1,000; UNVERIFIED). [runner] max_searches caps the searches of one invocation (Serper
+# has no account check, so nothing lowers it); a unit that could exceed it is not started, and the
+# run is resumed with the same command. Allocation (section 3, layer 3, item 7): this smoke (at most
+# 10) + dev_live (at most 240) + test_live (at most 250 per invocation) = at most 500 searches plus
+# one preflight search per invocation, far under the 2,500 free queries. min_interval_seconds = 1
+# (Serper documents no hourly limit like SerpApi's Free plan; was 72 s). Every unit (item x model)
+# runs its first attempt and its re-search together, items in their fixed order, so a stop never
+# cuts an item's re-search.
 #
 # Size: about 102-114 dev questions (the real count is known after `cli dataset-prepare`); at most
 # 2 searches per question (first attempt + one re-search), shared by all models: at most about 228
@@ -32,20 +35,23 @@
 
 config_version = 1
 name = "dev-live"
-description = "PR 8/13: live-web dev run on SealQA (seal_hard), 1 repeat, 2 primary model(s), no_gate (live) and gated_research; SerpApi Free plan."
+description = "PR 8/13: live-web dev run on SealQA (seal_hard), 1 repeat, 2 primary model(s), no_gate (live) and gated_research; Serper free tier."
 split = "dev"
 repeats = 1
 
 [runner]
 # Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
 # calls such as the decomposer and the judge included). Each cap is this run's allotment in
-# configs/budget.toml, just above its HIGH estimate; sum of caps 1.3 USD. PROPOSED.
+# configs/budget.toml, just above its HIGH estimate; sum of caps 1.75 USD. PROPOSED. PR 27: searches are
+# now priced ($0.001 each, Serper), and the dry run charges every model job all 108-216 searches, so
+# HIGH rose from A 0.35 / E 0.85 to A 0.57 / E 1.07 and the caps from 0.40 / 0.90 to 0.60 / 1.15
+# (HIGH x 1.05 rounded up to 0.05).
 concurrency = 4
 prices = "configs/prices.toml"
-max_searches = 240                       # PROPOSED: Free plan 250 per month minus the smoke's 10
-max_usd = 0.4
+max_searches = 240                       # PROPOSED: unchanged from PR 13 (Serper free tier: 2,500 queries)
+max_usd = 0.6
 [runner.max_usd_by_model]
-google-low = 0.9
+google-low = 1.15
 
 [dataset]
 name = "sealqa"
@@ -89,13 +95,13 @@ presentation = "sealqa_live_web"
 documents_per_attempt = 5                # PROPOSED
 max_document_chars = 8000                # PROPOSED
 [arms.options.search]
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+min_interval_seconds = 1.0               # PR 27: Serper documents no hourly limit (was 72 s, SerpApi Free plan)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0
@@ -122,13 +128,13 @@ lead_min_repeats = 2
 premise_scope = "document"
 competitor_tie = "fail"
 [arms.options.search]                    # must equal no_gate's so searches are shared
-name = "serpapi_google"
+name = "serper_google"
 label = "search"
 [arms.options.search.options]
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+min_interval_seconds = 1.0               # PR 27: Serper documents no hourly limit (was 72 s, SerpApi Free plan)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0

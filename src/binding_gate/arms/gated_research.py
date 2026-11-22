@@ -5,8 +5,8 @@ The agent protocol (identical first attempt for both arms)
 1. **Query.** The harness searches the question itself
    (``binding_gate.research.query.first_query``: whitespace collapsed). The
    model under test never chooses a query.
-2. **Search.** One web search (``search`` option; the study uses SerpApi's Google
-   engine, ``binding_gate.research.search``), logged as a call with
+2. **Search.** One web search (``search`` option; the study uses Serper's Google
+   results since PR 27, SerpApi before; ``binding_gate.research.search``), logged as a call with
    ``purpose = "search"``. At most ``search.options.max_results`` organic results
    (default 10) are kept, in rank order.
 3. **Pages.** The result URLs are fetched in rank order until
@@ -67,7 +67,7 @@ error record (section 6.4: errors stay in every denominator).
 
 Options (both arms unless noted)
 --------------------------------
-``search``                 ``{name = "serpapi_google", label = "search", options = {...}}`` (required)
+``search``                 ``{name = "serper_google", label = "search", options = {...}}`` (required)
 ``fetch``                  fetch limits (``binding_gate.research.fetch.FetchSettings``)
 ``documents_per_attempt``  default 5 (PROPOSED)
 ``max_document_chars``     default 8,000 (PROPOSED)
