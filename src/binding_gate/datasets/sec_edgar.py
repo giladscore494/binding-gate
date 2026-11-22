@@ -82,7 +82,9 @@ class NotFound(EdgarError):
     """HTTP 404 for a URL (not retried)."""
 
 
-DEFAULT_PROJECT_PART = f"{PRODUCT_TOKEN}/{__version__} (+{PROJECT_URL})"
+DEFAULT_PROJECT_PART = f"binding-gate research project {PROJECT_URL}"
+"""SEC's documented format is the requester's name followed by a contact e-mail; a
+tool-style string (product token and version) got HTTP 403 from www.sec.gov on 2026-11-22."""
 CONTACT_SECRET = "SEC_CONTACT_EMAIL"
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
