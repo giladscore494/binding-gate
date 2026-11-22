@@ -205,7 +205,7 @@ def test_the_committed_builder_config_loads_and_holds_no_address():
     config = sec_build.BuildConfig.load(REPO_ROOT / "configs" / "datasets" / "sec_financials_v1.toml")
     assert "@" not in (REPO_ROOT / "configs" / "datasets" / "sec_financials_v1.toml").read_text()
     assert config.max_requests_per_second <= 8 and config.selection_file == ""
-    assert config.user_agent_project.startswith("binding-gate-dataset-builder/")
+    assert config.user_agent_project == "binding-gate research project https://github.com/giladscore494/binding-gate"
 
 
 # -- statements, flattening and rendering ------------------------------------------------- #
