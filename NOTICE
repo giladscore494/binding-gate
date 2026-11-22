@@ -76,3 +76,24 @@ GRAB-RAG's licence reads:
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
+
+------------------------------------------------------------------------------
+
+PR 5 additionally reproduces, from the Deceptive Grounding benchmark (same
+commit as above, benchmark_judge.py), licensed under the Apache License, Version 2.0:
+
+  - the text of _JUDGE_SYSTEM_PROMPT, verbatim;
+  - the single-condition judge prompt built by _build_judge_prompt, verbatim
+    (as a template filled with the item's fields);
+  - the logic of _validate_judgment and _parse_judgment, re-implemented.
+
+They are in src/binding_gate/scorers/llm_judge.py (the secondary LLM-judge
+scorer). The benchmark's code was read, never imported or executed.
+
+The faithfulness_checker arm (src/binding_gate/arms/faithfulness_checker.py)
+calls MiniCheck (https://github.com/Liyan06/MiniCheck, commit
+b58b9fa69acbd1015ec970fa65dd752413a053d2, Apache License, Version 2.0) and the
+model weights lytang/MiniCheck-Flan-T5-Large (revision
+96eafd01cee2d16cf81aaa2fb226b14f422a37b3, MIT License, per its model card)
+when the optional "faithfulness" extra is installed. Neither the package nor
+the weights are included in this repository.
