@@ -92,7 +92,7 @@ def test_preregistration_names_layer_2_and_the_code_agrees():
     from binding_gate.stats import prereg
 
     text = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert "**Document version:** 0.10 (2026-11-22, PR 22)" in text and "**Status:** DRAFT" in text  # PR 22: 0.10
+    assert "**Document version:** 0.11 (2026-11-22, PR 26: amendment 2, judge temperature)" in text and "**Status:** DRAFT" in text  # PR 22: 0.10
     assert "0.9 (2026-11-22, PR 18):" in text
     assert "0.8 (2026-11-22, PR 17): layer 2 replaced" in text
     assert prereg.LAYER_BY_DATASET == {"deceptive_grounding": 1, "sec_financials": 2, "sealqa": 3}
@@ -112,3 +112,16 @@ def test_the_contact_secret_is_documented_in_both_languages_and_in_secrets_py():
     english, hebrew = running.split("## הוראות הפעלה בעברית", 1)
     assert "| `SEC_CONTACT_EMAIL` |" in english and "| `SEC_CONTACT_EMAIL` |" in hebrew
     assert "`SEC_CONTACT_EMAIL`" in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_no_committed_config_sends_a_temperature_to_a_kimi_k3_model():
+    """Kimi K3 models fix temperature at 1.0 and reject any other value (amendment 2)."""
+    for path in sorted(CONFIGS.rglob("*.toml")):
+        raw = tomllib.loads(path.read_text(encoding="utf-8"))
+        blocks = list(raw.get("models", [])) + list(raw.get("judges", []))
+        for arm in raw.get("arms", []):
+            blocks += [{"options": v} for v in arm.get("options", {}).values() if isinstance(v, dict) and "model_id" in v]
+        for block in blocks:
+            options = block.get("options", {})
+            if str(options.get("model_id", "")).startswith("kimi-k3"):
+                assert "temperature" not in options, path

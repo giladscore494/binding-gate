@@ -185,7 +185,7 @@ label = "judge-kimi-k3.1-pro"
 [arms.options.judges.options]
 model_id = "kimi-k3.1-pro"
 max_output_tokens = 4096
-temperature = 0.0                        # UNVERIFIED on Moonshot's API; see dev_baselines.toml
+# temperature: not sent - Kimi K3 models fix it at 1.0 and reject any other value (platform.kimi.ai models overview, read 2026-11-22; every judge call of run 45060087457 failed)
 timeout_seconds = 300
 max_retries = 5
 backoff_seconds = 2.0

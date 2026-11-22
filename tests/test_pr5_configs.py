@@ -175,7 +175,7 @@ def test_rescore_config_uses_slot_j_with_the_benchmarks_settings():
     (spec,) = config.judges
     client = spec.build()
     assert (client.model_id, judging.model_family(client)) == ("kimi-k3.1-pro", "moonshot")
-    assert client.max_output_tokens == 12288 and client.temperature == 0.0  # as benchmark_judge.py
+    assert client.max_output_tokens == 12288 and client.temperature is None  # benchmark used 0.0; Kimi K3 fixes 1.0 (amendment 2)
     assert load_prices(REPO_ROOT / config.prices).has(client.model_id) and config.max_usd > 0
 
 

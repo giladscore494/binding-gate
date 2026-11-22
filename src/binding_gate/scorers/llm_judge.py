@@ -703,9 +703,13 @@ class RescoreSummary:
     spend_usd: dict[str, float] = field(default_factory=dict)
     labels: dict[str, int] = field(default_factory=dict)
     budget_exceeded: bool = False
+    errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        from binding_gate.baseline_report import summarise_errors
+
         return {
+            "top_errors": summarise_errors(self.errors),
             "lines_written": self.lines_written,
             "judge_calls": self.judge_calls,
             "spend_usd": {k: round(v, 6) for k, v in self.spend_usd.items()},
@@ -815,6 +819,8 @@ def rescore(
             summary.lines_written += 1
             summary.judge_calls += len(score.details.get("model_calls", []))
             summary.labels[score.label] = summary.labels.get(score.label, 0) + 1
+            if score.label in JUDGE_FAILURE_LABELS:
+                summary.errors.append(str(score.details.get("error") or score.details.get("parse_error") or score.label))
 
     owners: dict[Future, tuple[LoadedRun, Any]] = {}
     with ThreadPoolExecutor(max_workers=config.concurrency) as pool:
@@ -1020,7 +1026,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return EXIT_FAILURE
         summary = rescore(config, runs, repo_root=args.repo_root, confirm_spend=True, arm=args.arm, model=args.model)
         print(json.dumps(summary.to_dict(), indent=2, sort_keys=True))
-        print(format_agreement(agreement_from_run_dirs(args.run_dirs)))
+        if args.arm == "free_form":
+            # A free-form answer has no deterministic provenance label to agree with (amendment 1, V2);
+            # its comparison is made by `python -m binding_gate.validation report`.
+            print("free_form: no agreement with provenance (not applicable); see binding_gate.validation")
+        else:
+            print(format_agreement(agreement_from_run_dirs(args.run_dirs)))
         return EXIT_BUDGET if summary.budget_exceeded else EXIT_OK
     except SecretError as exc:
         print(f"ERROR (API key): {exc}", file=sys.stderr)

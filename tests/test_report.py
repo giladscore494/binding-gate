@@ -219,14 +219,15 @@ def test_threats_rules_and_amendments_are_quoted_from_the_preregistration(dev_an
     assert set(rules) == {"H1", "H2", "H3", "H4"}
     assert rules["H2"] in section(md, "headline")
     # PR 22: amendment 1 (the layer-1 STOP and its exploratory validation) is the first row of section 18
-    (first,) = prereg_doc.amendments(PREREG)
+    first = prereg_doc.amendments(PREREG)[0]
     assert first["#"] == "1" and first["date"] == "2026-11-22" and "after seeing the layer-1 dev baseline" in first["reason"].lower()
     assert "Layer-1 STOP applied as written" in section(md, "deviations")
     row = next(line for line in PREREG.splitlines() if line.startswith("| 1 | 2026-11-22 |"))
-    unamended = PREREG.replace(row, "| (none yet) | | | | | |")
+    row2 = next(line for line in PREREG.splitlines() if line.startswith("| 2 | 2026-11-22 |"))
+    unamended = PREREG.replace(row2 + "\n", "").replace(row, "| (none yet) | | | | | |")
     assert prereg_doc.amendments(unamended) == []
     assert "no amendment recorded" in section(markdown(inputs_for(dev_analysis, prereg_text=unamended)), "deviations")
-    amended = PREREG.replace(row, row + "\n| 2 | 2027-01-02 | 9 | Slot F model id replaced | retired by the provider | no |")
+    amended = PREREG.replace(row, row + "\n| 3 | 2027-01-02 | 9 | Slot F model id replaced | retired by the provider | no |")
     md = markdown(inputs_for(dev_analysis, prereg_text=amended))
     assert "Slot F model id replaced" in section(md, "deviations")
     assert prereg_doc.status(PREREG) == "DRAFT"

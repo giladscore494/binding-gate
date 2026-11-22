@@ -203,7 +203,7 @@ max_output_tokens = 4096
 # temperature 0.0 follows section 9 ("0 where the API allows it"); UNVERIFIED for
 # this model on Moonshot's API. If it is rejected, delete the line (provider default)
 # and record the change in PREREGISTRATION.md section 9.
-temperature = 0.0
+# temperature: not sent - Kimi K3 models fix it at 1.0 and reject any other value (platform.kimi.ai models overview, read 2026-11-22; every judge call of run 45060087457 failed)
 timeout_seconds = 300
 max_retries = 5
 backoff_seconds = 2.0
