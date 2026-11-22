@@ -1,0 +1,366 @@
+# painscan query plan (fixed BEFORE any search, 2026-11-23). See tools/painscan/PREREGISTRATION.md.
+# Every query is generated deterministically from this file; the plan hash is recorded in every run.
+plan_version = 1
+
+# Forums where non-developer agent/automation users post (one OR-ed site: group).
+forum_sites = ["community.shopify.com", "community.n8n.io", "community.zapier.com", "quickbooks.intuit.com", "forum.cursor.com", "community.openai.com", "community.make.com"]
+
+[serper]
+gl = "us"
+hl = "en"
+num = 10                     # 10 results = 1 credit per query
+recent_tbs = "qdr:m3"        # "recent" window: last 3 months (smoke run checks that Serper honours it)
+recent_tbs_fallback = "qdr:m" # used if the smoke run shows qdr:m3 is ignored
+baseline_tbs = "qdr:y"       # comparison window: last 12 months
+max_queries_hard = 1300      # hard cap per invocation, whatever the workflow input says
+workers = 4
+
+
+# Query templates. {p} = the domain phrase. "window" = recent+baseline (both), recent, baseline, none.
+[[template]]
+kind = "pain"
+source = "reddit"
+window = "both"
+texts = ["{p} mistakes", "{p} wrong", "{p} hallucinated", "{p} cost us", "{p} frustrated", "{p} had to double check"]
+
+[[template]]
+kind = "pain"
+source = "web"
+window = "both"
+texts = ["{p} errors complaints", "{p} went wrong", "{p} problems"]
+
+[[template]]
+kind = "pain"
+source = "forums"
+window = "both"
+texts = ["{p} wrong"]
+
+[[template]]
+kind = "pain"
+source = "hn"
+window = "both"
+texts = ["{p} problems"]
+
+[[template]]
+kind = "demand"
+source = "reddit"
+window = "baseline"
+texts = ["is there a tool to check {p}"]
+
+[[template]]
+kind = "demand"
+source = "web"
+window = "baseline"
+texts = ["tool to verify {p} output", "{p} quality control"]
+
+[[template]]
+kind = "competition"
+source = "web"
+window = "none"
+texts = ["{p} software", "best {p} tool 2026"]
+
+# Domains. Feasibility attributes are fixed here, before any data, with a one-line reason:
+#   regulated        heavy regulation / liability / sensitive data (medical, legal, tax, insurance, hiring law)
+#   smb_reachable    buyers are small businesses or prosumers a solo founder can reach online
+#   source_of_truth  an external reference exists, so a wrong output can be caught by a deterministic check
+#   bigtech_building a platform owner ships this check itself (Microsoft, Google, OpenAI, Salesforce, Intuit, Shopify)
+#   israel_edge      Hebrew / Israeli-market knowledge is an advantage
+[[domain]]
+id = "coding"
+phrase = "AI coding agent"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "tests/CI are a reference; Anthropic/OpenAI/Cursor and funded reviewers already compete"
+
+[[domain]]
+id = "customer_support"
+phrase = "AI customer support bot"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = true
+reason = "policy/price list/order DB are references; Salesforce/Fin/Sierra own the category"
+
+[[domain]]
+id = "voice_receptionist"
+phrase = "AI receptionist"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "calendar and booking system are references; SMB buyers"
+
+[[domain]]
+id = "appointment_booking"
+phrase = "AI booking assistant"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "availability/calendar is a reference"
+
+[[domain]]
+id = "ecommerce_listings"
+phrase = "AI product descriptions"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "supplier spec sheets are a reference; Shopify/Amazon ship generators"
+
+[[domain]]
+id = "bookkeeping"
+phrase = "AI bookkeeping"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = true
+reason = "bank feed and invoices are references; Intuit/Xero ship AI"
+
+[[domain]]
+id = "invoice_processing"
+phrase = "AI invoice processing"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "totals, PO and vendor master are references (sum checks)"
+
+[[domain]]
+id = "sales_outreach"
+phrase = "AI SDR"
+regulated = false
+smb_reachable = true
+source_of_truth = false
+bigtech_building = false
+israel_edge = false
+reason = "no reference for 'a good email'"
+
+[[domain]]
+id = "email_assistant"
+phrase = "AI email assistant"
+regulated = false
+smb_reachable = true
+source_of_truth = false
+bigtech_building = true
+israel_edge = false
+reason = "Google/Microsoft ship it; little to check deterministically"
+
+[[domain]]
+id = "recruiting"
+phrase = "AI resume screening"
+regulated = true
+smb_reachable = true
+source_of_truth = false
+bigtech_building = false
+israel_edge = false
+reason = "hiring-bias law (e.g. NYC LL144); no deterministic reference"
+
+[[domain]]
+id = "real_estate_listings"
+phrase = "AI real estate listing"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "MLS/property records are references"
+
+[[domain]]
+id = "property_management"
+phrase = "AI property management"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "lease terms and ledgers are references"
+
+[[domain]]
+id = "construction_estimating"
+phrase = "AI construction estimating"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "plans and price lists are references; owner's target industry"
+
+[[domain]]
+id = "quoting"
+phrase = "AI quote generator"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "price lists and margins are references"
+
+[[domain]]
+id = "logistics_dispatch"
+phrase = "AI freight dispatch"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "rates, loads and schedules are references; owner's target industry"
+
+[[domain]]
+id = "inventory"
+phrase = "AI inventory management"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "stock counts are references"
+
+[[domain]]
+id = "restaurant_ordering"
+phrase = "AI phone ordering restaurant"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = true
+reason = "menu and prices are references"
+
+[[domain]]
+id = "legal_drafting"
+phrase = "AI legal research"
+regulated = true
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = true
+reason = "case databases are references; liability; Thomson Reuters/Lexis compete"
+
+[[domain]]
+id = "medical_scribe"
+phrase = "AI medical scribe"
+regulated = true
+smb_reachable = false
+source_of_truth = false
+bigtech_building = true
+israel_edge = false
+reason = "HIPAA; Microsoft/Nuance and funded scribes"
+
+[[domain]]
+id = "insurance_claims"
+phrase = "AI insurance claims"
+regulated = true
+smb_reachable = false
+source_of_truth = true
+bigtech_building = false
+israel_edge = false
+reason = "regulated; enterprise sales"
+
+[[domain]]
+id = "tax_prep"
+phrase = "AI tax preparation"
+regulated = true
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = true
+reason = "tax rules are references; liability; Intuit competes"
+
+[[domain]]
+id = "spreadsheets"
+phrase = "AI Excel formulas"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "recalculation is a reference; Microsoft Copilot/Google ship it"
+
+[[domain]]
+id = "sql_analytics"
+phrase = "AI SQL analytics"
+regulated = false
+smb_reachable = false
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "query results are references; data-team buyers; platforms ship it"
+
+[[domain]]
+id = "browser_automation"
+phrase = "AI browser agent"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "read-back of the written record is a reference; OpenAI/Google ship agents"
+
+[[domain]]
+id = "workflow_automation"
+phrase = "n8n AI agent"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = false
+israel_edge = false
+reason = "workflow inputs/outputs are references; SMB/prosumer builders"
+
+[[domain]]
+id = "content_seo"
+phrase = "AI generated articles"
+regulated = false
+smb_reachable = true
+source_of_truth = false
+bigtech_building = false
+israel_edge = false
+reason = "fact checking needs a judge, not a rule"
+
+[[domain]]
+id = "translation"
+phrase = "AI translation"
+regulated = false
+smb_reachable = true
+source_of_truth = false
+bigtech_building = true
+israel_edge = true
+reason = "no deterministic reference; Google/DeepL"
+
+[[domain]]
+id = "meeting_notes"
+phrase = "AI meeting notes"
+regulated = false
+smb_reachable = true
+source_of_truth = true
+bigtech_building = true
+israel_edge = false
+reason = "the transcript is a reference; Zoom/Microsoft/Google ship it"
+
+[[domain]]
+id = "financial_research"
+phrase = "AI financial analysis"
+regulated = false
+smb_reachable = false
+source_of_truth = true
+bigtech_building = false
+israel_edge = false
+reason = "XBRL/filings are references (NumTrace); institutional buyers"
+
+[[domain]]
+id = "marketing_ads"
+phrase = "AI ad management"
+regulated = false
+smb_reachable = true
+source_of_truth = false
+bigtech_building = true
+israel_edge = false
+reason = "Google/Meta ship it; no deterministic reference"

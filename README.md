@@ -4,19 +4,12 @@ A deterministic verification gate for LLM agents that answer questions from web
 search or retrieved documents, and the pre-registered study that is meant to
 test it.
 
-> **Status: pre-registration DRAFT (version 0.10). Layer-1 baseline: STOP; validation in progress.**
-> The smoke run and the layer-1 dev baseline have run (dev split only; 1.14 USD of 50 spent). The
-> baseline wrong-entity rate R was 2.0% / 2.4% / 1.6% for the three primary models (`gpt-6-luna`,
-> `gemini-3.1-flash-lite`, `glm-5.3-flash`), below 5% for every model, so the pre-registered stop rule
-> (PREREGISTRATION.md section 10) says STOP: layer-1 confirmatory work (gated arm, ablations,
-> comparison arms, H1-H3 on layer 1, the layer-1 test run) is stopped and nothing is re-thresholded.
-> Amendment 1 (section 18, decided after seeing that baseline) adds an EXPLORATORY, post hoc
-> validation on dev (stage `validate-layer1`): an LLM judge on a fixed subsample of the baseline
-> answers (does the quote-provenance metric undercount?) and free-form answers of the same items
-> (arm `free_form`: does forcing the structured answer suppress the failure?). Layer 2 (SEC filings)
-> continues under its own stop rule, written before its baseline is scored. There is no evidence yet
-> that the gate works. Every number marked **PROPOSED** in [PREREGISTRATION.md](PREREGISTRATION.md)
-> still needs the owner's approval before the plan is frozen.
+> **Status: CLOSED (2026-11-23) — negative result.** See [docs/FINAL_REPORT.md](docs/FINAL_REPORT.md).
+> Layer 1 (R = 2.4% / 2.0% / 1.6%) and layer 2 (0%) stopped under their pre-registered rules; in layer 3 the
+> gate cut wrong answers only by abstaining on 95% of questions and lost nearly all correct answers (H4 not
+> supported). USD 12.65 of 50 spent; the test split was never unlocked. The `binding_gate` package below is
+> frozen and unmaintained, kept so every recorded number can be re-derived. The follow-up study is
+> [`tools/painscan`](tools/painscan/PREREGISTRATION.md).
 
 > **Owner: the only setup you do is in [docs/OWNER_SETUP.md](docs/OWNER_SETUP.md)** (Hebrew and
 > English): add seven repository secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`,
