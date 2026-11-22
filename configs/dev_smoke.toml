@@ -73,7 +73,7 @@ label = "openai-mid"
 model_id = "gpt-6.1-sol"
 max_output_tokens = 4096
 # temperature: not sent (provider default); see the header
-reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+reasoning = { effort = "low" }   # lowest value gpt-6.1-sol accepts ("none" -> HTTP 400 in the smoke run, 2026-11-22)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0

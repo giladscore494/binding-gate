@@ -42,7 +42,9 @@ input_per_mtok = 2.00
 output_per_mtok = 10.00
 source = "The Register, 2026-10-26 (price)"
 accessed = "2026-11-22"
-note = "exact model id unverified (pattern of the verified gpt-6.1-terra); the preflight must confirm it"
+note = "model id verified by the preflight 2026-11-22. Its lowest reasoning effort is 'low' ('none' is rejected with HTTP 400, smoke run 2026-11-22), hence its own reasoning assumptions"
+reasoning_tokens_low = 100
+reasoning_tokens_high = 2000
 
 [[price]]
 model_id = "gemini-3.1-flash-lite"
