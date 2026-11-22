@@ -1,3 +1,12 @@
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# This is the full-scale configuration as it stood before PR 13 (6 models, 3 repeats,
+# every arm on every item, reasoning at the provider default), kept so that nothing is
+# lost: run it only "if funding becomes available", after an amendment
+# (PREREGISTRATION.md section 9, "Extended design"). It is priced with
+# configs/extended/prices.toml (2,000 hidden reasoning tokens per call at the provider
+# default). tests/test_budget_plan.py checks that every paid config outside
+# configs/extended/ is in configs/budget.toml.
+#
 # PR 7 dev baseline on GRAB-RAG: no_gate on the dev split, 3 repeats, 6 models.
 #
 # Layer 2 (PREREGISTRATION.md section 3): GRAB-RAG's misleading condition (one
@@ -20,14 +29,14 @@
 # 394 x 2 x 3 = 2,364).
 
 config_version = 1
-name = "dev-grab-rag-baseline"
+name = "extended-dev-grab-rag-baseline"
 description = "PR 7 layer-2 baseline: no_gate on GRAB-RAG misleading + paired supportive, dev split, 3 repeats, 6 models."
 split = "dev"
 repeats = 3
 
 [runner]
 concurrency = 8
-prices = "configs/prices.toml"
+prices = "configs/extended/prices.toml"
 # Hard budget cap in US dollars PER MODEL. PROVISIONAL: set about 25% above the
 # HIGH dry-run estimate for ~1,300 calls (extrapolated from a supportive-only dry
 # run on the real eval files: 394 calls, high estimate 9.62 / 9.62 / 8.54 / 1.42

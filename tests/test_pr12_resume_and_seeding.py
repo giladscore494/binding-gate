@@ -259,7 +259,11 @@ def test_first_listed_seed_wins_and_the_dry_run_lists_the_seeds(tmp_path):
     assert report.seeds[0].responses_by_model == {"bad": N_DEV_ITEMS, "good": N_DEV_ITEMS}
     assert report.seeds[1].responses_by_model == {"bad": 0, "good": 0}  # every key already taken
     text = report.format()
-    assert "SEEDED RESPONSES" in text and f"{N_DEV_ITEMS} of at most {N_DEV_ITEMS} answer calls seeded" in text
+    per_model = report.requests_per_repeat * report.repeats
+    assert "SEEDED RESPONSES" in text and f"{N_DEV_ITEMS} of {per_model} answer calls seeded" in text
+    # PR 13: seeded answers are left out of the calls and costs of the estimate
+    assert report.seeded_calls == {"bad": N_DEV_ITEMS, "good": N_DEV_ITEMS}
+    assert all(m.calls == per_model - N_DEV_ITEMS for m in report.models)
     assert report.to_dict()["seeds"][0]["path"] == seed_b.relative_to(repo).as_posix()
 
 

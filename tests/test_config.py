@@ -177,13 +177,14 @@ def test_two_ablations_of_one_arm_are_told_apart_by_label():
 
 
 def test_every_committed_config_loads():
-    # configs/prices.toml is the price table of the cost estimator, not a run config
+    # configs/prices.toml is the price table of the cost estimator and configs/budget.toml the
+    # budget plan (PR 13), not run configs
     # (it is validated in tests/test_pricing.py). configs/decomposer_eval_*.toml are
     # configs of the separate decomposer measurement (PR 3), validated in
     # tests/test_decomposer_eval.py.
     paths = sorted(
         p for p in (REPO_ROOT / "configs").glob("*.toml")
-        if p.name != "prices.toml" and not p.name.startswith("decomposer_eval")
+        if p.name not in ("prices.toml", "budget.toml") and not p.name.startswith("decomposer_eval")
     )
     assert paths, "configs/ must contain at least the example config"
     for path in paths:

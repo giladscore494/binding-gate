@@ -23,6 +23,8 @@ name: baseline
 #   answers of earlier dev runs: the seed run directories are downloaded from the
 #   runs-* artifacts of the workflow run given in the input seed_run_id into seeds/
 #   (outside runs/, so they are never uploaded or reported as part of the new run).
+#   PR 13: `seed_responses_from = ["seeds/*"]` takes every run directory downloaded from
+#   that workflow run, so the committed dev configs need no edit after the baseline.
 
 on:
   workflow_dispatch:
@@ -111,6 +113,10 @@ jobs:
           fi
           case "$SEED_RUN_ID" in *[!0-9]*) echo "::error::seed_run_id must be the number in the URL of that workflow run (.../actions/runs/<number>)"; exit 1 ;; esac
           for SEED in ${SEED_RUNS//,/ }; do
+            if [ "$SEED" = "seeds/*" ]; then
+              echo "seed runs: every run directory of workflow run $SEED_RUN_ID (seeds/*, PR 13)"
+              continue
+            fi
             case "$SEED" in
               seeds/*/*|seeds/) echo "::error::seed run $SEED must be seeds/<run id>"; exit 1 ;;
               seeds/*) ;;
@@ -200,6 +206,19 @@ jobs:
       - name: Check that every seed run was downloaded
         if: ${{ needs.plan.outputs.seed_runs != '' }}
         run: |
+          if [ "$SEED_RUNS" = "seeds/*" ]; then
+            # PR 13: the config takes every run directory of workflow run seed_run_id
+            FOUND="$(find seeds -mindepth 2 -maxdepth 2 -name manifest.json | wc -l)"
+            if [ "$FOUND" -eq 0 ]; then
+              echo "::error::No run directory was downloaded from workflow run $SEED_RUN_ID. Check the run id."
+              exit 1
+            fi
+            for MANIFEST in seeds/*/manifest.json; do
+              SEED="$(dirname "$MANIFEST")"
+              echo "seed run $SEED: $(wc -l < "$SEED/traces.jsonl") trace records"
+            done
+            exit 0
+          fi
           for SEED in ${SEED_RUNS//,/ }; do
             if [ ! -f "$SEED/manifest.json" ] || [ ! -f "$SEED/traces.jsonl" ]; then
               echo "::error::$SEED is not in the runs-* artifacts of workflow run $SEED_RUN_ID. Check the run id and the run ids in the config."
@@ -215,6 +234,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           AVAILABLE="$(python -m binding_gate.cli models --config "$CONFIG" --available | python -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
           if [ -z "$AVAILABLE" ]; then
@@ -250,6 +270,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
         run: |
           set +e
@@ -282,6 +303,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
         run: python -m binding_gate.cli run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}" --runs-dir runs --confirm-spend
 

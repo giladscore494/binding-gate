@@ -18,7 +18,7 @@ from binding_gate.scorers.llm_judge import RescoreConfig
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = REPO_ROOT / "configs"
 ABLATIONS = sorted(CONFIGS.glob("dev_ablation_*.toml"))
-FAMILIES_UNDER_TEST = {"openai", "anthropic", "google"}
+FAMILIES_UNDER_TEST = {"openai", "anthropic", "google", "deepseek"}
 
 
 def baseline() -> dict:
@@ -35,14 +35,16 @@ def with_fixture_dataset(config, tmp_path: Path):
 # -- dev_baselines.toml --------------------------------------------------------------- #
 
 
-def test_baselines_config_runs_the_three_comparison_arms_next_to_no_gate():
+def test_baselines_config_runs_the_comparison_arms_next_to_no_gate():
+    """PR 13: on a 300-item dev subsample, no_gate seeded; llm_judge_checks has its own config."""
     config = load_config(CONFIGS / "dev_baselines.toml")
     assert [(a.name, a.label) for a in config.arms] == [
         ("no_gate", "no_gate"),
         ("prompt_entity_check", "prompt_entity_check"),
         ("faithfulness_checker", "faithfulness_checker"),
-        ("llm_judge_checks", "llm_judge_checks"),
     ]
+    assert config.sample == {"per_stratum": 20, "seed": 20261122}
+    assert config.runner["seed_responses_from"] == ["seeds/*"]
     reference = baseline()
     data = config.to_dict()
     for key in ("dataset", "models", "scorers", "split", "repeats"):
@@ -51,23 +53,34 @@ def test_baselines_config_runs_the_three_comparison_arms_next_to_no_gate():
     assert options["faithfulness_checker"] == {
         "presentation": "deceptive_grounding_doc_injection", "backend": "minicheck", "evidence": "all_documents"
     }
-    assert options["llm_judge_checks"]["checks"] == list(CHECK_NAMES)
     settings = runner.RunnerSettings.from_config(config)
     assert all(settings.cap_for(m.label) is not None for m in config.models)
 
 
+def test_llm_judge_checks_config_is_a_seeded_dev_subsample_of_slot_a():
+    config = load_config(CONFIGS / "dev_llm_judge_checks.toml")
+    assert [(a.name, a.label) for a in config.arms] == [("no_gate", "no_gate"), ("llm_judge_checks", "llm_judge_checks")]
+    assert config.sample == {"per_stratum": 4, "seed": 20261122} and config.runner["seed_responses_from"] == ["seeds/*"]
+    reference = {m["label"]: m for m in baseline()["models"]}
+    assert [m.to_dict() for m in config.models] == [reference["openai-low"]]
+    assert {a.label: a.options for a in config.arms}["llm_judge_checks"]["checks"] == list(CHECK_NAMES)
+    rescore = RescoreConfig.load(CONFIGS / "rescore" / "dev_llm_judge.toml")
+    assert rescore.sample == config.sample  # the same 60 items for both judges
+
+
 def test_baselines_judge_is_slot_j_priced_and_of_another_family_than_every_model(monkeypatch):
-    config = load_config(CONFIGS / "dev_baselines.toml")
+    config = load_config(CONFIGS / "dev_llm_judge_checks.toml")
     options = {a.name: a.options for a in config.arms}["llm_judge_checks"]
     (spec,) = judging.parse_judges("judges", options["judges"])
     client = spec.build()
     assert (spec.name, client.model_id, judging.model_family(client)) == ("moonshot_chat", "kimi-k3.1-pro", "moonshot")
     assert load_prices(REPO_ROOT / options["prices"]).has("kimi-k3.1-pro")
     assert options["judge_max_usd"] > 0
-    families = {judging.model_family(runner.build_model(m)) for m in config.models}
-    assert families == FAMILIES_UNDER_TEST
+    under_test = load_config(CONFIGS / "dev_smoke.toml")  # every model under test (A-G)
+    families = {judging.model_family(runner.build_model(m)) for m in under_test.models}
+    assert families == FAMILIES_UNDER_TEST and "moonshot" not in families
     monkeypatch.setenv("MOONSHOT_API_KEY", "placeholder-for-construction-only")
-    for model in config.models:  # the arm accepts every model under test (no family clash)
+    for model in under_test.models:  # the arm accepts every model under test (no family clash)
         registry.create("arm", "llm_judge_checks", model=runner.build_model(model), **options)
     monkeypatch.delenv("MOONSHOT_API_KEY")
     with pytest.raises(judging.JudgeUnavailable, match="MOONSHOT_API_KEY"):  # fails before any paid call
@@ -75,14 +88,16 @@ def test_baselines_judge_is_slot_j_priced_and_of_another_family_than_every_model
 
 
 def test_baselines_dry_run_works_without_any_key_or_heavy_dependency(tmp_path, monkeypatch):
-    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY"):
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     repo = h.make_repo(tmp_path)
     (repo / "configs" / "prices.toml").write_text((CONFIGS / "prices.toml").read_text(), encoding="utf-8")
     config = with_fixture_dataset(load_config(CONFIGS / "dev_baselines.toml"), tmp_path)
     report = runner.dry_run(config, repo_root=repo)
+    # the synthetic checkout has 3 conditions x 15 items: 20 per condition keeps all 45
     assert report.n_items == 45 and report.requests_per_repeat == 45 * 2
-    assert len(report.models) == 6 and all(m.calls == 45 * 2 * 3 for m in report.models)
+    assert len(report.models) == 4 and all(m.calls == 45 * 2 for m in report.models)
+    assert "none was found" in report.seed_note  # no seed run downloaded: nothing subtracted
 
 
 # -- dev_ablation_*.toml -------------------------------------------------------------- #
@@ -106,8 +121,10 @@ def test_each_ablation_is_the_full_gate_plus_the_gate_minus_one_check(path):
     }
     reference = baseline()
     data = config.to_dict()
-    for key in ("dataset", "models", "scorers", "split", "repeats", "runner"):
+    for key in ("dataset", "models", "scorers", "split", "repeats"):
         assert data[key] == reference[key], key
+    # PR 13: the answers are seeded from the dev baseline; the caps are those of dev_gated (decomposer only)
+    assert data["runner"] == load_config(CONFIGS / "dev_gated.toml").to_dict()["runner"]
 
 
 def test_ablation_configs_differ_only_in_the_removed_check():

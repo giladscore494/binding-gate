@@ -1,0 +1,298 @@
+# The USD 50 budget plan of the whole study (PR 13; PREREGISTRATION.md section 9, "Budget plan").
+#
+# The owner's TOTAL budget for every paid API and search call of the study - smoke runs, dev
+# baseline, decomposer measurement, gated arm, ablations, comparison baselines, judges, layers 2
+# and 3, and the frozen test runs - is USD 50, hard. This file lists every planned paid run with
+# its LOW and HIGH estimate and its CAP (the sum of the hard per-model budget caps of its config,
+# times the number of invocations). Rules, checked by tests/test_budget_plan.py:
+#   - the planned HIGH total is at most planned_high_max_usd (45 USD), leaving a reserve of at least
+#     reserve_usd (5 USD) under the hard limit for re-runs (calibration re-runs of dev_gated, a
+#     repeated smoke run, a resumed run) and estimation error;
+#   - the sum of all caps is at most hard_limit_usd (50 USD): even if every run spent its full cap,
+#     the study could not exceed 50 USD;
+#   - every run's cap equals what its config enforces, and is at least its HIGH estimate;
+#   - every paid config under configs/ (run configs, the decomposer measurement, re-scoring
+#     configs) is listed here; the full-scale design of PRs 1-12 is kept under configs/extended/
+#     (marked EXTENDED, not run, "if funding becomes available").
+#
+# How the estimates were made (2026-11-22, nothing spent): `python -m binding_gate.cli dry-run`
+# on the pinned benchmark (dev split), with the token assumptions of configs/prices.toml: input =
+# characters / 4; 250 visible output tokens per call; hidden reasoning 0 (low) to 500 (high) per
+# call at the lowest reasoning setting of section 9, and 0 to 2,000 for the judge, which runs at
+# its provider default. Seeded answers (`seed_responses_from = ["seeds/*"]`) cost nothing and are
+# left out (the dry run subtracts them once the seed runs are downloaded). Test-split runs cannot
+# be dry-run: the dev dry run of the same arms is scaled by 2,505 / 1,455 items (layer 1), or the
+# same subsample definition is dry-run on dev (mid-tier: 15 items per condition on either split).
+# Layer 3 was dry-run on a synthetic stand-in of SealQA's reported size (254 questions, 108 dev);
+# searches cost 0 on SerpApi's Free plan. DeepSeek is priced at its PEAK price (off-peak is half).
+# Caps = HIGH x 1.05 rounded up to 0.05 USD per model, at least 0.10 USD per model.
+#
+# Outer safety net: a monthly spending limit in every provider's dashboard (docs/RUNNING.md,
+# "Provider spending limits").
+
+budget_version = 1
+hard_limit_usd = 50.0
+planned_high_max_usd = 45.0
+reserve_usd = 5.0
+
+# Totals of the runs below: low 17.35, HIGH 43.24, caps 48.65 USD.
+
+[[run]]
+id = "smoke"
+config = "configs/dev_smoke.toml"
+kind = "run"
+invocations = 1
+models = "A, B, C, D, E, F, G"
+items = "dev, first group: 15 items"
+arms = "no_gate"
+low_usd = 0.21
+high_usd = 0.46
+cap_usd = 0.85
+note = "checks every model id, reasoning setting, temperature and usage report once"
+
+[[run]]
+id = "decomposer_eval"
+config = "configs/decomposer_eval_dev.toml"
+kind = "decomposer_eval"
+invocations = 4
+models = "Dec (gpt-6-luna)"
+items = "45 dev questions x 3 repeats"
+arms = "decomposer only"
+low_usd = 0.11
+high_usd = 0.24
+cap_usd = 0.40
+note = "the measurement plus up to three revisions (section 7)"
+
+[[run]]
+id = "dev_baseline"
+config = "configs/dev_baseline.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items"
+arms = "no_gate"
+low_usd = 2.40
+high_usd = 5.09
+cap_usd = 5.45
+note = "section 10 stop rule; its answers seed every later dev run"
+
+[[run]]
+id = "dev_repeats"
+config = "configs/dev_repeats.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev subsample, 5 per condition: 75 items x 3 repeats (repeat 0 seeded)"
+arms = "no_gate"
+low_usd = 0.25
+high_usd = 0.52
+cap_usd = 0.65
+note = "nondeterminism check (section 8)"
+
+[[run]]
+id = "dev_gated"
+config = "configs/dev_gated.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only; re-runs after calibration come out of the reserve"
+
+[[run]]
+id = "dev_ablation_quote_verbatim"
+config = "configs/dev_ablation_quote_verbatim.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated, gated_minus_quote_verbatim"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only"
+
+[[run]]
+id = "dev_ablation_entity_in_window"
+config = "configs/dev_ablation_entity_in_window.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated, gated_minus_entity_in_window"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only"
+
+[[run]]
+id = "dev_ablation_qualifiers_in_window"
+config = "configs/dev_ablation_qualifiers_in_window.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated, gated_minus_qualifiers_in_window"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only"
+
+[[run]]
+id = "dev_ablation_no_closer_competitor"
+config = "configs/dev_ablation_no_closer_competitor.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated, gated_minus_no_closer_competitor"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only"
+
+[[run]]
+id = "dev_ablation_premise_present"
+config = "configs/dev_ablation_premise_present.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated, gated_minus_premise_present"
+low_usd = 0.00
+high_usd = 0.08
+cap_usd = 0.40
+note = "paid: decomposer only"
+
+[[run]]
+id = "dev_baselines"
+config = "configs/dev_baselines.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "dev subsample, 20 per condition: 300 items (no_gate seeded)"
+arms = "no_gate, prompt_entity_check, faithfulness_checker"
+low_usd = 0.53
+high_usd = 1.08
+cap_usd = 1.25
+note = "paid: prompt_entity_check; MiniCheck runs on the CPU for free"
+
+[[run]]
+id = "dev_llm_judge_checks"
+config = "configs/dev_llm_judge_checks.toml"
+kind = "run"
+invocations = 1
+models = "A (judge J)"
+items = "dev subsample, 4 per condition: 60 items (no_gate seeded)"
+arms = "no_gate, llm_judge_checks"
+low_usd = 0.00
+high_usd = 1.51
+cap_usd = 1.60
+note = "paid: the judge (kimi-k3.1-pro at its default reasoning)"
+
+[[run]]
+id = "rescore_dev_llm_judge"
+config = "configs/rescore/dev_llm_judge.toml"
+kind = "rescore"
+invocations = 1
+models = "judge J on A, C, E, G"
+items = "dev subsample, 4 per condition: 60 items x 4 models (dev-baseline traces)"
+arms = "secondary scorer (section 6.5)"
+low_usd = 1.22
+high_usd = 6.02
+cap_usd = 6.35
+note = "one invocation over the four dev-baseline run directories"
+
+[[run]]
+id = "dev_live_smoke"
+config = "configs/dev_live_smoke.toml"
+kind = "run"
+invocations = 1
+models = "A"
+items = "SealQA dev, first 5 questions"
+arms = "no_gate (live), gated_research"
+low_usd = 0.01
+high_usd = 0.02
+cap_usd = 0.10
+note = "at most 10 searches (SerpApi Free plan, month 1)"
+
+[[run]]
+id = "dev_live"
+config = "configs/dev_live.toml"
+kind = "run"
+invocations = 1
+models = "A, E"
+items = "SealQA dev, all questions (stand-in: 108)"
+arms = "no_gate (live), gated_research"
+low_usd = 0.45
+high_usd = 1.20
+cap_usd = 1.30
+note = "at most 240 searches (Free plan, month 1); estimate from a synthetic stand-in of 254 questions"
+
+[[run]]
+id = "dev_grab_rag_supportive"
+config = "configs/dev_grab_rag_supportive.toml"
+kind = "run"
+invocations = 1
+models = "A"
+items = "GRAB-RAG dev, supportive condition: 394 questions"
+arms = "no_gate, gated"
+low_usd = 0.09
+high_usd = 0.36
+cap_usd = 0.40
+note = "layer-2 cost side (M2) only; exploratory"
+
+[[run]]
+id = "test_layer1"
+config = "configs/test_layer1.toml"
+kind = "run"
+invocations = 1
+models = "A, C, E, G"
+items = "test, all 2,505 items"
+arms = "no_gate, prompt_entity_check, faithfulness_checker, gated, 5 ablations"
+low_usd = 8.53
+high_usd = 17.93
+cap_usd = 19.00
+note = "CONFIRMATORY (H1-H3); estimate = dev dry run of the same arms x 2,505 / 1,455"
+
+[[run]]
+id = "test_layer1_midtier"
+config = "configs/test_layer1_midtier.toml"
+kind = "run"
+invocations = 1
+models = "B, D, F"
+items = "test subsample, 15 per condition: 225 items"
+arms = "no_gate, faithfulness_checker, gated"
+low_usd = 2.82
+high_usd = 6.14
+cap_usd = 6.50
+note = "exploratory capability check; estimate = dev dry run of the same subsample definition"
+
+[[run]]
+id = "test_live"
+config = ""
+kind = "planned"
+invocations = 1
+models = "A, E"
+items = "SealQA test, all questions (stand-in: 146)"
+arms = "no_gate (live), gated_research"
+low_usd = 0.60
+high_usd = 1.63
+cap_usd = 1.80
+note = "CONFIRMATORY (H4); config not yet written (section 17, item 39); Free plan, months 2-3"
+
+[[run]]
+id = "test_grab_rag_supportive"
+config = ""
+kind = "planned"
+invocations = 1
+models = "A"
+items = "GRAB-RAG test, supportive condition: 606 questions"
+arms = "no_gate, gated"
+low_usd = 0.13
+high_usd = 0.56
+cap_usd = 0.60
+note = "exploratory; config not yet written (section 17, item 39)"

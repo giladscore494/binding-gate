@@ -1,40 +1,49 @@
-# PR 2 smoke run: same models, arm, scorer and sampling as configs/dev_baseline.toml,
-# but only the first 2 dev groups ((X, C) pairs; 5 triples) and 1 repeat = 75 calls per model. Its purpose is
-# to validate live API behaviour (model ids, request format, usage reporting) for
-# a few dollars at most before the full baseline. Its numbers are not a result.
+# PR 13 smoke run (configs/budget.toml, run "smoke"): no_gate on the first dev group ((X, C)
+# pair) and 1 repeat, for ALL SEVEN models of section 9 (the four primary low-cost models A, C, E,
+# G and the three mid-tier models B, D, F), so that every model id, request format, reasoning
+# setting, temperature and usage report is checked live once before any larger spend. Its
+# numbers are not a result.
 #
-# Models: PREREGISTRATION.md section 9, slots A-F (exact ids; nothing is an alias).
-# Sampling, identical in both dev configs and recorded in every trace record:
-#   - reasoning / thinking: provider default ("as deployed"); no reasoning option is sent.
-#   - temperature: 0.0 where the API is expected to accept it (Anthropic, Google).
-#     For the OpenAI models no temperature is sent (provider default), because
-#     OpenAI's reasoning-model generations reject the parameter. Both choices are
-#     UNVERIFIED against the live APIs until the smoke run; if a provider answers
-#     HTTP 400 for the temperature line, delete that line (provider default) and
-#     record the change in PREREGISTRATION.md section 9.
-#   - max_output_tokens = 4096 so that truncation does not create unparseable
-#     outputs; truncated calls are counted in the baseline report.
-# Retries: up to 5 per call on HTTP 408/429/5xx and transport errors, exponential
-# backoff from 2 s capped at 60 s; every attempt is logged in the trace.
+# Models: PREREGISTRATION.md section 9, slots A-G (exact ids; nothing is an alias except
+# deepseek-flash, whose returned version is recorded in every trace record).
+# Sampling, identical for every model and recorded in every trace record (PREREGISTRATION.md
+# section 9, PR 13 "lowest reasoning setting, identical policy for all models"):
+#   - reasoning / thinking at the LOWEST available setting: OpenAI `reasoning = {effort = "none"}`
+#     (Responses API; the parameter name and the value "none" are UNVERIFIED for these ids:
+#     if the smoke run answers HTTP 400, use "minimal", then "low", in every config, and record
+#     it in section 9); Gemini `thinkingConfig = {thinkingLevel = "minimal"}` (UNVERIFIED for
+#     these ids; fallback "low"); Claude without extended thinking (no `thinking` field: the
+#     Messages API thinks only when it is enabled); DeepSeek non-thinking mode
+#     (`thinking = {type = "disabled"}`, documented at api-docs.deepseek.com, read 2026-11-22).
+#   - temperature: 0.0 where the API is expected to accept it (Anthropic, Google, DeepSeek);
+#     none is sent to OpenAI. UNVERIFIED until the smoke run; a provider that rejects it gets
+#     the provider default, recorded in section 9.
+#   - max_output_tokens = 4096 so that truncation does not create unparseable outputs.
+# Retries: up to 5 per call on HTTP 408/429/5xx and transport errors, exponential backoff from
+# 2 s capped at 60 s; every attempt is logged in the trace.
 #
-# The dataset is the Deceptive Grounding benchmark cloned at the pinned commit
-# into data/raw/ (git-ignored); see docs/RUNNING_BASELINE.md. Only the dev split
-# is used. Nothing in this file is read from environment variables; only API
-# keys are (src/binding_gate/secrets.py).
+# The dataset is the Deceptive Grounding benchmark cloned at the pinned commit into data/raw/
+# (git-ignored). Only the dev split is used. Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
 
 config_version = 1
 name = "dev-smoke"
-description = "PR 2 smoke run: no_gate on the first 2 dev groups, 1 repeat, 6 models."
+description = "PR 13 smoke run: no_gate on the first dev group, 1 repeat, all seven models (A-G)."
 split = "dev"
 repeats = 1
-limit = 2
+limit = 1
 
 [runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 0.85 USD. PROPOSED.
 concurrency = 4
 prices = "configs/prices.toml"
-# Hard budget cap in US dollars PER MODEL for this run. Worst case for the whole
-# smoke run: 6 x 2.50 = 15 USD; dry-run estimate: 1 to 6 USD in total.
-max_usd = 2.5
+max_usd = 0.1
+[runner.max_usd_by_model]
+openai-mid = 0.15
+anthropic-mid = 0.15
+google-mid = 0.15
 
 [dataset]
 name = "deceptive_grounding"
@@ -51,6 +60,7 @@ label = "openai-low"
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
 # temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -63,6 +73,7 @@ label = "openai-mid"
 model_id = "gpt-6.1-sol"
 max_output_tokens = 4096
 # temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -75,6 +86,7 @@ label = "anthropic-low"
 model_id = "claude-haiku-5-5"
 max_output_tokens = 4096
 temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -87,6 +99,7 @@ label = "anthropic-mid"
 model_id = "claude-sonnet-5-5"
 max_output_tokens = 4096
 temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -99,6 +112,7 @@ label = "google-low"
 model_id = "gemini-3.1-flash-lite"
 max_output_tokens = 4096
 temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -111,6 +125,20 @@ label = "google-mid"
 model_id = "gemini-3.5-flash"
 max_output_tokens = 4096
 temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot G
+name = "deepseek_chat"
+label = "deepseek-low"
+[models.options]
+model_id = "deepseek-flash"
+max_output_tokens = 4096
+temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
+thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -118,6 +146,7 @@ max_backoff_seconds = 60.0
 
 [[arms]]
 name = "no_gate"
+label = "no_gate"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 

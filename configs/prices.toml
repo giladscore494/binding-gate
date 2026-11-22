@@ -13,7 +13,15 @@ prices_version = 1
 chars_per_token = 4.0          # input tokens ~= prompt characters / 4 (rule of thumb for English, about +-20%)
 visible_output_tokens = 250    # the JSON answer: a one/two-sentence value, a quote, a source id
 reasoning_tokens_low = 0       # hidden reasoning/thinking tokens per call billed as output: none ...
-reasoning_tokens_high = 2000   # ... up to an average of 2,000 at provider-default reasoning (an assumption)
+reasoning_tokens_high = 500    # ... up to an average of 500 at the LOWEST reasoning setting (PR 13; an assumption)
+# PR 13: every model under test runs at its lowest reasoning setting (PREREGISTRATION.md
+# section 9: OpenAI reasoning effort "none", Gemini thinkingLevel "minimal", Claude without
+# extended thinking, DeepSeek non-thinking mode). At those settings the expected hidden
+# reasoning is near zero; 500 tokens per call on average is a deliberately generous high
+# assumption (before PR 13: 2,000 at the provider default; that value is kept in
+# configs/extended/prices.toml for the extended design). The smoke run measures the real
+# usage. A model that runs at its provider default (the judge, slot J) carries its own
+# reasoning_tokens_high below.
 
 [[price]]
 model_id = "gpt-6-luna"
@@ -66,7 +74,16 @@ input_per_mtok = 2.00
 output_per_mtok = 10.00
 source = "tech-insider report (price); platform.kimi.ai model list (id)"
 accessed = "2026-11-22"
-note = "secondary judge (slot J); price unverified; not used by any PR 2 config"
+note = "secondary judge (slot J); price unverified. Runs at its provider-default reasoning (no option is sent), hence its own high assumption"
+reasoning_tokens_high = 2000
+
+[[price]]
+model_id = "deepseek-flash"
+input_per_mtok = 0.30
+output_per_mtok = 1.20
+source = "api-docs.deepseek.com/quick_start/pricing (official): deepseek-flash = DeepSeek-V4.1-Flash-1017; PEAK prices (input cache miss $0.30, output $1.20)"
+accessed = "2026-11-22"
+note = "slot G (PR 13). Peak = 01:00-04:00 and 06:00-10:00 UTC Mon-Fri; off-peak (all other hours, weekends) is half: $0.15 / $0.60; cache-hit input $0.006 peak / $0.003 off-peak. The peak price is entered so the caps hold at any hour. deepseek-flash is an alias (legacy deepseek-v4-flash routes to the same model)"
 
 # PR 8 (layer 3): per-call prices (per_call_usd) for the web search API and the page fetcher.
 # Every call in a trace is priced by the id in its response ("serpapi/google",
@@ -76,10 +93,10 @@ note = "secondary judge (slot J); price unverified; not used by any PR 2 config"
 model_id = "serpapi/google"
 input_per_mtok = 0.0
 output_per_mtok = 0.0
-per_call_usd = 0.025
-source = "serpapi.com/pricing (Starter plan: $25 per month for 1,000 searches, 200 per hour)"
+per_call_usd = 0.0
+source = "serpapi.com/pricing (read 2026-11-22): Free plan, 250 searches per month, 50 per hour"
 accessed = "2026-11-22"
-note = "conservative: SerpApi does not count cached or failed searches; the Free plan gives 250 searches per month at 50 per hour"
+note = "PR 13: the USD 50 study uses SerpApi's Free plan, which costs nothing and cannot overrun (searches beyond the quota are refused by SerpApi). The monthly quota is enforced by [runner] max_searches in the live-web configs. Before PR 13: $0.025 (Starter plan, $25 per 1,000), kept in configs/extended/prices.toml"
 
 [[price]]
 model_id = "binding-gate/fetch@1"

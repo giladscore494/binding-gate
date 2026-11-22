@@ -5,7 +5,8 @@ condition plants a known wrong answer. This scorer decides, by string matching
 only (no model, no network), whether the VALUE of an answered final answer
 carries a gold answer, the planted wrong answer, both or neither, and records
 where its QUOTE was found. It complements ``provenance`` (run both; see
-``configs/dev_grab_rag_baseline.toml``) and does not change it.
+``configs/dev_grab_rag_supportive.toml`` and, for the misleading condition,
+``configs/extended/dev_grab_rag_baseline.toml``) and does not change it.
 
 Value matching
 --------------

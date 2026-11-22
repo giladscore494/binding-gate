@@ -468,7 +468,8 @@ def test_dry_run_of_the_committed_config_on_the_real_checkout():
     config = ev.load_eval_config(CONFIG_PATH)
     plan = ev.estimate(config, repo_root=REPO_ROOT)
     assert (plan.dev_questions_available, plan.sample_size, plan.calls) == (45, 45, 135)
-    assert plan.cost_ceiling is not None and plan.cost_ceiling < config.max_usd
+    # PR 13: the cap is just above the HIGH estimate (configs/budget.toml), not the ceiling
+    assert plan.cost_high is not None and plan.cost_low < plan.cost_high < config.max_usd
     units, _fp, _n = ev.load_units(config)
     assert sum(u.n_items for u in units) == 1455  # every dev stimulus belongs to one sampled question
     assert all(u.reference.entity.name not in u.forbidden for u in units)

@@ -31,7 +31,10 @@ Execution settings come from the ``[runner]`` table of the run config:
 ``seed_responses_from`` optional list of earlier dev run directories (paths
                       relative to the repository root) whose answer responses
                       are loaded into the response cache before the first unit
-                      (PR 12; see "Seeding" below).
+                      (PR 12; see "Seeding" below). The entry ``"seeds/*"``
+                      (PR 13) stands for every run directory under ``seeds/``.
+``max_searches``      optional (PR 13): at most this many web searches in one
+                      invocation (see "Search quota" below).
 
 **Budget cap.** After each record is written, the cost of its (non-cached)
 model calls is added to the spend of its model, computed from the token usage
@@ -74,7 +77,23 @@ comparison baselines reuse the ``no_gate`` answers of the dev baseline. Seeds
 are refused unless they are dev runs on the same dataset pin with the same
 model specs and request format, and never in a test run or a live-web run
 (:func:`load_seed_responses`). The dry run lists how many responses each seed
-provides; its cost estimates do not subtract them.
+provides and, since PR 13, leaves them out of its cost estimates (so the low
+estimate checked against the cap before a paid run counts only the calls that
+are really paid). The wildcard ``"seeds/*"`` (PR 13) expands to every directory
+under ``seeds/`` holding a ``manifest.json`` (sorted by name), so that a config
+can name its seeds before their run ids exist: the workflow downloads the runs
+of the workflow run given in ``seed_run_id`` into ``seeds/``. A paid run refuses
+when the wildcard matches nothing; a dry run then estimates without seeds and
+says so.
+
+**Search quota (PR 13).** With ``max_searches`` set, the runner starts no unit
+that could take the number of web searches made in this invocation (calls with
+purpose ``search`` that were not cache hits) above the limit, counting every
+unit in flight at its upper bound (the sum of ``max_attempts`` over the
+live-web arms). The limit is lowered to the searches the provider's free
+account check reports as left, when it reports them. The run is then left
+unfinished and is resumed after the provider's monthly quota has renewed
+(PREREGISTRATION.md section 3, layer 3, item 7: SerpApi's Free plan).
 
 **Run context (PR 8).** Arms are built inside
 ``binding_gate.research.context.activate`` so that live-web arms can store
@@ -115,7 +134,9 @@ INVOCATIONS_NAME = "invocations.jsonl"
 CACHE_HIT_KEY = "cache_hit"
 SCORER_ERROR_LABEL = "scorer_error"
 SEEDED_FROM_KEY = "seeded_from"
-_RUNNER_KEYS = {"concurrency", "max_usd", "max_usd_by_model", "prices", "seed_responses_from"}
+_RUNNER_KEYS = {"concurrency", "max_usd", "max_usd_by_model", "prices", "seed_responses_from", "max_searches"}
+SEED_WILDCARD = "seeds/*"
+"""``[runner].seed_responses_from`` entry for every run directory under ``seeds/`` (PR 13)."""
 _DRY_RUN_TEXT = '{"status": "abstained", "reason": "dry run: no model was called"}'
 
 Log = Callable[[str], None]
@@ -145,6 +166,7 @@ class RunnerSettings:
     max_usd_by_model: dict[str, float] = field(default_factory=dict)
     prices: str = "configs/prices.toml"
     seed_responses_from: tuple[str, ...] = ()
+    max_searches: int | None = None
 
     @classmethod
     def from_config(cls, config: RunConfig) -> RunnerSettings:
@@ -168,9 +190,14 @@ class RunnerSettings:
         if not isinstance(prices, str) or not prices:
             raise RunnerError("[runner].prices must be a path")
         seeds = _seed_paths(raw.get("seed_responses_from", []))
+        max_searches = raw.get("max_searches")
+        if max_searches is not None and (
+            isinstance(max_searches, bool) or not isinstance(max_searches, int) or max_searches < 1
+        ):
+            raise RunnerError("[runner].max_searches must be an integer >= 1")
         return cls(
             concurrency=concurrency, max_usd=max_usd, max_usd_by_model=by_model, prices=prices,
-            seed_responses_from=seeds,
+            seed_responses_from=seeds, max_searches=max_searches,
         )
 
     def cap_for(self, label: str) -> float | None:
@@ -183,12 +210,29 @@ def _seed_paths(raw: Any) -> tuple[str, ...]:
     if not isinstance(raw, list) or not all(isinstance(p, str) and p.strip() for p in raw):
         raise RunnerError(f"{where} must be a list of run directory paths (strings)")
     for path in raw:
+        if "*" in path and path != SEED_WILDCARD:
+            raise RunnerError(f"{where}: {path!r}: the only pattern allowed is {SEED_WILDCARD!r}")
         pure = Path(path)
         if pure.is_absolute() or ".." in pure.parts:
             raise RunnerError(f"{where}: {path!r} must be a path relative to the repository root, without '..'")
     if len(set(raw)) != len(raw):
         raise RunnerError(f"{where} lists a run directory twice")
+    if SEED_WILDCARD in raw and len(raw) > 1:
+        raise RunnerError(f"{where}: {SEED_WILDCARD!r} already names every seed run; list nothing else")
     return tuple(raw)
+
+
+def expand_seed_paths(paths: Sequence[str], repo_root: str | Path) -> tuple[str, ...]:
+    """``seed_responses_from`` with :data:`SEED_WILDCARD` replaced by the run directories under ``seeds/``."""
+    out: list[str] = []
+    for path in paths:
+        if path != SEED_WILDCARD:
+            out.append(path)
+            continue
+        base = Path(repo_root) / "seeds"
+        if base.is_dir():
+            out += [f"seeds/{d.name}" for d in sorted(base.iterdir()) if d.is_dir() and (d / "manifest.json").is_file()]
+    return tuple(out)
 
 
 # --------------------------------------------------------------------------- #
@@ -250,6 +294,10 @@ def load_plan(
         items = load_test_split(
             adapter.iter_items(), repo_root=repo_root, confirm_tag=test_unlock_tag, purpose=purpose or ""
         )
+    if config.sample is not None:
+        from binding_gate.sampling import stratified_sample
+
+        items = stratified_sample(items, per_stratum=config.sample["per_stratum"], seed=config.sample["seed"])
     if not items:
         raise RunnerError("the dataset yielded no items for this split")
     ids = [item.id for item in items]
@@ -442,7 +490,7 @@ def load_seed_responses(
     from binding_gate.config import parse_config
     from binding_gate.trace import read_manifest
 
-    paths = settings.seed_responses_from
+    paths = expand_seed_paths(settings.seed_responses_from, repo_root)
     if not paths:
         return {}, []
     if config.split is not Split.DEV:
@@ -818,6 +866,8 @@ class DryRunReport:
     auxiliary: dict[str, tuple[AuxEstimate, ...]] = field(default_factory=dict)
     auxiliary_problems: tuple[str, ...] = ()
     seeds: tuple[SeedSummary, ...] = ()
+    seed_note: str = ""
+    seeded_calls: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         data = dict(self.__dict__)
@@ -914,13 +964,20 @@ class DryRunReport:
             lines.append(f"NOTE: {problem}")
         if self.seeds:
             lines.append("")
-            lines.append("SEEDED RESPONSES ([runner] seed_responses_from; reused at no cost, not subtracted above):")
+            lines.append(
+                "SEEDED RESPONSES ([runner] seed_responses_from; reused at no cost and left out of the "
+                "calls and costs above):"
+            )
             for seed in self.seeds:
                 state = "closed" if seed.closed else "unfinished"
                 lines.append(f"  {seed.path}  (run {seed.run_id}, {state})")
             per_repeat = self.requests_per_repeat * self.repeats
-            for label, count in seeded_totals(self.seeds, [m.label for m in self.models]).items():
-                lines.append(f"  {label:<22}{count:>7} of at most {per_repeat} answer calls seeded")
+            for m in self.models:
+                count = self.seeded_calls.get(m.label, 0)
+                lines.append(f"  {m.label:<22}{count:>7} of {per_repeat} answer calls seeded")
+        if self.seed_note:
+            lines.append("")
+            lines.append(f"NOTE: {self.seed_note}")
         lines.append("")
         lines.append(
             "The cap column is the hard budget limit per model ([runner] max_usd); a paid run "
@@ -959,7 +1016,7 @@ def _price_aux(
     if priced:
         price = prices.get(model_id)  # type: ignore[arg-type]
         low = price.cost(input_tokens[0], calls[0] * (a.visible_output_tokens + a.reasoning_tokens_low)) + price.calls_cost(calls[0])
-        high = price.cost(input_tokens[1], calls[1] * (a.visible_output_tokens + a.reasoning_tokens_high)) + price.calls_cost(calls[1])
+        high = price.cost(input_tokens[1], calls[1] * (a.visible_output_tokens + prices.reasoning_high(model_id))) + price.calls_cost(calls[1])
         ceiling = (
             price.cost(input_tokens[1], calls[1] * max_output_tokens) + price.calls_cost(calls[1])
             if max_output_tokens
@@ -1093,21 +1150,37 @@ def dry_run(
                 entry[1] += _request_chars(call.request) if call.purpose not in ("search", "fetch") else 0
     requests = len(recorder.requests)
     characters = sum(_request_chars(request) for request in recorder.requests)
-    _seeded, seeds = load_seed_responses(
+    seeded, seeds = load_seed_responses(
         config, settings, repo_root=repo_root, plan=plan, specs=specs,
         expected=frozenset(_request_hash(r) for r in recorder.requests),
     )
+    seed_note = ""
+    if settings.seed_responses_from and not seeds:
+        seed_note = (
+            f"the config reuses earlier runs ({', '.join(settings.seed_responses_from)}) but none was found; "
+            "this estimate assumes every answer call is paid, and a paid run refuses until the seed runs are "
+            "downloaded (workflow input seed_run_id)"
+        )
 
     assumptions = prices.assumptions
-    input_tokens_per_repeat = sum(
-        assumptions.input_tokens(_request_chars(request)) for request in recorder.requests
-    )
+    request_tokens = [assumptions.input_tokens(_request_chars(request)) for request in recorder.requests]
+    input_tokens_per_repeat = sum(request_tokens)
     estimates: list[ModelEstimate] = []
     auxiliary: dict[str, tuple[AuxEstimate, ...]] = {}
+    seeded_calls: dict[str, int] = {}
     for spec, client in zip(specs, clients):
         model_id = model_id_of(client)
         calls = requests * config.repeats
         input_tokens = input_tokens_per_repeat * config.repeats
+        skipped = 0
+        if seeded:
+            for repeat in range(config.repeats):
+                for request, tokens in zip(recorder.requests, request_tokens):
+                    if cache_key(spec.label, repeat, request) in seeded:
+                        skipped += 1
+                        input_tokens -= tokens
+        seeded_calls[spec.label] = skipped
+        calls -= skipped
         max_output = getattr(client, "max_output_tokens", None)
         priced = prices.has(model_id)
         low = high = ceiling = None
@@ -1117,7 +1190,7 @@ def dry_run(
             source = f"{price.source} (accessed {price.accessed})"
             visible = assumptions.visible_output_tokens
             low = price.cost(input_tokens, calls * (visible + assumptions.reasoning_tokens_low))
-            high = price.cost(input_tokens, calls * (visible + assumptions.reasoning_tokens_high))
+            high = price.cost(input_tokens, calls * (visible + prices.reasoning_high(model_id)))
             if max_output is not None:
                 ceiling = price.cost(input_tokens, calls * max_output)
         estimates.append(
@@ -1164,6 +1237,8 @@ def dry_run(
         auxiliary=auxiliary,
         auxiliary_problems=tuple(problems),
         seeds=tuple(seeds),
+        seed_note=seed_note,
+        seeded_calls=seeded_calls,
     )
 
 
@@ -1250,10 +1325,14 @@ class RunSummary:
     aborted_models: list[str] = field(default_factory=list)
     unpriced_clients: list[str] = field(default_factory=list)
     closed: bool = False
+    searches: int = 0
+    search_limit: int | None = None
+    search_limit_reached: bool = False
 
     @property
     def budget_exceeded(self) -> bool:
-        return bool(self.aborted_models)
+        """True when the run stopped early: a model's budget cap or the search quota (PR 13) was reached."""
+        return bool(self.aborted_models) or self.search_limit_reached
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1266,6 +1345,9 @@ class RunSummary:
             "aborted_models": list(self.aborted_models),
             "unpriced_clients": list(self.unpriced_clients),
             "closed": self.closed,
+            "searches": self.searches,
+            "search_limit": self.search_limit,
+            "search_limit_reached": self.search_limit_reached,
         }
 
 
@@ -1450,6 +1532,12 @@ def execute_run(
         raise RunnerError(
             "[runner].seed_responses_from is allowed only in dev runs: a test run makes all of its own calls"
         )
+    if settings.seed_responses_from and not expand_seed_paths(settings.seed_responses_from, repo_root):
+        raise RunnerError(
+            f"[runner].seed_responses_from names {list(settings.seed_responses_from)} but no seed run directory "
+            "was found under seeds/; download the seed runs first (workflow input seed_run_id), otherwise every "
+            "answer would be paid again"
+        )
     specs = select_models(config, selection)
     try:
         prices = load_prices(repo_root / settings.prices)
@@ -1499,6 +1587,18 @@ def execute_run(
         log(f"preflight {label}: {'OK' if result.ok else 'FAILED'} - {result.detail}")
         if not result.ok:
             raise RunnerError(f"preflight failed for {'model ' if label in clients else ''}{label!r}: {result.detail}")
+    search_limit = settings.max_searches
+    if search_limit is not None:
+        for entry in distinct_clients(aux):
+            left = getattr(entry.client, "searches_left", None)
+            if entry.role == "search" and isinstance(left, int) and not isinstance(left, bool):
+                if left < search_limit:
+                    log(f"search quota: the account reports {left} searches left; this invocation uses at most {left}")
+                search_limit = min(search_limit, left)
+        log(f"search quota: at most {search_limit} web searches in this invocation ([runner] max_searches)")
+    searches_per_unit = sum(
+        int(spec.options.get("max_attempts", 1)) for spec in config.arms if spec.options.get("search") is not None
+    )
 
     plan = load_plan(config, repo_root=repo_root, test_unlock_tag=test_unlock_tag, purpose=purpose)
     scorers = _build_scorers(config)
@@ -1522,6 +1622,7 @@ def execute_run(
     else:
         writer = TraceWriter.resume(resume_dir, config, repo_root=repo_root)
     summary = RunSummary(run_dir=writer.run_dir, run_id=writer.manifest.run_id)
+    summary.search_limit = search_limit
     summary.spend_usd = {spec.label: 0.0 for spec in specs}
     aux_ids = {e.label: e.model_id for e in aux}
     cost = CostModel(
@@ -1588,6 +1689,9 @@ def execute_run(
             for future in finished:
                 for record in future.result():
                     writer.append(record)
+                    summary.searches += sum(
+                        1 for call in record.model_calls if call.purpose == "search" and not is_cache_hit(call)
+                    )
                     summary.records_written += 1
                     summary.error_records += record.error is not None
                     summary.spend_usd[record.model] += cost.record_cost(record)
@@ -1606,6 +1710,16 @@ def execute_run(
                 for unit in units():
                     if unit.model_label in aborted:
                         continue
+                    if search_limit is not None and searches_per_unit:
+                        if summary.searches + searches_per_unit * (len(pending) + 1) > search_limit:
+                            if not summary.search_limit_reached:
+                                log(
+                                    f"SEARCH QUOTA REACHED: {summary.searches} searches made, at most "
+                                    f"{searches_per_unit} per unit and {len(pending)} unit(s) in flight, limit "
+                                    f"{search_limit}; no further unit is started (resume after the quota renews)"
+                                )
+                            summary.search_limit_reached = True
+                            break
                     pending.add(
                         pool.submit(
                             _run_unit,
@@ -1632,7 +1746,7 @@ def execute_run(
         summary.unpriced_clients = sorted(cost.unpriced_clients)
         if summary.unpriced_clients:
             log(f"WARNING: calls by {summary.unpriced_clients} could not be priced and are not in the spend")
-        if not aborted:
+        if not aborted and not summary.search_limit_reached:
             writer.close()
             summary.closed = True
     finally:

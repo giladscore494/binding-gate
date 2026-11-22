@@ -1,0 +1,204 @@
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# This is the full-scale configuration as it stood before PR 13 (6 models, 3 repeats,
+# every arm on every item, reasoning at the provider default), kept so that nothing is
+# lost: run it only "if funding becomes available", after an amendment
+# (PREREGISTRATION.md section 9, "Extended design"). It is priced with
+# configs/extended/prices.toml (2,000 hidden reasoning tokens per call at the provider
+# default). tests/test_budget_plan.py checks that every paid config outside
+# configs/extended/ is in configs/budget.toml.
+#
+# PR 5 per-check ablation of the gate: the check `no_closer_competitor` is removed.
+#
+# PREREGISTRATION.md section 5 ("gated minus one check") and ARCHITECTURE.md
+# section 3 ("ablations are config, not code"). There is one such file per check
+# of the gate (configs/dev_ablation_*.toml); they differ only in the removed check.
+#
+# Arms, all in ONE run so that they judge the same candidate (the runner answers
+# identical requests for the same model and repeat from its cache):
+#   no_gate                     the reference (same candidate, no checks)
+#   gated                       the full gate, all five reserved checks
+#   gated_minus_no_closer_competitor
+#                               the full gate minus `no_closer_competitor`
+# Ablations are exploratory (PREREGISTRATION.md section 8).
+#
+# Both gated arms carry the options of the `gated` arm of configs/dev_gated.toml
+# (decomposer, gate parameters, presentation); each file is identical to the full
+# gated config except for the removed check (tests/test_pr5_configs.py checks this).
+#
+# Models, dataset, sampling, retries and the [runner] budget table are copied from
+# configs/dev_baseline.toml (PREREGISTRATION.md section 9); the stop rule of
+# section 10 decides which models continue, and models that stop must be removed
+# here before a paid run.
+#
+# Budget caps (PROPOSED, per model label): since PR 8 the runner prices the
+# decomposer's calls by the model id in the response and charges them to the cap of
+# the record's model, so the caps cover the answer calls AND the decomposer. Checked
+# in PR 12 with a dry run including the decomposer (2026-11-22): HIGH estimate per
+# model job = answer calls + at most 45 decompositions (0.06 USD) = 5.39 (openai-low,
+# anthropic-low), 106.69 (openai-mid, anthropic-mid), 15.84 (google-low), 94.76
+# (google-mid) USD. The caps 6 / 110 / 6 / 110 / 17 / 100 (sum 349) stay just above
+# these and are unchanged.
+# Nothing here is read from environment variables.
+
+config_version = 1
+name = "extended-dev-ablation-no-closer-competitor"
+description = "PR 5 ablation: no_gate, gated, and gated without no_closer_competitor, on the dev split, 3 repeats."
+split = "dev"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/extended/prices.toml"
+max_usd = 6.0
+[runner.max_usd_by_model]
+openai-mid = 110.0
+anthropic-mid = 110.0
+google-low = 17.0
+google-mid = 100.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "gated"
+label = "gated_minus_no_closer_competitor"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

@@ -1,0 +1,144 @@
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# This is the full-scale configuration as it stood before PR 13 (6 models, 3 repeats,
+# every arm on every item, reasoning at the provider default), kept so that nothing is
+# lost: run it only "if funding becomes available", after an amendment
+# (PREREGISTRATION.md section 9, "Extended design"). It is priced with
+# configs/extended/prices.toml (2,000 hidden reasoning tokens per call at the provider
+# default). tests/test_budget_plan.py checks that every paid config outside
+# configs/extended/ is in configs/budget.toml.
+#
+# PR 2 dev baseline (PREREGISTRATION.md section 10): arm no_gate, all six models
+# under test, 3 repeats, deterministic provenance scoring, dev split only.
+# 45 dev (X, C) pairs = 97 triples x 15 conditions = 1,455 items -> 4,365 calls per model.
+# Run configs/dev_smoke.toml first.
+#
+# Models: PREREGISTRATION.md section 9, slots A-F (exact ids; nothing is an alias).
+# Sampling, identical in both dev configs and recorded in every trace record:
+#   - reasoning / thinking: provider default ("as deployed"); no reasoning option is sent.
+#   - temperature: 0.0 where the API is expected to accept it (Anthropic, Google).
+#     For the OpenAI models no temperature is sent (provider default), because
+#     OpenAI's reasoning-model generations reject the parameter. Both choices are
+#     UNVERIFIED against the live APIs until the smoke run; if a provider answers
+#     HTTP 400 for the temperature line, delete that line (provider default) and
+#     record the change in PREREGISTRATION.md section 9.
+#   - max_output_tokens = 4096 so that truncation does not create unparseable
+#     outputs; truncated calls are counted in the baseline report.
+# Retries: up to 5 per call on HTTP 408/429/5xx and transport errors, exponential
+# backoff from 2 s capped at 60 s; every attempt is logged in the trace.
+#
+# The dataset is the Deceptive Grounding benchmark cloned at the pinned commit
+# into data/raw/ (git-ignored); see docs/RUNNING_BASELINE.md. Only the dev split
+# is used. Nothing in this file is read from environment variables; only API
+# keys are (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "extended-dev-baseline"
+description = "PR 2 baseline wrong-entity rate: no_gate on the dev split, 3 repeats, 6 models."
+split = "dev"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/extended/prices.toml"
+# Hard budget cap in US dollars PER MODEL for this run (reported usage x
+# configs/prices.toml). Each cap is set just above the HIGH dry-run estimate of
+# its model (2,000 hidden reasoning tokens per call), so that a legitimate run is
+# not cut off half-way. The worst case for the whole run is the sum of the caps:
+# 6 + 110 + 6 + 110 + 17 + 100 = 349 USD. The low estimate is about 59 USD. After
+# the smoke run has shown the real reasoning-token usage, lower these caps.
+max_usd = 6.0
+[runner.max_usd_by_model]
+openai-mid = 110.0
+anthropic-mid = 110.0
+google-low = 17.0
+google-mid = 100.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

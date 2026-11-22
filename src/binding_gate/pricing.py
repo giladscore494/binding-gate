@@ -32,6 +32,15 @@ File format (``prices_version = 1``)::
     accessed = "2026-11-22"
     note = "optional"
     per_call_usd = 0.0               # optional (PR 8): fixed charge per successful call
+    reasoning_tokens_high = 2000     # optional (PR 13): high assumption for THIS model id
+
+PR 13 added the optional per-price ``reasoning_tokens_high``: the high
+assumption of hidden reasoning tokens for one model id, overriding the file's
+``[assumptions]`` value. The study runs every model under test at its lowest
+reasoning setting (PREREGISTRATION.md section 9), for which the file-wide value
+is meant; a model that runs at its provider default (the LLM judge, slot J)
+carries its own, larger value. ``PriceBook.reasoning_high(model_id)`` returns
+the value that applies.
 """
 
 from __future__ import annotations
@@ -46,7 +55,10 @@ from typing import Any, Mapping
 PRICES_VERSION = 1
 _TOP_KEYS = {"prices_version", "assumptions", "price"}
 _ASSUMPTION_KEYS = {"chars_per_token", "visible_output_tokens", "reasoning_tokens_low", "reasoning_tokens_high"}
-_PRICE_KEYS = {"model_id", "input_per_mtok", "output_per_mtok", "source", "accessed", "note", "per_call_usd"}
+_PRICE_KEYS = {
+    "model_id", "input_per_mtok", "output_per_mtok", "source", "accessed", "note", "per_call_usd",
+    "reasoning_tokens_high",
+}
 
 
 class PricingError(ValueError):
@@ -62,6 +74,7 @@ class Price:
     accessed: str
     note: str = ""
     per_call_usd: float = 0.0
+    reasoning_tokens_high: int | None = None
 
     def cost(self, input_tokens: float, output_tokens: float) -> float:
         """US dollars for the given token counts (token prices only; see :meth:`calls_cost`)."""
@@ -105,6 +118,13 @@ class PriceBook:
 
     def has(self, model_id: str) -> bool:
         return model_id in self.prices
+
+    def reasoning_high(self, model_id: str | None) -> int:
+        """High reasoning-token assumption for ``model_id``: its own value if set, else the file-wide one."""
+        price = self.prices.get(model_id) if model_id is not None else None
+        if price is not None and price.reasoning_tokens_high is not None:
+            return price.reasoning_tokens_high
+        return self.assumptions.reasoning_tokens_high
 
 
 def _number(where: str, value: Any, *, minimum: float, exclusive: bool = False) -> float:
@@ -166,6 +186,11 @@ def parse_prices(raw: Mapping[str, Any], *, sha256: str = "", path: str = "<pric
             accessed=_text(f"{where}.accessed", entry.get("accessed")),
             note=str(entry.get("note", "")),
             per_call_usd=_number(f"{where}.per_call_usd", entry.get("per_call_usd", 0.0), minimum=0),
+            reasoning_tokens_high=(
+                None
+                if entry.get("reasoning_tokens_high") is None
+                else _count(f"{where}.reasoning_tokens_high", entry["reasoning_tokens_high"])
+            ),
         )
     return PriceBook(assumptions=assumptions, prices=prices, sha256=sha256, path=path)
 

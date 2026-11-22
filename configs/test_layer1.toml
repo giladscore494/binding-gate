@@ -1,54 +1,48 @@
-# PR 6: the frozen layer-1 TEST run (PREREGISTRATION.md sections 5, 8, 11 and 12).
+# PR 6 / PR 13: the frozen layer-1 TEST run, CONFIRMATORY for H1-H3 (PREREGISTRATION.md sections 5, 8,
+# 11 and 12; configs/budget.toml, run "test_layer1").
 #
-# Run ONLY through the one-command frozen test run, after the pre-registration is
-# FROZEN and tagged:
+# Run ONLY through the one-command frozen test run, after the pre-registration is FROZEN and tagged:
 #
 #   python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml \
 #       --tag prereg-freeze-1 --purpose "layer-1 confirmatory test run" --confirm-spend
 #
-# It refuses (and logs the refusal in audit/test_access_log.jsonl) unless HEAD is
-# exactly the freeze tag, the working tree is clean and PREREGISTRATION.md says
-# FROZEN. Then it runs every arm below on the test split and writes the analysis
-# (binding_gate.stats) under runs/<run_id>/analysis/.
+# It refuses (and logs the refusal in audit/test_access_log.jsonl) unless HEAD is exactly the
+# freeze tag, the working tree is clean and PREREGISTRATION.md says FROZEN. Then it runs every
+# arm below on the test split and writes the analysis under runs/<run_id>/analysis/.
 #
-# STATE OF THIS FILE (2026-11-22, PR 12): DRAFT, arms complete. Every arm has the
-# options of its dev counterpart (see the arms section below; checked by
-# tests/test_pr12_test_config.py), so a frozen run executes the pre-registered arms.
-# The same arms were dry-run on the dev split (a copy of this file with split = "dev";
-# also in the tests). Open before the freeze (PREREGISTRATION.md section 17): the
-# owner's approval of this file, of the gate parameters (item 7) and of the budget
-# caps, which are placeholders (item 13).
+# PR 13 ($50 budget): the four PRIMARY low-cost models (A, C, E, G), every test item (2,505), ONE
+# repeat. All gate arms (gated, the five ablations, faithfulness_checker) send the no_gate answer
+# request, so within this run the runner answers it ONCE per item and model and every gate arm
+# judges that same answer: the only paid calls are no_gate, prompt_entity_check (its own prompt)
+# and the decomposer (at most one call per distinct test question per model job). A test run
+# never uses seeds. llm_judge_checks is not in the test run (dev subsample only:
+# configs/dev_llm_judge_checks.toml); the mid-tier models run on a test subsample in
+# configs/test_layer1_midtier.toml.
 #
-# Models, sampling, dataset pin and scorer are identical to configs/dev_baseline.toml
-# (PREREGISTRATION.md section 9); only the split, the arms and the budget differ.
+# Every arm has the options of its dev counterpart (tests/test_pr12_test_config.py), so a frozen
+# run executes what was run and calibrated on dev. Models, sampling, dataset pin and scorer are
+# identical to configs/dev_baseline.toml (section 9). Caps: the test split cannot be dry-run, so
+# the HIGH estimate is the dev dry run of these arms scaled by 2,505 / 1,455 items
+# (configs/budget.toml). PROPOSED - requires owner approval before freeze.
 # Nothing in this file is read from environment variables; only API keys are
 # (src/binding_gate/secrets.py).
 
 config_version = 1
 name = "test-layer1"
-description = "Frozen layer-1 test run: all pre-registered arms, 6 models, 3 repeats, test split."
+description = "Frozen layer-1 test run: pre-registered arms, four primary low-cost models, 1 repeat, test split."
 split = "test"
-repeats = 3
+repeats = 1
 
 [runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 19.0 USD. PROPOSED.
 concurrency = 8
 prices = "configs/prices.toml"
-# Hard budget cap in US dollars PER MODEL LABEL. PLACEHOLDER VALUES, NOT A
-# MEASUREMENT (the test split cannot be dry-run without unlocking it). Since PR 8 the
-# caps bound the answer calls of each model under test AND the decomposer and judge
-# calls charged to its records. Derived in PR 12: the HIGH dry-run estimate per model
-# job of these same arms on the dev split (2026-11-22; two answer prompts + judge +
-# decomposer: 120.68 / 324.47 / 120.68 / 324.47 / 141.68 / 300.30 USD) scaled by
-# 2,505 test / 1,455 dev items (x 1.7216) and rounded up to the next 10 USD.
-# (PR 6 placeholders, without the judge: 21 / 380 / 21 / 380 / 59 / 345.) Sum: 2,310.
-# PROPOSED - requires owner approval before freeze, after the dev runs have measured
-# real usage.
-max_usd = 210.0
+max_usd = 2.6
 [runner.max_usd_by_model]
-openai-mid = 560.0
-anthropic-mid = 560.0
-google-low = 250.0
-google-mid = 520.0
+google-low = 7.35
+deepseek-low = 6.45
 
 [dataset]
 name = "deceptive_grounding"
@@ -64,19 +58,8 @@ label = "openai-low"
 [models.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
-# temperature: not sent (provider default), as in configs/dev_baseline.toml
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
-[[models]]                               # slot B
-name = "openai_responses"
-label = "openai-mid"
-[models.options]
-model_id = "gpt-6.1-sol"
-max_output_tokens = 4096
-# temperature: not sent (provider default), as in configs/dev_baseline.toml
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -89,18 +72,7 @@ label = "anthropic-low"
 model_id = "claude-haiku-5-5"
 max_output_tokens = 4096
 temperature = 0.0
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
-[[models]]                               # slot D
-name = "anthropic_messages"
-label = "anthropic-mid"
-[models.options]
-model_id = "claude-sonnet-5-5"
-max_output_tokens = 4096
-temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -113,18 +85,20 @@ label = "google-low"
 model_id = "gemini-3.1-flash-lite"
 max_output_tokens = 4096
 temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot F
-name = "google_gemini"
-label = "google-mid"
+[[models]]                               # slot G
+name = "deepseek_chat"
+label = "deepseek-low"
 [models.options]
-model_id = "gemini-3.5-flash"
+model_id = "deepseek-flash"
 max_output_tokens = 4096
-temperature = 0.0
+temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
+thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -132,12 +106,8 @@ max_backoff_seconds = 60.0
 
 # ---- Arms (PREREGISTRATION.md section 5). Labels are what the analysis reads
 # (binding_gate.stats.prereg): "no_gate" is the reference, "gated" is H1/H2,
-# "faithfulness_checker" is H3. The ablations ("gated_minus_<check>", the labels of the
-# dev ablation configs) and llm_judge_checks / prompt_entity_check are exploratory.
-# Every arm's options are those of its dev counterpart (no_gate: dev_baseline.toml;
-# prompt_entity_check, faithfulness_checker, llm_judge_checks: dev_baselines.toml;
-# gated: dev_gated.toml; gated_minus_<check>: dev_ablation_<check>.toml), except the
-# split-dependent judge budget judge_max_usd (tests/test_pr12_test_config.py).
+# "faithfulness_checker" is H3. The ablations ("gated_minus_<check>") and prompt_entity_check are
+# exploratory.
 
 [[arms]]
 name = "no_gate"
@@ -158,29 +128,6 @@ label = "faithfulness_checker"           # faithfulness extra and `faithfulness_
 presentation = "deceptive_grounding_doc_injection"
 backend = "minicheck"
 evidence = "all_documents"
-
-[[arms]]
-name = "llm_judge_checks"
-label = "llm_judge_checks"
-[arms.options]
-presentation = "deceptive_grounding_doc_injection"
-checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
-prices = "configs/prices.toml"
-# Judge-only cap in US dollars PER MODEL UNDER TEST (as in dev_baselines.toml).
-# PLACEHOLDER, split-dependent: the dev value (110 USD for 1,455 items) scaled by
-# 2,505 / 1,455 test items = 189.4, rounded up to the next 10 USD. PROPOSED.
-judge_max_usd = 190.0
-[[arms.options.judges]]
-name = "moonshot_chat"
-label = "judge-kimi-k3.1-pro"
-[arms.options.judges.options]
-model_id = "kimi-k3.1-pro"
-max_output_tokens = 4096
-temperature = 0.0                        # UNVERIFIED on Moonshot's API; see dev_baselines.toml
-timeout_seconds = 300
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
@@ -205,13 +152,14 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-# Per-check ablations (exploratory): the gated arm with one check removed, labelled
-# as in configs/dev_ablation_<check>.toml.
+# Per-check ablations (exploratory): the gated arm with one check removed, labelled as in
+# configs/dev_ablation_<check>.toml.
 
 [[arms]]
 name = "gated"
@@ -236,6 +184,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -264,6 +213,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -292,6 +242,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -320,6 +271,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -348,6 +300,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0

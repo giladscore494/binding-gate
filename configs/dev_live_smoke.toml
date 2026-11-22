@@ -1,38 +1,44 @@
-# PR 8 smoke run of layer 3 (live web, SealQA): the first 5 dev questions, 1 repeat, one
-# low-cost model (slot A), arms no_gate (live) and gated_research. Dev split only.
+# PR 8 / PR 13 smoke run of layer 3 (live web, SealQA; configs/budget.toml, run "dev_live_smoke"): the
+# first 5 dev questions, 1 repeat, slot A, arms no_gate (live) and gated_research. Dev split only.
 #
 # Arms (PREREGISTRATION.md section 5; protocol in src/binding_gate/arms/gated_research.py):
-#   no_gate         component "no_gate_live": the harness searches the question (SerpApi,
-#                   Google), fetches the top results until 5 pages were fetched, shows their
-#                   stored text (first 8,000 characters each) and the model answers. No gate.
-#   gated_research  the SAME first attempt (shared searches, pages and answer request, so the
-#                   runner's cache returns no_gate's candidate), then decomposer + gate; on
-#                   RESEARCH one targeted re-search ("<entity>" <qualifiers> <attribute>) and a
-#                   second answer + gate. max_attempts = 2.
-# Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/;
-# the gate and the scorer only see documents built from the stored text. Page text is
+#   no_gate         component "no_gate_live": the harness searches the question (SerpApi, Google),
+#                   fetches the top results until 5 pages were fetched, shows their stored text
+#                   (first 8,000 characters each) and the model answers. No gate.
+#   gated_research  the SAME first attempt (shared searches, pages and answer request), then
+#                   decomposer + gate; on RESEARCH one targeted re-search and a second answer +
+#                   gate. max_attempts = 2.
+# Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/; page text is
 # third-party material: the workflow encrypts the run artifacts of this config.
 #
-# Budget: [runner] max_usd caps EVERYTHING charged to a model's records: its answer calls,
-# the decomposer, web searches (configs/prices.toml: serpapi/google $0.025 per search) and
-# fetches ($0). Run `python -m binding_gate.cli dry-run --config <this file>` first.
+# Search quota (PR 13): the study uses SerpApi's FREE plan (serpapi.com/pricing, read 2026-11-22:
+# 250 searches per month, 50 per hour; $0 in configs/prices.toml). [runner] max_searches caps the
+# searches of one invocation (lowered to what the account check reports as left); a unit that
+# could exceed it is not started, and the run is resumed after the monthly quota has renewed.
+# Allocation (section 3, layer 3, item 7): month 1 = this smoke (at most 10) + dev_live (at most
+# 240); test in month 2 (and month 3 if its re-searches do not fit). min_interval_seconds = 72 keeps
+# to the 50-per-hour limit. Every unit (item x model) runs its first attempt and its re-search
+# together, items in their fixed order, so a stop never cuts an item's re-search.
 #
-# All numeric choices marked PROPOSED require owner approval before the freeze.
+# Models and sampling: slot A as in configs/dev_baseline.toml (lowest reasoning setting).
 # Nothing in this file is read from environment variables; only API keys are
-# (repository secrets for the model providers and for SerpApi, the web search).
+# (src/binding_gate/secrets.py).
 
 config_version = 1
 name = "dev-live-smoke"
-description = "PR 8: live-web smoke run on 5 SealQA dev questions, 1 repeat, slot A, no_gate (live) and gated_research."
+description = "PR 8/13: live-web smoke run on 5 SealQA dev questions, 1 repeat, slot A, no_gate (live) and gated_research."
 split = "dev"
 repeats = 1
 limit = 5
 
 [runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 0.1 USD. PROPOSED.
 concurrency = 2
 prices = "configs/prices.toml"
-max_usd = 1.0                            # hard cap for slot A, searches and decomposer included;
-                                         # dry-run estimate 0.13 (low) to 0.28 (high) USD
+max_searches = 10                        # 5 questions x (first attempt + one re-search)
+max_usd = 0.1
 
 [dataset]
 name = "sealqa"
@@ -48,7 +54,8 @@ label = "openai-low"
 [models.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
-# temperature: not sent (provider default; PREREGISTRATION.md section 9)
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -68,7 +75,7 @@ label = "search"
 max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 18.0              # 200 searches per hour = SerpApi Starter plan limit
+min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0
@@ -98,15 +105,15 @@ competitor_tie = "fail"
 name = "serpapi_google"
 label = "search"
 [arms.options.search.options]
-max_results = 10
+max_results = 10                         # PROPOSED: organic results kept per search
 hl = "en"
 gl = "us"
-min_interval_seconds = 18.0
+min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
 timeout_seconds = 60
 max_retries = 4
 backoff_seconds = 5.0
 max_backoff_seconds = 120.0
-[arms.options.fetch]
+[arms.options.fetch]                     # PROPOSED limits (research/fetch.py)
 max_bytes = 2000000
 timeout_seconds = 20.0
 max_redirects = 5
@@ -121,6 +128,7 @@ label = "decomposer"
 [arms.options.decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }          # lowest setting, as for slot A (section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0

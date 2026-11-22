@@ -125,19 +125,22 @@ in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
 |---|---|
 | Dry run: calls and cost estimate, no API call, no key | `python -m binding_gate.cli dry-run --config configs/dev_smoke.toml` |
 | Free check that each model id exists | `python -m binding_gate.cli preflight --config configs/dev_smoke.toml` |
-| Smoke run (2 dev groups, 1 repeat) | `python -m binding_gate.cli run --config configs/dev_smoke.toml --confirm-spend` |
+| Smoke run (1 dev group, 1 repeat, all seven models) | `python -m binding_gate.cli run --config configs/dev_smoke.toml --confirm-spend` |
 | Dev baseline, `no_gate` (section 10) | `python -m binding_gate.cli run --config configs/dev_baseline.toml --confirm-spend` |
 | Stop-rule report from traces | `python -m binding_gate.cli report runs/<run_id> --json baseline.json` |
 | Decomposer accuracy (section 7) | `python -m binding_gate.evaluation.decomposer dry-run\|run\|report --config configs/decomposer_eval_dev.toml` |
 | Gated arm on dev | `python -m binding_gate.cli run --config configs/dev_gated.toml --confirm-spend` |
 | Gate calibration on dev traces (no model calls) | `python -m binding_gate.gates.calibration runs/<run_id> ...` |
-| Comparison baselines (prompt check, MiniCheck, LLM-judge checks) | `pip install -e ".[faithfulness]"`, `python -m binding_gate.arms.faithfulness_checker prepare`, `python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml`, then `run --config configs/dev_baselines.toml --confirm-spend` |
+| Later dev runs reuse the baseline's answers (`seed_responses_from = ["seeds/*"]`) | put the baseline's run directories under `seeds/` (the workflow does this from the input `seed_run_id`) |
+| Nondeterminism check (75 dev items, 3 repeats) | `run --config configs/dev_repeats.toml --confirm-spend` |
+| Comparison baselines (prompt check, MiniCheck) on a 300-item dev subsample | `pip install -e ".[faithfulness]"`, `python -m binding_gate.arms.faithfulness_checker prepare`, then `run --config configs/dev_baselines.toml --confirm-spend` |
+| LLM-judge checks on a 60-item dev subsample | `python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_llm_judge_checks.toml`, then `run --config configs/dev_llm_judge_checks.toml --confirm-spend` |
 | Per-check ablations | `run --config configs/dev_ablation_<check>.toml --confirm-spend` (one file per check) |
 | Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
-| GRAB-RAG (layer 2) | `configs/dev_grab_rag_smoke.toml`, `configs/dev_grab_rag_baseline.toml`; first export GRAB-RAG's misleading contexts once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) and pin the file's SHA-256 in the config; until then these configs stop with an explanation |
+| GRAB-RAG (layer 2), cost side | `run --config configs/dev_grab_rag_supportive.toml --confirm-spend` (supportive items, no export needed). The misleading condition (`configs/extended/dev_grab_rag_*.toml`, not run) needs GRAB-RAG's contexts exported once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) |
 | Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
 | Statistics: metrics, intervals, H1-H4 (layer-3 runs are recognised and scored with `sealqa_answer`) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
-| Frozen test run (layer 1, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend` |
+| Frozen test run (layer 1, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check) |
 | Human audit (section 13) | see below |
 | Public report (section 15) | see below |
 
@@ -195,9 +198,26 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   pre-registration is FROZEN, HEAD is the `prereg-freeze-*` tag and the tree is
   clean; every attempt is logged in `audit/test_access_log.jsonl` (committed,
   hash-chained, empty today). This is an audit trail, not security.
-- **Estimated cost** of the planned dev baseline: about 59-334 USD for six
-  models, caps summing to 349 USD (PREREGISTRATION.md section 9; an estimate,
-  not a measurement).
+- **The whole study fits in USD 50, hard.** Every planned paid call (smoke,
+  dev baseline, decomposer measurement, gated arm and ablations, comparison
+  baselines, judges, layers 2 and 3, the frozen test runs) is listed in
+  [`configs/budget.toml`](configs/budget.toml) with its low and high estimate
+  and its cap: planned **17.35 USD (low) to 43.24 USD (high)**, all caps
+  together **48.65 USD**, so even if every run spent its full cap the study
+  could not exceed 50 USD; `tests/test_budget_plan.py` checks this and that
+  every paid config is in the plan. How it fits (PREREGISTRATION.md section 9):
+  four low-cost primary models (OpenAI, Anthropic, Google, DeepSeek) on every
+  item with one repeat, at their lowest reasoning setting; the gate arms reuse
+  the answer `no_gate` already paid for; later dev runs reuse the dev
+  baseline's answers; mid-tier models, judges and the nondeterminism check run
+  on pre-registered subsamples; web search on SerpApi's free plan. The largest
+  item is the confirmatory layer-1 test run (8.53-17.93 USD). The previous
+  full-scale design (six models, three repeats, every arm on every item; about
+  550 USD at the low estimate) is kept, not run, under `configs/extended/`.
+- **Provider-side limits.** Set a monthly spending limit in each provider's
+  dashboard as the outer safety net (docs/RUNNING.md, "Provider spending
+  limits"). DeepSeek is priced at its peak rate; running its jobs off-peak
+  (for example at weekends) halves its actual cost.
 
 ## Use the gate as a tool (MCP server)
 
@@ -234,13 +254,18 @@ and the study's results are pending. See [docs/MCP.md](docs/MCP.md).
   edited passage keeps the question's entity and asserts a wrong value, so the
   gate is not expected to catch it; layer 2 is a scope boundary and exploratory.
   Its misleading contexts are not shipped by GRAB-RAG and must be exported once
-  with GRAB-RAG's own code before layer 2 can run.
+  with GRAB-RAG's own code; the budgeted plan runs only layer 2's supportive
+  items (the cost side).
 - **Single-template decomposer evaluation.** All layer-1 questions share one
   template, and the decomposer is measured on the same 45 dev questions on which
   it may be revised, so its measured accuracy is optimistic and says little
   about other question shapes.
 - **Parameters are PROPOSED.** Thresholds, window sizes, seeds, sample sizes
   and caps are working values awaiting owner approval.
+- **Claims are about low-cost models.** To fit the USD 50 budget, H1-H4 are
+  tested on four low-cost models at their lowest reasoning setting, with one
+  repeat; mid-tier models are only an exploratory check on a 225-item test
+  subsample, and the LLM judges see 60 dev items per model.
 - **String matching is brittle.** Aliases, abbreviations, pronouns and tables
   can defeat a check that looks for a name near a quote; the scorer shares the
   gate's reliance on verbatim quotes.

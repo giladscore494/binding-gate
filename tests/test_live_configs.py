@@ -38,13 +38,26 @@ def test_live_configs_pin_the_data_and_share_the_first_attempt(name):
     assert gated.options["search"]["name"] == "serpapi_google"
 
 
-def test_dev_live_uses_the_six_models_of_dev_gated_with_three_repeats_and_the_smoke_one():
+def test_dev_live_uses_primary_models_of_dev_gated_with_one_repeat_and_the_smoke_one():
+    """PR 13: layer 3 runs slots A and E (configs/budget.toml), one repeat, the same model specs as dev_gated."""
     full = load_config(CONFIGS / "dev_live.toml")
     smoke = load_config(CONFIGS / "dev_live_smoke.toml")
-    gated = load_config(CONFIGS / "dev_gated.toml")
-    assert [m.to_dict() for m in full.models] == [m.to_dict() for m in gated.models] and full.repeats == 3 and full.limit is None
-    assert [m.to_dict() for m in smoke.models] == [gated.models[0].to_dict()] and (smoke.repeats, smoke.limit) == (1, 5)
+    gated = {m.label: m.to_dict() for m in load_config(CONFIGS / "dev_gated.toml").models}
+    assert [m.label for m in full.models] == ["openai-low", "google-low"]
+    assert [m.to_dict() for m in full.models] == [gated[m.label] for m in full.models] and full.repeats == 1 and full.limit is None
+    assert [m.to_dict() for m in smoke.models] == [gated["openai-low"]] and (smoke.repeats, smoke.limit) == (1, 5)
     assert full.to_dict()["arms"] == smoke.to_dict()["arms"]
+
+
+def test_live_configs_keep_to_the_serpapi_free_plan():
+    """PR 13: 250 searches per month at 50 per hour (serpapi.com/pricing, read 2026-11-22)."""
+    full = load_config(CONFIGS / "dev_live.toml")
+    smoke = load_config(CONFIGS / "dev_live_smoke.toml")
+    limits = [runner.RunnerSettings.from_config(c).max_searches for c in (smoke, full)]
+    assert limits == [10, 240] and sum(limits) <= 250  # month 1: smoke + dev
+    for config in (full, smoke):
+        for arm in config.arms:
+            assert arm.options["search"]["options"]["min_interval_seconds"] >= 3600 / 50
 
 
 @pytest.mark.parametrize("name", ["dev_live_smoke.toml", "dev_live.toml"])
@@ -58,7 +71,8 @@ def test_every_model_and_auxiliary_client_has_a_price_and_a_cap(name):
     assert problems == [] and {a.role for a in aux} == {"search", "fetch", "decomposer"}
     for entry in aux:
         assert book.has(entry.model_id), entry.model_id
-    assert book.get("serpapi/google").per_call_usd == 0.025 and book.get("binding-gate/fetch@1").call_cost(10**6, 10**6) == 0.0
+    # PR 13: SerpApi's Free plan costs nothing; its quota is enforced by [runner] max_searches
+    assert book.get("serpapi/google").per_call_usd == 0.0 and book.get("binding-gate/fetch@1").call_cost(10**6, 10**6) == 0.0
 
 
 def test_the_dev_live_dry_run_works_offline_without_any_key_and_caps_cover_the_high_estimate(tmp_path, monkeypatch):

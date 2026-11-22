@@ -119,10 +119,11 @@ def test_analysis_end_to_end_decisions_and_labels():
     assert h["H2"]["status"] == hyp.SUPPORTED  # M2 = 1/10 exactly
     assert h["H3"]["status"] == hyp.SUPPORTED
     assert h["H4"]["status"] == hyp.NOT_EVALUABLE
-    # one repeat instead of three and fewer resamples: everything is labelled not confirmatory
+    # fewer resamples than pre-registered: everything is labelled not confirmatory (PR 13: one repeat
+    # is the pre-registered number, so the repeats are not a reason)
     assert not h["H1"]["confirmatory"]
     reasons = " ".join(h["H1"]["non_confirmatory_reasons"])
-    assert "bootstrap parameters" in reasons and "repeats" in reasons
+    assert "bootstrap parameters" in reasons and "repeats" not in reasons
     assert model["controlled_layer_claim"].startswith("the gate works")
     assert result["summary"]["H1"]["supported"] == ["m"] and result["summary"]["H1"]["supported_confirmatory"] == []
     assert h["H1"]["sensitivity"]["status_under_worst_case"] == hyp.SUPPORTED  # no failed records here

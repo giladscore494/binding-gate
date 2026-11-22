@@ -43,6 +43,7 @@ def test_only_documented_secrets_are_used_and_a_missing_one_skips_the_model():
     assert used == {
         "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY",
         "SERPAPI_API_KEY", "RUNS_ENCRYPTION_PASSPHRASE",  # PR 8: web search key, artifact encryption
+        "DEEPSEEK_API_KEY",  # PR 13: slot G
     }
     assert used <= set(KNOWN_SECRETS)
     assert '"$CODE" -eq 4' in WORKFLOW and "SKIPPED" in WORKFLOW

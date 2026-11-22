@@ -1,0 +1,137 @@
+# PR 13: EXPLORATORY mid-tier capability check on a pre-registered TEST subsample (PREREGISTRATION.md
+# section 9; configs/budget.toml, run "test_layer1_midtier"). Not part of H1-H4.
+#
+# Models: the mid-tier models of section 9 (B gpt-6.1-sol, D claude-sonnet-5-5, F
+# gemini-3.5-flash), lowest reasoning setting as for every model. Items: 15 per condition of the
+# test split (225 items; binding_gate.sampling, seed 20261122), drawn after the test lock has
+# opened. One repeat. Arms: no_gate and the gate arms that reuse its answer (gated,
+# faithfulness_checker), so only no_gate and the decomposer are paid.
+#
+# Run ONLY through the frozen test run, after test_layer1.toml (a second logged test access,
+# section 12):
+#
+#   python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.toml \
+#       --tag prereg-freeze-1 --purpose "layer-1 mid-tier exploratory subsample" --confirm-spend
+#
+# The analysis labels every result of this run exploratory (a subsample run is never
+# confirmatory; binding_gate.stats.analysis). The mid-tier models are not run on dev (the smoke
+# run checks their settings); the stop rule of section 10 is applied to the primary models.
+# Caps: dev-equivalent dry run of the same arms on the same subsample definition (the dev split
+# has the same 15 conditions, so the item count is the same). PROPOSED.
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "test-layer1-midtier"
+description = "Exploratory mid-tier check: no_gate, gated, faithfulness_checker; B, D, F; 225-item stratified test subsample; 1 repeat."
+split = "test"
+repeats = 1
+
+[sample]                                 # PROPOSED (section 9): 15 items per condition
+per_stratum = 15
+seed = 20261122
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 6.5 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+max_usd = 2.25
+[runner.max_usd_by_model]
+google-mid = 2.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "faithfulness_checker"            # MiniCheck-Flan-T5-Large, pinned (section 5); needs the
+label = "faithfulness_checker"           # faithfulness extra and `faithfulness_checker prepare`
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+backend = "minicheck"
+evidence = "all_documents"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
