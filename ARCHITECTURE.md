@@ -88,7 +88,8 @@ One run = one config file. For every item × arm × model × repeat the runner
 ```
 ARCHITECTURE.md, PREREGISTRATION.md, README.md, LICENSE, NOTICE, pyproject.toml
 audit/test_access_log.jsonl      committed log of every test-split access attempt (empty today)
-configs/                         versioned run configs, one TOML file per run (dev_*, test_layer1)
+configs/                         versioned run configs, one TOML file per run (dev_*, test_layer1*,
+                                 test_grab_rag_supportive, test_live: one frozen test config per layer  PR 6, 13, 16)
 configs/prices.toml              pinned price file used by every cost estimate and budget cap  PR 2
 configs/decomposer_eval_dev.toml config of the decomposer measurement (not a run config)      PR 3
 configs/rescore/                 re-scoring configs of existing traces (LLM judge)            PR 5
@@ -108,7 +109,7 @@ src/binding_gate/
   runner.py      cli.py          the run loop, budget caps, dry run; commands   PR 2
   pricing.py     baseline_report.py  cost model; section 10 stop-rule report    PR 2
   judging.py                     judge-family rule and judge plumbing           PR 5
-  frozen_run.py                  the one-command frozen test run                PR 6
+  frozen_run.py                  the one-command frozen test run, one layer each PR 6, 16
   datasets/      one module per dataset adapter                                 PR 2, 7, 8
   models/        one module per model client (plain HTTPS)                      PR 2
   decomposers/   gate function (A), its cache, the layer-1 reference            PR 3
@@ -118,11 +119,14 @@ src/binding_gate/
   arms/          one module per experimental arm                                PR 2, 4, 5, 8
   scorers/       one module per scorer                                          PR 2, 5, 7, 8
   stats/         metrics, cluster bootstrap, H1-H4, analysis                    PR 6
+  stats/layers.py                one analysis rule per layer (1, 2, 3)          PR 16
   plots/         figures (optional extra `plots`)                               PR 6
   research/      layer 3: search client, fetcher, robots, snapshots, re-search  PR 8
   mcp/           the gate as an MCP server (optional extra `mcp`)               PR 9
   report/        public report generator (section 15)                           PR 10
+  report/publish.py              copies allowed results to results/ (item 37)   PR 16
   audit_tool/    human audit: sample, label, analyse (section 13)               PR 10
+results/layer<N>/<run_id>/       committed, non-sensitive results of a run (section 7)        PR 16
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
 .github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run) PR 2, 8, 12
@@ -143,6 +147,7 @@ modify files owned by another PR of the same wave (waves: [1] → [2] →
 | 8 | D | `research/*`, `datasets/sealqa.py`, `arms/gated_research.py` (arms `gated_research` and `no_gate_live`), `scorers/sealqa_answer.py`, `configs/dev_live*.toml`, auxiliary-call pricing in `runner.py` |
 | 9 | D | `mcp/*`, `configs/mcp/server.example.toml`, `docs/MCP.md` |
 | 10 | D | `report/*`, `audit_tool/*` |
+| 16 | - | `stats/layers.py`, `report/publish.py`, `configs/test_live.toml`, `configs/test_grab_rag_supportive.toml` (frozen runs of layers 2 and 3; results location) |
 
 **Shared files.** There is no registry file that every PR edits. The only files
 more than one PR may touch are: `pyproject.toml` (append one line under
@@ -329,10 +334,28 @@ Registering the same name twice raises an error.
   of the trace file. A run that died keeps an incomplete manifest and can be
   continued with `TraceWriter.resume` under the same config hash and commit.
 - Re-scoring writes `scores.<scorer>.jsonl` beside the trace and never edits it.
-- `runs/` is git-ignored. Result sets that back a published number are added
-  deliberately together with their manifests; the location
-  (`results/layer1/<run_id>/` is proposed) is still open (pre-registration
-  section 17).
+- `runs/` is git-ignored. Result sets that back a published number are
+  committed under `results/layer<N>/<run_id>/` (N = 1, 2, 3; PR 16,
+  pre-registration section 17 item 37), written only by `python -m
+  binding_gate.report publish runs/<run_id>` (`report/publish.py`). It copies
+  an allow-list from a finished, analysed run whose traces match their
+  manifest: `manifest.json`, `invocations.jsonl`, `frozen_run.jsonl`,
+  `analysis/analysis.json`, `analysis/report.md`, `analysis/figures/*.png`
+  and, for layer 3, `snapshots/publish_manifest.json`. It refuses page text
+  and every other snapshot file, the traces of layers 2 and 3 (CC BY-SA
+  passages; web pages without a known licence), re-scoring outputs and any
+  file not on the list; layer-1 traces (Apache-2.0) only with
+  `--include-traces`. It never overwrites a published directory, replaces
+  local absolute paths by `runs` and `~`, and writes `results_manifest.json`
+  (every file with its SHA-256, the run's trace SHA-256, tag and commit, and
+  the files not published with the reason). `python -m binding_gate.report
+  build --analysis results/layer<N>/<run_id>/analysis --run-dir
+  results/layer<N>/<run_id>` works from the published copy.
+- Frozen test runs (PR 6, PR 16) cover one layer each: the config names one
+  dataset, the analysis rule comes from it (`stats/layers.py`: layer 1
+  `provenance`, layer 2 `grab_rag_answer` without a decision, layer 3
+  `sealqa_answer` and H4), and run directories of different layers are never
+  analysed together.
 - Live-web runs also hold `runs/<run_id>/snapshots/` (pre-registration
   section 14); the workflow uploads such run directories only encrypted.
 
@@ -460,7 +483,9 @@ These are fixed here because every later PR relies on them.
 - No redistribution of third-party data: benchmark files are downloaded by the
   user into `data/raw/` (git-ignored); live page snapshots are private unless
   their licence allows publication; the Stanford news-intermediary outputs
-  (arXiv 2605.22785, no licence file) are never redistributed.
+  (arXiv 2605.22785, no licence file) are never redistributed. The one
+  exception is opt-in: layer-1 traces, which quote the Apache-2.0 benchmark,
+  may be published under `results/layer1/` with `--include-traces` (section 7).
 - No access control around the test split (see section 6).
 - No production hardening of the MCP server (PR 9) beyond what the experiment
   needs.

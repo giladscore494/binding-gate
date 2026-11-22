@@ -281,8 +281,8 @@ note = "exploratory capability check; estimate = dev dry run of the same subsamp
 
 [[run]]
 id = "test_live"
-config = ""
-kind = "planned"
+config = "configs/test_live.toml"
+kind = "run"
 invocations = 1
 models = "A, E"
 items = "SealQA test, all questions (stand-in: 146)"
@@ -290,12 +290,12 @@ arms = "no_gate (live), gated_research"
 low_usd = 0.60
 high_usd = 1.63
 cap_usd = 1.80
-note = "CONFIRMATORY (H4); config not yet written (section 17, item 39); Free plan, months 2-3"
+note = "CONFIRMATORY (H4); frozen layer-3 run (PR 16, section 17 item 39); caps A 0.55 + E 1.25; at most 250 searches per invocation (Free plan, month 2; resumed in month 3)"
 
 [[run]]
 id = "test_grab_rag_supportive"
-config = ""
-kind = "planned"
+config = "configs/test_grab_rag_supportive.toml"
+kind = "run"
 invocations = 1
 models = "A"
 items = "GRAB-RAG test, supportive condition: 606 questions"
@@ -303,4 +303,4 @@ arms = "no_gate, gated"
 low_usd = 0.13
 high_usd = 0.56
 cap_usd = 0.60
-note = "exploratory; config not yet written (section 17, item 39)"
+note = "exploratory, reporting only (no threshold); frozen layer-2 run (PR 16, section 17 item 39)"

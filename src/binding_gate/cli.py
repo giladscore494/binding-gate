@@ -20,16 +20,18 @@ Commands
 ``analyze RUN_DIR [RUN_DIR ...] [--out DIR] [--no-figures]``
     The PR 6 statistics (metrics, cluster-bootstrap intervals, H1-H4) from
     trace files only; writes ``analysis.json``, ``report.md`` and figures.
-    Outcomes come from the ``provenance`` score; for layer-3 (SealQA) run
-    directories, recognised from their manifests, from the ``sealqa_answer``
-    score instead (the same analysis as ``python -m
-    binding_gate.scorers.sealqa_answer analyze``). Layer-3 and other run
-    directories in one call are refused.
+    Each layer, recognised from the run manifests, is analysed with its own
+    pre-registered rule (PR 16, ``binding_gate.stats.layers``): layer 1 from
+    the ``provenance`` score (H1-H3); layer 2 (GRAB-RAG) from the
+    ``grab_rag_answer`` score, reporting only, no decision; layer 3 (SealQA)
+    from the ``sealqa_answer`` score (H4; the same analysis as ``python -m
+    binding_gate.scorers.sealqa_answer analyze``). Run directories of
+    different layers in one call are refused.
 ``frozen-test-run --config C --tag prereg-freeze-N --purpose TEXT --confirm-spend``
-    The one-command frozen test run: refuses unless every test-lock condition
-    holds (the refusal is logged), runs the config on the test split, then
-    writes the analysis under ``runs/<run_id>/analysis/``
-    (``binding_gate.frozen_run``).
+    The one-command frozen test run of ONE layer (the config's dataset):
+    refuses unless every test-lock condition holds (the refusal is logged),
+    runs the config on the test split, then writes the analysis with that
+    layer's rule under ``runs/<run_id>/analysis/`` (``binding_gate.frozen_run``).
 ``models --config C [--available]``
     The model labels of a config as a JSON array (used by the workflow matrix);
     with ``--available`` only those whose API key is set.
@@ -221,47 +223,14 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-LAYER3_ANALYZE_HINT = "python -m binding_gate.scorers.sealqa_answer analyze RUN_DIR [RUN_DIR ...]"
-
-
-def _run_datasets(run_dirs: Sequence[str]) -> dict[str, str]:
-    """``run dir -> dataset name`` from each run manifest's config (unreadable manifests are left out;
-    the analysis itself then reports them)."""
-    from binding_gate.trace import TraceError, read_manifest
-
-    found: dict[str, str] = {}
-    for run_dir in run_dirs:
-        try:
-            dataset = read_manifest(run_dir).config.get("dataset", {})
-        except (TraceError, ValueError):
-            continue
-        name = dataset.get("name") if isinstance(dataset, dict) else None
-        if isinstance(name, str):
-            found[str(run_dir)] = name
-    return found
-
-
 def _cmd_analyze(args: argparse.Namespace) -> int:
-    from binding_gate.stats.analysis import analyse_run_dirs, write_outputs
-    from binding_gate.stats.prereg import LAYER_BY_DATASET
+    # PR 16: one analysis per layer, each with its own pre-registered rule (binding_gate.stats.layers):
+    # layer 1 provenance, layer 2 grab_rag_answer (reporting only), layer 3 sealqa_answer (H4).
+    from binding_gate.stats.analysis import write_outputs
+    from binding_gate.stats.layers import analyse_layer
 
-    datasets = _run_datasets(args.run_dirs)
-    layer3 = sorted(d for d, name in datasets.items() if LAYER_BY_DATASET.get(name) == 3)
-    others = sorted(d for d, name in datasets.items() if LAYER_BY_DATASET.get(name) != 3)
-    if layer3 and others:
-        raise ValueError(
-            f"layer-3 (SealQA) run directories {layer3} were given together with run directories of "
-            f"another dataset {others}; analyse each dataset separately (layer 3: {LAYER3_ANALYZE_HINT})"
-        )
-    if layer3:
-        # Layer 3 is scored by sealqa_answer, not provenance (PREREGISTRATION.md section 7, layer 3).
-        from binding_gate.scorers.sealqa_answer import analyse_layer3
-
-        analysis = analyse_layer3(args.run_dirs)
-        outcome_rule = "sealqa_answer (layer 3)"
-    else:
-        analysis = analyse_run_dirs(args.run_dirs)
-        outcome_rule = "provenance"
+    analysis, rule = analyse_layer(args.run_dirs)
+    outcome_rule = rule.outcome_rule if rule is not None else "provenance"
     out = Path(args.out) if args.out else Path(args.run_dirs[0]) / frozen_run.ANALYSIS_DIRNAME
     written = write_outputs(analysis, out, figures=not args.no_figures)
     print(json.dumps({"written": written, "summary": analysis["summary"], "outcome_rule": outcome_rule},
@@ -290,8 +259,9 @@ def _cmd_frozen_test_run(args: argparse.Namespace) -> int:
     print(json.dumps({"run": result.summary, "written": result.written}, indent=2, sort_keys=True))
     if result.aborted:
         print(
-            f"ABORTED: budget cap reached. {result.run_dir} is unfinished; no analysis was written. "
-            "Resume with --resume (a further logged test-split access).",
+            f"ABORTED: a budget cap or the search quota was reached. {result.run_dir} is unfinished; no analysis "
+            "was written. Resume with --resume (a further logged test-split access; layer 3: after the monthly "
+            "search quota has renewed).",
             file=sys.stderr,
         )
         return EXIT_BUDGET

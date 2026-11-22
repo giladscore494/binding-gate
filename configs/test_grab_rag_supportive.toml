@@ -1,0 +1,110 @@
+# PR 16: the frozen layer-2 TEST run, cost side only (PREREGISTRATION.md section 3, layer 2; sections 7,
+# 11 and 12; configs/budget.toml, run "test_grab_rag_supportive"). Section 17, item 39. EXPLORATORY.
+#
+# Run ONLY through the one-command frozen test run, after the pre-registration (the stage that covers
+# layer 2) is FROZEN and tagged, on your own computer (not in the workflow):
+#
+#   python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
+#       --tag prereg-freeze-<n> --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
+#
+# GRAB-RAG's SUPPORTIVE condition (gold passages only) for every test question (606), slot A, 1
+# repeat, arms no_gate and gated: the gated arm judges the no_gate answer (one paid answer per item;
+# the decomposer is the only other paid call), so layer-2 M2 (correct answers blocked by the gate on
+# natural questions) is measured on test. The misleading condition is not run (no export; a scope
+# boundary, section 17 item 17). The analysis uses the grab_rag_answer rule and REPORTS the metrics
+# without a decision: layer 2 has no pass/fail threshold (section 11).
+#
+# Identical to configs/dev_grab_rag_supportive.toml except the split-dependent fields
+# (tests/test_pr16_frozen_layers.py): name, description, split and the cap.
+#
+# Caps: the test split cannot be dry-run; the plan's HIGH estimate is the dev dry run scaled by
+# 606 / 394 questions (0.13-0.56 USD); cap 0.60 USD, the "test_grab_rag_supportive" entry of
+# configs/budget.toml. PROPOSED - requires owner approval before freeze.
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "test-grab-rag-supportive"
+description = "PR 16 frozen layer-2 test run, cost side: no_gate and gated on GRAB-RAG supportive items, test split, 1 repeat, slot A; exploratory."
+split = "test"
+repeats = 1
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml ("test_grab_rag_supportive"), above its HIGH estimate; sum of caps 0.6 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+max_usd = 0.6
+
+[dataset]
+name = "grab_rag"
+[dataset.options]
+root = "data/raw/grab-rag"
+repository = "https://github.com/andre44s/grab-rag"
+commit = "2006561476b39a6cd1ebc0ab5df1b09af01dbcab"
+data_sha256 = "d11d48acb7d30cd7033db39b909d8d2d5c0af1c925191ae9e7bc25c7549d14b0"
+conditions = ["supportive"]
+source_datasets = ["natural_questions", "hotpotqa"]
+supportive_questions = "all"
+seed = 42
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "grab_rag_context"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "grab_rag_context"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+# provenance: supportive gold passages are role target. grab_rag_answer: whether the value carries
+# a gold answer (layer-2 M2 uses its `correct` label).
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
+
+[[scorers]]
+name = "grab_rag_answer"
+[scorers.options]
+min_quote_tokens = 5

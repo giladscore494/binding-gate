@@ -58,6 +58,9 @@ def render_markdown(analysis: Mapping[str, Any], *, figure_note: str = "") -> st
             f"  - run `{run['run_id']}`: commit `{run['git_commit'][:12]}`, config `{run['config_hash'][:12]}`, "
             f"tag `{run['test_unlock_tag']}`, {'finished' if run['finished'] else 'UNFINISHED'}"
         )
+    rule = analysis.get("outcome_rule")  # PR 16: layers 2 and 3 name their rule (absent for layer 1)
+    if rule:
+        lines.append(f"- Outcome rule: scorer `{rule['scorer']}`; decision: {rule['decision']}")
     if analysis["confirmatory_blockers"]:
         lines += ["", "**Not confirmatory:** " + "; ".join(analysis["confirmatory_blockers"])]
     if figure_note:

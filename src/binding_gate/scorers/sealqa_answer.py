@@ -143,7 +143,19 @@ def analyse_layer3(run_dirs: Sequence[str | Path], **kwargs: Any) -> dict[str, A
     """``binding_gate.stats.analysis.analyse_run_dirs`` with the layer-3 outcome rule."""
     from binding_gate.stats.analysis import analyse_run_dirs
 
-    return analyse_run_dirs(run_dirs, outcome_of=layer3_outcome, correct_outcomes=LAYER3_CORRECT_OUTCOMES, **kwargs)
+    analysis = analyse_run_dirs(run_dirs, outcome_of=layer3_outcome, correct_outcomes=LAYER3_CORRECT_OUTCOMES, **kwargs)
+    # PR 16: name the rule in the output (H4 and its statuses are in each model's "hypotheses").
+    analysis["outcome_rule"] = {
+        "scorer": SCORER_NAME,
+        "rule_version": RULE_VERSION,
+        "mapping": dict(LAYER3_OUTCOME_BY_LABEL),
+        "correct": LABEL_CORRECT,
+        "m3": "correct final answers / all records (estimate arm/<arm>/correct_all)",
+        "m4": "among gated_research records whose first attempt ended in RESEARCH, the share with a correct "
+        "final answer (estimate arm/<arm>/m4)",
+        "decision": "H4 (PREREGISTRATION.md section 11)",
+    }
+    return analysis
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -139,8 +139,9 @@ in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
 | Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
 | GRAB-RAG (layer 2), cost side | `run --config configs/dev_grab_rag_supportive.toml --confirm-spend` (supportive items, no export needed). The misleading condition (`configs/extended/dev_grab_rag_*.toml`, not run) needs GRAB-RAG's contexts exported once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) |
 | Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
-| Statistics: metrics, intervals, H1-H4 (layer-3 runs are recognised and scored with `sealqa_answer`) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
-| Frozen test run (layer 1, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check) |
+| Statistics: metrics, intervals, H1-H4 (each layer with its own rule: layer 1 `provenance`, layer 2 `grab_rag_answer` without a decision, layer 3 `sealqa_answer`; mixed layers refused) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
+| Frozen test runs (one layer each, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check), `configs/test_grab_rag_supportive.toml` (layer 2, exploratory) and `configs/test_live.toml` (layer 3, H4) |
+| Published results (committed under `results/layer<N>/<run_id>/`) | `python -m binding_gate.report publish runs/<run_id>` (allow-list only: no page text, no layer-2/3 traces) |
 | Human audit (section 13) | see below |
 | Public report (section 15) | see below |
 
