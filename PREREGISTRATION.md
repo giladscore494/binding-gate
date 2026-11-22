@@ -1209,22 +1209,89 @@ H4_MIN_NET_DIFFERENCE     = 0
 
 ## 13. Human audit
 
-- 100 gate decisions from the frozen test runs are audited by a human (PR 10
-  provides the tool).
-- Sampling (**PROPOSED — requires owner approval before freeze**): fixed seed;
-  50 decisions where the gate blocked the answer (ABSTAIN or RESEARCH) and 50
-  where it accepted; where the secondary judge was run, disagreements between
-  the two scorers are over-sampled within each half and the sampling weights are
-  reported.
-- The auditor sees the question, the documents, the candidate answer and quote,
-  and answers: is the quoted evidence about the question's entity and
-  qualifiers (yes / no / cannot tell)? The gate's verdict and reasons are hidden
-  until the label is entered.
-- Reported: agreement between gate and auditor with its interval, every
-  disagreement with a short description, and the share of gate errors caused by
-  the decomposer.
-- Auditor(s): TODO (owner decision). With a single auditor there is no
-  inter-rater check; this is stated in the report.
+100 gate decisions from the frozen test runs are audited by a human. The tool is
+`src/binding_gate/audit_tool/` (PR 10); the parameters below are mirrored in
+`src/binding_gate/audit_tool/prereg.py`, and `tests/test_audit_prereg.py` fails
+if this section and the code disagree:
+
+```
+AUDIT_SEED               = 20261122
+AUDIT_BLOCKED            = 50
+AUDIT_ACCEPTED           = 50
+AUDIT_DISAGREEMENT_SHARE = 1/2
+AUDIT_CI_LEVEL           = 0.95
+```
+
+All five values, and the rules below: **PROPOSED — requires owner approval
+before freeze.** The seed was fixed on 2026-11-22, before any gate decision
+existed, and is not tuned.
+
+- **Population.** A gate decision is the verdict on the *first* attempt of a
+  trace record of the arm `gated` (layer 1) or `gated_research` (layer 3) in the
+  frozen test runs; ablation arms are not in the population. Records whose
+  candidate was not judged (abstained, unparseable) and error records are not
+  gate decisions. All models and audited layers are pooled; the sample file
+  records the split, every run's id, config hash, commit and trace SHA-256, and
+  refuses runs that mix the dev and the test split.
+- **Halves.** `AUDIT_BLOCKED` decisions where the gate blocked the answer
+  (ABSTAIN or RESEARCH) and `AUDIT_ACCEPTED` where it accepted. A half with
+  fewer decisions is taken whole and the shortfall is reported.
+- **Over-sampling of scorer disagreements.** Where the secondary judge
+  (section 6.5) was run, each half is split into the decisions on which the
+  primary scorer and the judge disagree about the candidate (provenance outcome
+  `wrong_entity` versus judge label `eaf_or_substitution`; a judge failure never
+  agrees) and all others. At most `AUDIT_DISAGREEMENT_SHARE` of a half comes
+  from the disagreements; if either stratum is too small, the other fills the
+  half. Without judge scores each half is one stratum. Every sampled decision
+  carries its sampling weight `N_s / n_s` (decisions in its stratum / decisions
+  drawn from it).
+- **Deterministic draw.** Within a stratum, the decisions with the smallest
+  `SHA-256("<AUDIT_SEED>\n<canonical JSON of [run id, item id, arm, model,
+  repeat, attempt]>")` are drawn. The display order is a second hash order, so
+  blocked and accepted cases are interleaved.
+- **Blinding.** Before labelling, the auditor sees the question, the documents
+  (named "Document 1", "Document 2", ... in the order shown to the model; the
+  dataset's source ids are hidden because in layer 1 they name the role), the
+  candidate's value, its quote and which document it cites. The auditor answers
+  one question: is the quoted evidence about the question's entity and
+  qualifiers? — **yes / no / cannot tell**, with an optional note. Hidden until
+  the label is entered: the verdict, its reasons and check results, the
+  decomposer's constraints, item id and condition, model, arm, half, stratum,
+  weight and the scorers' labels. Entering the reveal locks the label; a label
+  not entered before the reveal is refused by the analysis. After the reveal the
+  auditor compares the decomposer's constraints (as recorded in the trace) with
+  the question and records one category: constraints correct, wrong entity,
+  wrong or missing qualifier, wrong or missing presupposition, other
+  decomposition problem, or not assessed.
+- **Interfaces.** `python -m binding_gate.audit_tool sample RUN_DIR ... --out
+  sample.json --html audit.html` draws the sample and writes a single offline
+  HTML page (no server, no network; progress in the browser's local storage;
+  an explicit "Export labels" button writes the label file). `python -m
+  binding_gate.audit_tool label` is the terminal alternative. `python -m
+  binding_gate.audit_tool analyze` computes the results below.
+- **Analysis.** The gate counts as saying "bound" when it accepted. *Agreement*
+  per half = auditor labels that agree with the gate / decided labels (yes or
+  no) of that half; "cannot tell" is left out of the denominator, counted, and
+  in a sensitivity variant counted as a disagreement. Each proportion has a
+  two-sided **Clopper-Pearson exact binomial** interval at `AUDIT_CI_LEVEL`
+  (about 50 cases per half and proportions possibly at 0 or 1, where a
+  bootstrap percentile interval collapses to a point; Clopper-Pearson keeps at
+  least the nominal coverage and needs no resampling). Also reported: agreement
+  over the whole sample (unweighted, a property of the 50/50 sample), and a
+  population-weighted agreement (stratum agreements weighted by stratum share
+  of all decisions) with a conservative interval combining per-stratum
+  Clopper-Pearson intervals at level 1 − α/K (Bonferroni over the K strata).
+- **Reported**, in the public report: the composition of the sample and its
+  weights, agreement per half and overall with intervals, the sensitivity
+  variant, every disagreement (false accept or false block) with a short
+  description (the auditor's note and the gate's reasons), and the share of gate
+  errors traced to the decomposer = gate errors whose recorded decomposition
+  category is a decomposer fault / gate errors with an assessed category, with
+  its Clopper-Pearson interval.
+- **Auditor(s): owner decision, still open (section 17, item 9).** With a single
+  auditor there is no inter-rater check; the report states this limitation.
+  With more than one, the first label file named is the primary auditor and
+  Cohen's kappa against each further auditor is reported.
 
 ## 14. Live pages
 
@@ -1238,15 +1305,59 @@ re-runnable from scratch with identical inputs.
 
 ## 15. Reporting commitments
 
-- All hypotheses, arms, models and layers named here are reported, including
-  null and negative results, the stop-rule outcome, runs that failed, and
-  unparseable/error rates.
-- Every reported number is traceable to append-only trace files that carry the
-  config hash and git commit of the run.
-- Exploratory analyses are labelled as such.
-- Deviations from this document are listed in the report, each with the
-  amendment that authorised it or a statement that it was unplanned.
-- Costs (tokens, searches) are reported per arm.
+The public report is generated by `python -m binding_gate.report build` (PR 10)
+from the analysis files of section 8 (`analysis.json`), the run directories,
+the baseline report of section 10, the audit analysis of section 13 and this
+document. It is written as one Markdown file and one self-contained HTML file
+(no external assets, no script). Each commitment below has an identifier; the
+report ends with a table that maps every identifier to the section that meets
+it, and `tests/test_report.py` fails if an identifier listed here has no
+section in the generator.
+
+- **R1** Every hypothesis H1-H4 is reported for every model with its status —
+  SUPPORTED, NOT SUPPORTED, TRADE-OFF (H3 only) or NOT EVALUABLE — next to the
+  exact rule of section 11 (quoted from this document) and the observed values
+  of each criterion.
+- **R2** Confirmatory and exploratory results are in separate sections. A
+  result is placed in the confirmatory section only if the analysis file marks
+  it confirmatory (section 8); the report does not decide this itself, and it
+  refuses to render an analysis file that marks a result confirmatory while
+  listing reasons against it, or while the pre-registration it is given is not
+  FROZEN. Everything else, including per-condition tables,
+  ablations, layer 2 and pooled numbers, is labelled exploratory.
+- **R3** Every arm, model, layer and condition named in this document is
+  reported; the ones that are absent from the analysed data are listed as
+  absent, and models in a run's config that have no analysed records are listed.
+- **R4** The primary pair M1 and M2 is always shown together, for every arm and
+  model, with its 95% intervals.
+- **R5** Negative results and failures are stated as prominently as successes:
+  in a section at the same heading level, placed directly after the headline
+  results, listing every hypothesis that is not supported, not evaluable or a
+  trade-off, H1 results that do not survive the sensitivity bound, validity-guard
+  breaches, incomplete data, unfinished or unanalysed runs, absent layers and
+  arms, and the audit's disagreements.
+- **R6** The stop-rule outcome of section 10, from the baseline report, or a
+  statement that it was not supplied.
+- **R7** Deviations: every row of the amendment log (section 18); deviations the
+  generator detects in the inputs (bootstrap parameters not as pre-registered,
+  runs from a dirty working tree, test runs without a freeze tag, an audit sample
+  drawn with non-registered parameters or from dev traces); and deviations
+  declared in a deviations file, each with the amendment that authorised it or
+  the statement that it was unplanned. The generator cannot detect every
+  deviation; the report says so.
+- **R8** The threats to validity of section 16, reproduced from this document.
+- **R9** Costs actually spent: per model, the USD spend the runner recorded
+  (provider-reported token usage priced with the pinned price file; not an
+  invoice), the budget caps, and calls by clients that could not be priced; per
+  arm and model, paid, cached and failed calls and reported tokens (and
+  searches, where layer 3 records them).
+- **R10** Traceability: every run by run id, config hash, git commit, freeze
+  tag and trace-file SHA-256, and every input file (analysis, baseline, audit)
+  by SHA-256, so that each number can be traced to append-only trace files.
+- **R11** The human-audit results of section 13, or the statement that the
+  audit has not been carried out.
+- **R12** Next to every headline number: the unparseable and error rates of
+  every arm and model, and for H1 the sensitivity bound of section 6.4 item 7.
 
 ## 16. Threats to validity
 

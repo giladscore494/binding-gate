@@ -1,149 +1,224 @@
 # binding-gate
 
-A verification gate for LLM agents that answer questions from web search or
-retrieved documents.
+A deterministic verification gate for LLM agents that answer questions from web
+search or retrieved documents, and the pre-registered study that is meant to
+test it.
 
-**Status: pre-registration draft. Nothing has been measured yet.** This
-repository contains the project skeleton, the frozen data formats, a draft of
-the study plan and (since PR 2) everything needed to measure the *baseline*: how
-often current models make this error without any gate. That baseline has not
-been run: no model has been called, the model clients have only been tested
-against example responses, and the model ids and prices in the configs are not
-yet confirmed against the live APIs. There are no results, and no claim that the
-gate works.
+> **Status: pre-registration DRAFT. Nothing has been measured.** No model has
+> been called, no API key is connected yet, and there is no result of any kind:
+> no baseline rate, no evidence that the gate works. Every number in
+> [PREREGISTRATION.md](PREREGISTRATION.md) marked **PROPOSED** (thresholds,
+> seeds, window sizes, budget caps, sample sizes) still needs the owner's
+> approval before the plan is frozen. The model clients have been tested only
+> against recorded-shape example responses; model ids and prices in the configs
+> are not yet confirmed against the live APIs.
 
-## The problem
+## The failure studied
 
-An agent finds a real, on-topic source and extracts a detail that really is in
+An agent finds a real, on-topic source and quotes a detail that really is in
 that source, but the detail belongs to a *different entity* or to *different
 conditions* than the question asked about: the dose of another drug, the figure
 for another year, the limit for another product version. The answer is quoted,
 sourced and wrong. The Deceptive Grounding paper
-([arXiv 2607.09349](https://arxiv.org/abs/2607.09349)) describes this as
-entity-attribution failure.
+([arXiv 2607.09349](https://arxiv.org/abs/2607.09349)) calls this
+*entity-attribution failure*.
 
-Existing checkers mostly ask: *is the claim supported by the source?* Here it
-is. binding-gate asks a different question:
-*is the evidence about the same entity and qualifiers as the question?*
+Claim-versus-source checkers ask "is the claim supported by the source?" — here
+it is. binding-gate asks a different question: **is the evidence about the same
+entity and qualifiers as the question?**
 
-## The idea
+## The gate in one diagram
 
-1. **Decompose the question** into constraints: entity, requested attribute,
-   qualifiers (time, place, version, unit, other) and presuppositions. This is
-   the only step that uses a model.
-2. **Force a structured answer:** value + verbatim quote + source id, or an
-   explicit abstention.
-3. **Check the binding deterministically:** the quote exists verbatim in the
-   source; the question's entity appears near the quote; every qualifier appears
-   near the quote; no competing entity is closer to the value.
-4. **Check the premises:** what the question takes for granted must be in the
-   evidence.
-5. **Return a verdict:** ACCEPT, RESEARCH (search again, with a reason) or
-   ABSTAIN (with a reason).
+```mermaid
+flowchart LR
+    Q[question] --> A["(A) decomposer<br/>entity, attribute,<br/>qualifiers, presuppositions<br/><i>the only model step</i>"]
+    Q --> M[model under test]
+    D[documents] --> M
+    M --> B["(B) structured answer<br/>value + verbatim quote + source id<br/>or abstention"]
+    A --> C["(C) binding checks<br/>quote_verbatim · entity_in_window<br/>qualifiers_in_window · no_closer_competitor"]
+    B --> C
+    D --> C
+    C --> P["(D) premise_present"]
+    P --> E{"(E) verdict"}
+    E -->|all checks pass| ACC[ACCEPT]
+    E -->|entity / qualifier / competitor failed| RES["RESEARCH<br/>(re-search in layer 3;<br/>abstention in layers 1-2)"]
+    E -->|quote missing or premise missing| ABS[ABSTAIN]
+```
 
-Steps 3-5 are plain code: same input, same output, no model call.
+Steps (C), (D) and (E) are plain code: same input, same output, no model call,
+no randomness, no document ids or gold labels. The exact rules are in
+PREREGISTRATION.md section 5.1. Abstentions and unparseable answers pass the
+gate unchanged, so it cannot hide format failures.
 
 ## How it will be evaluated
 
-The plan is written down before any experiment is run, in
-[PREREGISTRATION.md](PREREGISTRATION.md): hypotheses, datasets, the dev/test
-split, the scoring rule, baselines, statistics, a rule for stopping the project
-early if current models rarely make this error, and proposed success thresholds.
-It is a **draft**; the numeric thresholds in it are proposals that have not been
-approved.
+Written down before any experiment in [PREREGISTRATION.md](PREREGISTRATION.md):
 
-Scoring is deterministic: every arm, including the baseline without a gate, must
-return value + quote + source, and the quote is matched against the provided
-documents to decide which entity's document it came from. An LLM judge is used
-only as a secondary cross-check.
+- **H1** the gate reduces wrong-entity answers; **H2** at a bounded loss of
+  correct answers; **H3** it does better than an existing open-source
+  faithfulness checker (MiniCheck); **H4** with live web search and a re-search
+  loop, net correct answers do not drop. Rules and thresholds: section 11.
+- **Layers:** (1) the Deceptive Grounding benchmark, confirmatory for H1-H3;
+  (2) GRAB-RAG, exploratory; (3) a live-web layer for H4 (being added in
+  parallel by PR 8).
+- **Scoring is deterministic:** every arm must return value + quote + source;
+  the quote is matched against the shown documents to decide whose document it
+  came from. An LLM judge is only a secondary cross-check.
+- **Dev/test split by hash**, a test-set lock with a committed, hash-chained
+  access log, cluster-bootstrap intervals, a stop rule after the baseline, a
+  human audit of 100 gate decisions, and a public report with fixed contents
+  (section 15).
 
-The design for all planned work is in [ARCHITECTURE.md](ARCHITECTURE.md).
+The code is organised as described in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## What is in this repository today
+## Running each step
 
-| Piece | Where |
-|---|---|
-| Frozen data contracts with a schema version | `src/binding_gate/contracts.py`, `schema_lock.py` |
-| Interfaces for datasets, models, decomposer, checks, gate, arms, scorers | `src/binding_gate/interfaces.py` |
-| Component registration by adding a module | `src/binding_gate/registry.py` |
-| Versioned run configs with a stable hash | `src/binding_gate/config.py`, `configs/` |
-| Deterministic, leakage-free dev/test split | `src/binding_gate/split.py` |
-| Test-set lock with a committed access log | `src/binding_gate/testlock.py`, `audit/test_access_log.jsonl` |
-| Append-only run traces and run manifest | `src/binding_gate/trace.py` |
-| The text normalisation used for "verbatim" | `src/binding_gate/textnorm.py` |
-| Adapter for the Deceptive Grounding benchmark (pinned commit, never redistributed) | `src/binding_gate/datasets/deceptive_grounding.py` |
-| Required answer structure and its deterministic parser | `src/binding_gate/parsing.py` |
-| Model clients: OpenAI, Anthropic, Google Gemini, Moonshot (plain HTTPS, no SDKs) | `src/binding_gate/models/` |
-| Baseline arm without a gate; deterministic provenance scorer | `src/binding_gate/arms/no_gate.py`, `src/binding_gate/scorers/provenance.py` |
-| Runner with response cache, resume, dry run and a hard budget cap | `src/binding_gate/runner.py`, `src/binding_gate/cli.py` |
-| Baseline report with the pre-registered stop rule | `src/binding_gate/baseline_report.py` |
-| Run configs and the price table behind the cost estimate | `configs/dev_smoke.toml`, `configs/dev_baseline.toml`, `configs/prices.toml` |
-| Manually started GitHub Actions workflow for the baseline | `.github/workflows/baseline.yml`, [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md) |
-
-Not here yet: the decomposer, the checks, the gate, the comparison baselines,
-statistics. They arrive in later pull requests, listed in ARCHITECTURE.md, and
-only if the baseline passes the stop rule of the pre-registration.
-
-## Running the baseline
-
-See [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md). In short: a free dry
-run prints the number of calls and a cost estimate; a smoke run of 75 calls per
-model checks the live APIs for a few dollars at most; the full dev baseline then runs one
-job per model under a hard budget cap. Runs are started by choosing a config
-file; only API keys come from repository secrets.
-
-```bash
-python -m pip install -e ".[dev]"
-python -m pytest                                              # no network, no keys
-python -m binding_gate.cli dry-run --config configs/dev_smoke.toml   # needs the benchmark in data/raw/
-```
-
-## Honest limitations
-
-- **Unproven.** No experiment has been run. The gate may not reduce errors, or
-  may block too many correct answers. The pre-registration includes a rule to
-  stop the project if the baseline failure is too rare to matter.
-- **String matching is brittle.** Aliases, abbreviations, pronouns and tables
-  can defeat a check that looks for an entity name near a quote.
-- **One step still uses a model.** If the question is decomposed wrongly, the
-  deterministic checks enforce the wrong constraints.
-- **Narrow evidence base.** The main benchmark uses constructed clinical
-  documents; the live-web sample is small.
-- **The test-set lock is an audit trail, not security.** It prevents accidental
-  use of test data and records every supported access; it cannot stop someone
-  determined to bypass it.
-- **Not medical software.** The clinical benchmark is a test bed. Nothing here
-  is suitable for making clinical decisions.
-
-The full list is in the "Threats to validity" section of the pre-registration.
-
-## Running the tests
-
-Requires Python 3.11 or newer and git. The package itself has no runtime
+Requires Python 3.11 or newer and git. The core package has no runtime
 dependencies.
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest
+python -m pip install -e ".[dev]"     # add ",plots" for figures (matplotlib)
+python -m pytest                      # no network, no keys, no model calls
 ```
 
-The tests use temporary directories and temporary git repositories; they make no
-network requests and call no model.
+Every run is one versioned config file under `configs/`, selected by its path.
+Experiment settings are never read from environment variables; only API keys
+are (`src/binding_gate/secrets.py` is the single place). Benchmarks are cloned
+by you into `data/raw/` (git-ignored) at the pinned commits; nothing is
+redistributed. In GitHub, the manually started workflow **baseline**
+(`.github/workflows/baseline.yml`) runs the same commands with keys from
+repository secrets; step-by-step instructions are in
+[docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md).
 
-## Configuration and secrets
+| Step | Command (all paid commands refuse without `--confirm-spend`) |
+|---|---|
+| Dry run: calls and cost estimate, no API call, no key | `python -m binding_gate.cli dry-run --config configs/dev_smoke.toml` |
+| Free check that each model id exists | `python -m binding_gate.cli preflight --config configs/dev_smoke.toml` |
+| Smoke run (2 dev groups, 1 repeat) | `python -m binding_gate.cli run --config configs/dev_smoke.toml --confirm-spend` |
+| Dev baseline, `no_gate` (section 10) | `python -m binding_gate.cli run --config configs/dev_baseline.toml --confirm-spend` |
+| Stop-rule report from traces | `python -m binding_gate.cli report runs/<run_id> --json baseline.json` |
+| Decomposer accuracy (section 7) | `python -m binding_gate.evaluation.decomposer dry-run\|run\|report --config configs/decomposer_eval_dev.toml` |
+| Gated arm on dev | `python -m binding_gate.cli run --config configs/dev_gated.toml --confirm-spend` |
+| Gate calibration on dev traces (no model calls) | `python -m binding_gate.gates.calibration runs/<run_id> ...` |
+| Comparison baselines (prompt check, MiniCheck, LLM-judge checks) | `pip install -e ".[faithfulness]"`, `python -m binding_gate.arms.faithfulness_checker prepare`, `python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml`, then `run --config configs/dev_baselines.toml --confirm-spend` |
+| Per-check ablations | `run --config configs/dev_ablation_<check>.toml --confirm-spend` (one file per check) |
+| Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
+| GRAB-RAG (layer 2) | `configs/dev_grab_rag_smoke.toml`, `configs/dev_grab_rag_baseline.toml`; first export GRAB-RAG's misleading contexts once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) and pin the file's SHA-256 in the config; until then these configs stop with an explanation |
+| Live web (layer 3) | added by PR 8 in parallel: a re-search loop for the `gated_research` arm, a search client with stored page snapshots, and the SealQA adapter; see its configs and documentation once merged |
+| Statistics: metrics, intervals, H1-H4 | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
+| Frozen test run (layer 1, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend` |
+| Human audit (section 13) | see below |
+| Public report (section 15) | see below |
 
-Every run is described by one versioned file under `configs/` and selected by
-that file's path (see `configs/example.toml`). Experiment settings are never
-read from environment variables. Environment variables are used only for
-secrets such as API keys; `src/binding_gate/secrets.py` is the single place
-where they are listed. This pull request needs none.
+### Human audit
 
-## Third-party data
+```bash
+# 1. deterministic sample: 50 blocked + 50 accepted gate decisions (fixed seed)
+python -m binding_gate.audit_tool sample runs/<run_id> [...] --out audit/sample.json --html audit/audit.html
+# 2a. label in a browser: open audit/audit.html from disk (works offline), then "Export labels"
+# 2b. or label in the terminal (resumable)
+python -m binding_gate.audit_tool label --sample audit/sample.json --out audit/labels.json --auditor "<name>"
+# 3. agreement with exact (Clopper-Pearson) intervals, every disagreement, decomposer share
+python -m binding_gate.audit_tool analyze --sample audit/sample.json --labels audit/labels.json --out audit/audit.json
+```
 
-No benchmark data is included in or redistributed by this repository. Dataset
-adapters (later pull requests) read files that you download yourself under each
-dataset's own licence.
+The auditor sees the question, the documents (as "Document 1, 2, ..."), the
+candidate answer and its quote, and answers *yes / no / cannot tell*; the gate's
+verdict, its reasons and the decomposer's constraints are revealed only after
+the label is locked. Who audits is an open owner decision.
 
-## Licence
+### Public report
 
-Apache-2.0. See [LICENSE](LICENSE).
+```bash
+python -m binding_gate.report build \
+  --analysis runs/<run_id>/analysis --run-dir runs/<run_id> \
+  --baseline baseline.json --audit audit/audit.json --out public-report/
+```
+
+It writes `report.md` (figures copied to `figures/`) and a single-file
+`report.html` (figures embedded, no external assets, no script). It consumes the
+analysis files as they are: a result appears under "Confirmatory results" only
+if the analysis marks it confirmatory, and an analysis that contradicts itself
+is refused. Negative results and failures get their own section directly after
+the headline. The report ends with a table mapping every reporting commitment
+of PREREGISTRATION.md section 15 to the section that meets it.
+
+## Costs and safety rails
+
+- **Budget caps.** Every paid run needs a per-model cap in its config
+  (`[runner] max_usd`); spend is computed during the run from the token usage
+  the provider reports and the pinned price file `configs/prices.toml`, and a
+  model stops when its cap is reached (the run is left resumable). The run
+  refuses to start if even the low estimate exceeds the cap. The runner's caps
+  cover the models under test only: the decomposer inside the gated arm (at most
+  one call per distinct question) is not capped by them, while the LLM-judge
+  arm, the judge re-scoring tool and the decomposer evaluation have caps of
+  their own in their configs.
+- **`--confirm-spend`.** Without it no paid call is made; the dry run shows the
+  number of calls and a low / high / ceiling estimate first. The free preflight
+  checks every model id before the first paid call.
+- **Test lock.** Test items are reachable only through
+  `binding_gate.testlock.load_test_split`, which refuses unless the
+  pre-registration is FROZEN, HEAD is the `prereg-freeze-*` tag and the tree is
+  clean; every attempt is logged in `audit/test_access_log.jsonl` (committed,
+  hash-chained, empty today). This is an audit trail, not security.
+- **Estimated cost** of the planned dev baseline: about 59-334 USD for six
+  models, caps summing to 349 USD (PREREGISTRATION.md section 9; an estimate,
+  not a measurement).
+
+## MCP server (PR 9)
+
+*Placeholder: this section is filled in by the orchestrator when PR 9 (MCP
+server packaging) is merged.*
+
+## Honest limits
+
+- **Unproven.** No experiment has been run. The gate may not reduce errors, or
+  may block too many correct answers. A stop rule ends the project early if the
+  baseline failure turns out to be rare.
+- **Synthetic clinical layer 1.** The confirmatory benchmark consists of
+  documents constructed by its authors around drug-disease-competitor triples;
+  effects may not transfer to natural pages or other domains. Nothing here is
+  suitable for clinical decisions.
+- **GRAB-RAG "misleading" is answer substitution, not entity mismatch.** Its
+  edited passage keeps the question's entity and asserts a wrong value, so the
+  gate is not expected to catch it; layer 2 is a scope boundary and exploratory.
+  Its misleading contexts are not shipped by GRAB-RAG and must be exported once
+  with GRAB-RAG's own code before layer 2 can run.
+- **Single-template decomposer evaluation.** All layer-1 questions share one
+  template, and the decomposer is measured on the same 45 dev questions on which
+  it may be revised, so its measured accuracy is optimistic and says little
+  about other question shapes.
+- **Parameters are PROPOSED.** Thresholds, window sizes, seeds, sample sizes
+  and caps are working values awaiting owner approval.
+- **String matching is brittle.** Aliases, abbreviations, pronouns and tables
+  can defeat a check that looks for a name near a quote; the scorer shares the
+  gate's reliance on verbatim quotes.
+- **One step uses a model.** If the question is decomposed wrongly, the
+  deterministic checks enforce the wrong constraints.
+- **The human audit may have a single auditor**, in which case there is no
+  inter-rater check (the report says so).
+
+The full list is section 16 of the pre-registration ("Threats to validity").
+
+## Reproducing
+
+1. Clone this repository at the commit (or `prereg-freeze-*` tag) named in the
+   report, `pip install -e ".[dev,plots]"`, and run `python -m pytest`.
+2. Clone each benchmark into `data/raw/` at the pinned commit (the configs and
+   `python -m binding_gate.cli dataset-pin --config ...` name repository and
+   commit; the adapters verify a SHA-256 manifest of the data files on load).
+3. The published run directories (`manifest.json`, `traces.jsonl`,
+   `invocations.jsonl`) are what every number comes from: the report lists each
+   run's config hash, git commit and trace SHA-256. `python -m binding_gate.cli
+   analyze` and `python -m binding_gate.report build` regenerate the analysis
+   and the report from them without calling any model. Re-running the models
+   themselves will not reproduce the numbers exactly (hosted models change).
+
+## Licence and attributions
+
+Apache-2.0, see [LICENSE](LICENSE). Short portions of the Deceptive Grounding
+benchmark (Apache-2.0) and of GRAB-RAG (MIT) are reproduced with attribution,
+and MiniCheck (Apache-2.0; weights MIT) is used as the comparison checker; see
+[NOTICE](NOTICE). No benchmark data is included or redistributed; test fixtures
+use invented text.
