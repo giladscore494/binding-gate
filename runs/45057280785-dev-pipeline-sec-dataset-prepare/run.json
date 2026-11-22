@@ -1,0 +1,57 @@
+{
+  "artifacts": [
+    "ledger-after-run",
+    "sec-dataset-prepare--dataset"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T19:00:55+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45057280785-dev-pipeline-sec-dataset-prepare",
+  "head_branch": "main",
+  "head_sha": "ac9aa7c7bf8d70a525c38808d5325b878bf681ca",
+  "kept": [
+    {
+      "bytes": 40234,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "e9eed681d6ca39cb866ccbc9fd60f591a5482686c79531326afc96d8d55e3478"
+    },
+    {
+      "bytes": 10602,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "77c5bebaaf5685a7aa0eb585e6017414343ea57687da8048c6ec7f645c4de340"
+    },
+    {
+      "bytes": 366080,
+      "path": "sec-dataset-prepare--dataset/manifest.json",
+      "sha256": "cb8f58b0be89cd853700a00ccf26632fb34292b935c0e3308fb0e3d378b7e06f"
+    },
+    {
+      "bytes": 1033,
+      "path": "sec-dataset-prepare--dataset/prepare.json",
+      "sha256": "9055c0a01f3eadc0f1225232ed1dbfbdb02b9ccf6279c352b1084af959508245"
+    },
+    {
+      "bytes": 633,
+      "path": "sec-dataset-prepare--dataset/prepare.md",
+      "sha256": "9720613bde2c11f3c0df257bb67cec30a802a0df97700f2825080f43069f8daa"
+    },
+    {
+      "bytes": 637,
+      "path": "sec-dataset-prepare--dataset/prepare_report.json",
+      "sha256": "be877a5e956825a5b9301af8a3696fb4f399b1d1bfdc74140525c13e6d217baf"
+    },
+    {
+      "bytes": 167482,
+      "path": "sec-dataset-prepare--dataset/selection.json",
+      "sha256": "319dc598f9edb65b806d4e298e65da95e602c5d6607b46c34d1ad68d6323d5c8"
+    }
+  ],
+  "left_out": [],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45057280785,
+  "stage": "dev-pipeline-sec-dataset-prepare",
+  "title": "dev pipeline: sec-dataset-prepare",
+  "workflow": "dev pipeline: sec-dataset-prepare"
+}

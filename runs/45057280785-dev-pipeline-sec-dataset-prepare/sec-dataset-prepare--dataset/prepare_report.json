@@ -1,0 +1,22 @@
+{
+  "cache_hits": 0,
+  "content_sha256": "1310f020dd2c47ad1a0d7950cc13564bd3bda16bc7dd048e8f32bf656ec21e2c",
+  "excluded": 3,
+  "items_by_split": {
+    "dev": 378,
+    "test": 513
+  },
+  "items_by_stratum": {
+    "absent/peer": 297,
+    "present/none": 297,
+    "present/peer": 297
+  },
+  "matches_pin": false,
+  "n_companies": 297,
+  "n_items": 891,
+  "network_requests": 2333,
+  "next_step": "pin this content_sha256 as data_sha256 in every sec_financials config and commit data/raw/sec-financials/selection.json as the selection_file of the builder config",
+  "pinned_in_config": "UNPINNED",
+  "problems": [],
+  "report_version": 1
+}
