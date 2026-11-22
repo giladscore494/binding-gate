@@ -27,6 +27,14 @@ Commands (``python -m binding_gate.pipeline <command>``)
 ``dev-rest-gate --decision FILE [--notes-dir results]``
     Exit 5 (refused) unless the decision is CONTINUE, or a continue note for that
     workflow run is committed (:data:`CONTINUE_NOTE`).
+``validate-gate --decision FILE``
+    (PR 22) Exit 5 (refused) unless the decision is a final STOP: ``validate-layer1`` is the exploratory
+    follow-up of the layer-1 STOP (PREREGISTRATION.md section 18, amendment 1); prints ``seed_run_id=<N>``.
+``layer2-decision RUN_DIR ... --workflow-run-id N --json FILE [--markdown FILE]``
+    (PR 22) the layer-2 stop rule (``binding_gate.layer2_stop``) of the SEC dev baseline as a small file.
+``layer2-gate --decision FILE [--notes-dir results]``
+    (PR 22) prints ``allowed=true|false``: CONTINUE, or a committed note
+    ``results/dev_sec_baseline_continue.json`` for that workflow run (exit 0 either way; a STOP is a result).
 ``find-decision --out DIR``
     (GitHub Actions) the newest ``dev-baseline--decision`` artifact of the
     repository, downloaded into DIR; prints ``workflow_run_id=<N>``.
@@ -72,6 +80,12 @@ STAGES: dict[str, tuple[str, ...]] = {
     "layer2-dev": ("configs/dev_sec_smoke.toml", "configs/dev_sec_baseline.toml", "configs/dev_sec_gated.toml",
                    "configs/dev_sec_gated_scope.toml"),  # PR 18: binding-scope candidates
     "layer3-dev": ("configs/dev_live_smoke.toml", "configs/dev_live.toml"),
+    # PR 22 (PREREGISTRATION.md section 18, amendment 1): exploratory validation of the layer-1 STOP
+    "validate-layer1": (
+        "configs/rescore/validation_judge_structured.toml",  # V1: judge on the dev-baseline answers (subsample)
+        "configs/dev_validation_freeform.toml",              # V2: free-form answers of the same items (A, E, H)
+        "configs/rescore/validation_judge_freeform.toml",    # V2: judge on the free-form answers
+    ),
 }
 STAGES["all-dev"] = (STAGES["smoke"] + STAGES["dev-baseline"] + STAGES["dev-rest"] + STAGES["layer2-dev"]
                      + STAGES["layer3-dev"])
@@ -85,10 +99,20 @@ pin is ``UNPINNED``; the stage is never started automatically).
 
 PR 18: ``dev_gated_scope`` (after ``dev_gated``) and ``dev_sec_gated_scope`` (after ``dev_sec_gated``, seeded from the
 same SEC baseline) run the gated arm under each candidate ``binding_scope``; the analysis jobs apply the
-pre-registered selection rule to them (:func:`analyze_dev`, ``calibration --select-scope``)."""
+pre-registered selection rule to them (:func:`analyze_dev`, ``calibration --select-scope``).
+
+PR 22: ``validate-layer1`` (PREREGISTRATION.md section 18, amendment 1) is the exploratory follow-up of the layer-1
+STOP: the LLM judge on a fixed subsample of the dev-baseline answers (V1), free-form answers of the same items
+(``free_form`` arm, V2) and the judge on them, then ``python -m binding_gate.validation report``. It needs a final
+STOP (:func:`validate_gate`), never a CONTINUE, and is not part of ``all-dev``. ``layer2-dev`` now applies the
+layer-2 stop rule (``binding_gate.layer2_stop``) after its baseline: the gated runs need CONTINUE or a note."""
 FREE_STAGES = ("check-secrets", "sec-dataset-prepare")
 """Stages that make no paid call: no confirmation, no budget-ledger check."""
 LAYER2_SEED_PATTERN = "layer2-dev--dev_sec_baseline--runs-*"
+VALIDATION_SEED_PATTERN = "dev-baseline--dev_baseline--runs-*"
+"""PR 22: the dev-baseline run directories whose answers ``validate-layer1`` judges (step V1)."""
+VALIDATION_DECISION = "STOP"
+"""PR 22: ``validate-layer1`` is the exploratory follow-up of a (final) section 10 STOP, and runs only after one."""
 """Artifacts of the SEC dev baseline that seed ``configs/dev_sec_gated.toml`` (same workflow run)."""
 
 PREFLIGHT_CONFIGS = (
@@ -307,9 +331,11 @@ def smoke_check(run_dirs: Sequence[str | Path], *, repo_root: str | Path = ".") 
         candidates = list(used.values()) + ([1.0] if unmeasured or not used else [])
         ratio = max(candidates)
         projected = entry["high_usd"] * ratio
+        stopped = entry.get("status") == "stopped"  # PR 22: cannot run (ledger), so it cannot fail the check
         row = {"id": entry["id"], "config": entry["config"], "high_usd": entry["high_usd"], "cap_usd": entry["cap_usd"],
                "ratio": round(ratio, 4), "projected_high_usd": round(projected, 4), "measured_ids": sorted(used),
-               "unmeasured_ids": unmeasured, "exceeds_cap": projected > entry["cap_usd"] + 1e-9}
+               "unmeasured_ids": unmeasured, "exceeds_cap": not stopped and projected > entry["cap_usd"] + 1e-9,
+               "stopped": stopped}
         if row["exceeds_cap"]:
             failures.append(f"run {entry['id']}: projected HIGH ${projected:.2f} (plan ${entry['high_usd']:.2f} x measured "
                             f"ratio {ratio:.2f}) exceeds its cap ${entry['cap_usd']:.2f}")
@@ -320,7 +346,7 @@ def smoke_check(run_dirs: Sequence[str | Path], *, repo_root: str | Path = ".") 
         "assumptions": dict(prices.assumptions.__dict__),
         "measured": measured,
         "runs": runs,
-        "projected_high_total_usd": round(sum(r["projected_high_usd"] for r in runs), 4),
+        "projected_high_total_usd": round(sum(r["projected_high_usd"] for r in runs if not r["stopped"]), 4),
         "hard_limit_usd": plan["hard_limit_usd"],
         "ok": not failures,
         "failures": failures,
@@ -350,7 +376,7 @@ def smoke_markdown(result: Mapping[str, Any]) -> str:
     lines += ["", "| run | planned high | x ratio | projected high | cap | |", "|---|---:|---:|---:|---:|---|"]
     for row in result["runs"]:
         lines.append(f"| {row['id']} | {row['high_usd']:.2f} | {row['ratio']:.2f} | {row['projected_high_usd']:.2f} | "
-                     f"{row['cap_usd']:.2f} | {'EXCEEDS CAP' if row['exceeds_cap'] else 'ok'} |")
+                     f"{row['cap_usd']:.2f} | {'stopped' if row.get('stopped') else 'EXCEEDS CAP' if row['exceeds_cap'] else 'ok'} |")
     lines += [""] + [f"- FAILURE: {f}" for f in result["failures"]]
     return "\n".join(lines) + "\n"
 
@@ -384,36 +410,54 @@ def decision_markdown(decision: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def dev_rest_gate(decision: Mapping[str, Any], *, notes_dir: str | Path = "results") -> tuple[bool, str]:
-    """``(allowed, why)``: CONTINUE (final), or a committed continue note for this workflow run's decision."""
+def dev_rest_gate(
+    decision: Mapping[str, Any], *, notes_dir: str | Path = "results", note: str = CONTINUE_NOTE, what: str = "dev-rest"
+) -> tuple[bool, str]:
+    """``(allowed, why)``: CONTINUE (final), or a committed continue note for this workflow run's decision.
+
+    PR 22: ``note`` and ``what`` let the layer-2 stop rule (``binding_gate.layer2_stop``) use the same gate
+    with its own note (``results/dev_sec_baseline_continue.json``)."""
     run_id = decision.get("workflow_run_id")
     verdict = decision.get("decision")
     if verdict == "CONTINUE" and not decision.get("provisional"):
         return True, f"dev baseline of workflow run {run_id}: CONTINUE"
-    note_path = Path(notes_dir) / Path(CONTINUE_NOTE).name
+    note_path = Path(notes_dir) / Path(note).name
     if verdict in NOTE_DECISIONS or (verdict == "CONTINUE" and decision.get("provisional")):
         if not note_path.is_file():
             return False, (f"dev baseline of workflow run {run_id}: {verdict}{' (provisional)' if decision.get('provisional') else ''}. "
-                           f"dev-rest runs only after CONTINUE, or with a committed note {CONTINUE_NOTE} for this workflow run "
+                           f"{what} runs only after CONTINUE, or with a committed note {note} for this workflow run "
                            "(PREREGISTRATION.md section 10: the owner's decision, recorded in the amendment log)")
         try:
-            note = json.loads(note_path.read_text(encoding="utf-8"))
+            content = json.loads(note_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            return False, f"{CONTINUE_NOTE} cannot be read: {exc}"
+            return False, f"{note} cannot be read: {exc}"
         problems = []
-        if note.get("workflow_run_id") != run_id:
-            problems.append(f"its workflow_run_id is {note.get('workflow_run_id')!r}, not {run_id}")
-        if note.get("decision") != verdict:
-            problems.append(f"its decision is {note.get('decision')!r}, not {verdict!r}")
-        if note.get("continue") is not True:
+        if content.get("workflow_run_id") != run_id:
+            problems.append(f"its workflow_run_id is {content.get('workflow_run_id')!r}, not {run_id}")
+        if content.get("decision") != verdict:
+            problems.append(f"its decision is {content.get('decision')!r}, not {verdict!r}")
+        if content.get("continue") is not True:
             problems.append("it does not say continue: true")
         for key in ("reason", "amendment"):
-            if not isinstance(note.get(key), str) or not note[key].strip():
+            if not isinstance(content.get(key), str) or not content[key].strip():
                 problems.append(f"it has no {key}")
         if problems:
-            return False, f"{CONTINUE_NOTE} does not allow dev-rest: " + "; ".join(problems)
-        return True, f"dev baseline of workflow run {run_id}: {verdict}, continued by {CONTINUE_NOTE} ({note['amendment']})"
-    return False, f"dev baseline of workflow run {run_id}: {verdict}; the study does not continue (section 10)"
+            return False, f"{note} does not allow {what}: " + "; ".join(problems)
+        return True, f"dev baseline of workflow run {run_id}: {verdict}, continued by {note} ({content['amendment']})"
+    if what == "dev-rest":
+        return False, f"dev baseline of workflow run {run_id}: {verdict}; the study does not continue (section 10)"
+    return False, f"dev baseline of workflow run {run_id}: {verdict}; {what} does not run (section 10)"
+
+
+def validate_gate(decision: Mapping[str, Any]) -> tuple[bool, str]:
+    """PR 22: ``(allowed, why)`` for ``validate-layer1``: the newest dev-baseline decision must be a final STOP."""
+    run_id = decision.get("workflow_run_id")
+    verdict = decision.get("decision")
+    if verdict == VALIDATION_DECISION and not decision.get("provisional"):
+        return True, (f"dev baseline of workflow run {run_id}: STOP; validate-layer1 is its exploratory follow-up "
+                      "(PREREGISTRATION.md section 18, amendment 1); layer-1 confirmatory work stays stopped")
+    return False, (f"dev baseline of workflow run {run_id}: {verdict}{' (provisional)' if decision.get('provisional') else ''}; "
+                   "validate-layer1 is the exploratory follow-up of a final STOP only (amendment 1)")
 
 
 def find_decision(api: Any, out_dir: str | Path) -> dict[str, Any]:
@@ -595,6 +639,16 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_argument("--notes-dir", default="results")
     sub = commands.add_parser("find-decision")
     sub.add_argument("--out", required=True)
+    sub = commands.add_parser("validate-gate")  # PR 22
+    sub.add_argument("--decision", required=True)
+    sub = commands.add_parser("layer2-decision")  # PR 22
+    sub.add_argument("run_dirs", nargs="+")
+    sub.add_argument("--workflow-run-id", required=True)
+    sub.add_argument("--json", required=True)
+    sub.add_argument("--markdown", default=None)
+    sub = commands.add_parser("layer2-gate")  # PR 22
+    sub.add_argument("--decision", required=True)
+    sub.add_argument("--notes-dir", default="results")
     sub = commands.add_parser("sec-prepare-report")
     sub.add_argument("--prepare", required=True)
     sub.add_argument("--manifest", default=None)
@@ -641,6 +695,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             if allowed:
                 print(f"seed_run_id={decision['workflow_run_id']}")
             return EXIT_OK if allowed else EXIT_REFUSED
+        if args.command == "validate-gate":
+            decision = json.loads(Path(args.decision).read_text(encoding="utf-8"))
+            allowed, why = validate_gate(decision)
+            print(("ALLOWED: " if allowed else "::error::REFUSED: ") + why)
+            if allowed:
+                print(f"seed_run_id={decision['workflow_run_id']}")
+            return EXIT_OK if allowed else EXIT_REFUSED
+        if args.command == "layer2-decision":
+            from binding_gate import layer2_stop
+
+            decision = layer2_stop.decision_from_run_dirs(args.run_dirs, workflow_run_id=args.workflow_run_id)
+            layer2_stop.write(decision, args.json, args.markdown)
+            print(layer2_stop.decision_markdown(decision))
+            print(f"decision={decision['decision']}")
+            return EXIT_OK
+        if args.command == "layer2-gate":
+            from binding_gate import layer2_stop
+
+            decision = json.loads(Path(args.decision).read_text(encoding="utf-8"))
+            allowed, why = layer2_stop.gate(decision, notes_dir=args.notes_dir)
+            print(("ALLOWED: " if allowed else "REFUSED: ") + why)
+            print(f"allowed={'true' if allowed else 'false'}")
+            return EXIT_OK
         if args.command == "find-decision":
             from binding_gate.ghapi import GitHubAPI
 

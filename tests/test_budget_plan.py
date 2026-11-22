@@ -21,6 +21,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = REPO_ROOT / "configs"
 PLAN = tomllib.loads((CONFIGS / "budget.toml").read_text(encoding="utf-8"))
 RUNS = PLAN["run"]
+ACTIVE = [r for r in RUNS if r.get("status") != "stopped"]
+"""PR 22: runs a pre-registered stop rule stopped (status = "stopped") are checked against their configs but are
+not part of the planned totals (the ledger refuses to run them)."""
+STOPPED_BY_LAYER1_STOP = {
+    "dev_repeats", "dev_gated", "dev_gated_scope", "dev_ablation_quote_verbatim", "dev_ablation_entity_in_window",
+    "dev_ablation_qualifiers_in_window", "dev_ablation_no_closer_competitor", "dev_ablation_premise_present",
+    "dev_baselines", "dev_llm_judge_checks", "rescore_dev_llm_judge", "test_layer1", "test_layer1_midtier",
+}
+VALIDATION_RUNS = ("validate_layer1_judge_structured", "validate_layer1_freeform", "validate_layer1_judge_freeform")
 NOT_PAID = {"prices.toml", "budget.toml", "example.toml"}
 """Files in configs/ that make no paid call: the price table, this plan, and the format illustration
 (whose model client is a stand-in that does not exist)."""
@@ -44,8 +53,8 @@ def config_cap(entry: dict) -> float:
 def test_the_plan_stays_under_the_hard_limit_with_a_reserve():
     assert PLAN["hard_limit_usd"] == 50.0
     assert PLAN["planned_high_max_usd"] + PLAN["reserve_usd"] <= PLAN["hard_limit_usd"]
-    total_high = sum(r["high_usd"] for r in RUNS)
-    total_caps = sum(r["cap_usd"] for r in RUNS)
+    total_high = sum(r["high_usd"] for r in ACTIVE)
+    total_caps = sum(r["cap_usd"] for r in ACTIVE)
     assert total_high <= PLAN["planned_high_max_usd"], total_high
     assert total_caps <= PLAN["hard_limit_usd"], total_caps
     assert PLAN["hard_limit_usd"] - total_high >= PLAN["reserve_usd"]
@@ -54,8 +63,11 @@ def test_the_plan_stays_under_the_hard_limit_with_a_reserve():
 def test_every_entry_is_complete_and_its_cap_covers_its_high_estimate():
     ids = [r["id"] for r in RUNS]
     assert len(ids) == len(set(ids))
+    base = {"id", "config", "kind", "invocations", "models", "items", "arms", "low_usd", "high_usd", "cap_usd", "note"}
     for r in RUNS:
-        assert set(r) == {"id", "config", "kind", "invocations", "models", "items", "arms", "low_usd", "high_usd", "cap_usd", "note"}
+        assert set(r) in (base, base | {"status", "stopped_by"}), r["id"]
+        if "status" in r:
+            assert r["status"] == "stopped" and r["stopped_by"].strip(), r["id"]
         assert r["invocations"] >= 1 and 0 <= r["low_usd"] <= r["high_usd"] <= r["cap_usd"], r["id"]
 
 
@@ -66,8 +78,8 @@ def test_each_cap_in_the_plan_is_what_its_config_enforces(entry):
 
 
 def test_the_caps_of_all_configs_referenced_by_the_plan_sum_to_at_most_50_usd():
-    enforced = sum(r["invocations"] * config_cap(r) for r in RUNS if r["kind"] != "planned")
-    planned = sum(r["cap_usd"] for r in RUNS if r["kind"] == "planned")
+    enforced = sum(r["invocations"] * config_cap(r) for r in ACTIVE if r["kind"] != "planned")
+    planned = sum(r["cap_usd"] for r in ACTIVE if r["kind"] == "planned")
     assert enforced + planned <= 50.0
 
 
@@ -85,8 +97,10 @@ def test_pr17_totals_and_the_layer_2_entries():
     by_id = {r["id"]: r for r in RUNS}
     sec = [by_id[i] for i in ("dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated", "test_sec")]
     assert round(sum(r["high_usd"] for r in sec), 2) == 4.28 and round(sum(r["cap_usd"] for r in sec), 2) == 5.05
-    # PR 18 added dev_gated_scope and dev_sec_gated_scope (0.21 HIGH, 0.60 caps); see test_pr18_scope_runs
-    assert round(sum(r["high_usd"] for r in RUNS), 2) == 42.78 and round(sum(r["cap_usd"] for r in RUNS), 2) == 48.35
+    # PR 18 added dev_gated_scope and dev_sec_gated_scope (0.21 HIGH, 0.60 caps); see test_pr18_scope_runs.
+    # PR 22 added the validation runs and stopped 13 layer-1 runs (test_pr22_...); every earlier entry is unchanged.
+    before = [r for r in RUNS if r["id"] not in VALIDATION_RUNS]
+    assert round(sum(r["high_usd"] for r in before), 2) == 42.78 and round(sum(r["cap_usd"] for r in before), 2) == 48.35
     assert by_id["test_layer1"]["cap_usd"] == 16.75 and by_id["test_layer1_midtier"]["cap_usd"] == 6.95
     assert by_id["rescore_dev_llm_judge"]["cap_usd"] == 4.75 and by_id["dev_baselines"]["cap_usd"] == 1.10
 
@@ -171,3 +185,74 @@ def test_pr18_scope_runs_cost_what_their_gated_counterparts_cost_and_fit_the_roo
         assert (entry["low_usd"], entry["high_usd"], entry["cap_usd"]) == (
             by_id[base]["low_usd"], by_id[base]["high_usd"], by_id[base]["cap_usd"])
         assert entry["cap_usd"] <= 50.0 - 47.75 - 0.30  # within the room PR 17 left, with the other scope run
+
+
+def test_pr22_layer1_runs_stopped_by_section_10_and_the_validation_runs():
+    """PR 22 (amendment 1): exactly the layer-1 runs the STOP ends are stopped; the validation fits the active plan."""
+    by_id = {r["id"]: r for r in RUNS}
+    assert {r["id"] for r in RUNS if r.get("status") == "stopped"} == STOPPED_BY_LAYER1_STOP
+    assert all("45053502161" in by_id[i]["stopped_by"] and "amendment 1" in by_id[i]["stopped_by"]
+               for i in STOPPED_BY_LAYER1_STOP)
+    for still_active in ("smoke", "dev_baseline", "decomposer_eval", "dev_sec_baseline", "test_sec", "dev_live", "test_live"):
+        assert "status" not in by_id[still_active]
+    validation = [by_id[i] for i in VALIDATION_RUNS]
+    assert [r["config"] for r in validation] == [
+        "configs/rescore/validation_judge_structured.toml", "configs/dev_validation_freeform.toml",
+        "configs/rescore/validation_judge_freeform.toml"]
+    assert round(sum(r["low_usd"] for r in validation), 2) == 4.87
+    assert round(sum(r["high_usd"] for r in validation), 2) == 22.43
+    assert round(sum(r["cap_usd"] for r in validation), 2) == 23.65
+    assert round(sum(r["high_usd"] for r in ACTIVE), 2) == 34.95 and round(sum(r["cap_usd"] for r in ACTIVE), 2) == 38.20
+    for r in validation:  # caps just above HIGH: HIGH x 1.05 rounded up to 0.05 USD (at least 0.10 per model)
+        assert r["high_usd"] <= r["cap_usd"] <= r["high_usd"] * 1.05 + 0.10, r["id"]
+
+
+def test_pr22_one_subsample_for_every_validation_step():
+    from binding_gate.scorers.llm_judge import RescoreConfig
+
+    run = load_config(CONFIGS / "dev_validation_freeform.toml")
+    judged = [RescoreConfig.load(CONFIGS / "rescore" / n) for n in ("validation_judge_structured.toml", "validation_judge_freeform.toml")]
+    expected = {"per_stratum": 12, "seed": 20261122,
+                "exclude_strata": ["absent/null_control", "partial/null_control", "complete/null_control"]}
+    assert run.sample == expected and all(c.sample == expected for c in judged)
+    assert judged[0].judge_hash == judged[1].judge_hash == RescoreConfig.load(CONFIGS / "rescore" / "dev_llm_judge.toml").judge_hash
+    assert [a.name for a in run.arms] == ["free_form"] and [m.label for m in run.models] == ["openai-low", "google-low", "zai-low"]
+    # the models are configured exactly as in the dev baseline
+    baseline = load_config(CONFIGS / "dev_baseline.toml")
+    assert [m.to_dict() for m in run.models] == [m.to_dict() for m in baseline.models]
+
+
+@pytest.mark.skipif(
+    not (REPO_ROOT / "data" / "raw" / "deceptive-grounding-benchmark" / "data").is_dir(),
+    reason="benchmark not cloned into data/raw/ (it is never committed)",
+)
+def test_pr22_the_plan_reproduces_the_dry_run_of_the_freeform_run():
+    report = runner.dry_run(load_config(CONFIGS / "dev_validation_freeform.toml"), repo_root=REPO_ROOT)
+    (entry,) = [r for r in RUNS if r["id"] == "validate_layer1_freeform"]
+    assert entry["low_usd"] == pytest.approx(sum(report.model_total(m.label, "cost_low") for m in report.models), abs=0.01)
+    assert entry["high_usd"] == pytest.approx(sum(report.model_total(m.label, "cost_high") for m in report.models), abs=0.01)
+
+
+@pytest.mark.skipif(
+    not (REPO_ROOT / "data" / "raw" / "deceptive-grounding-benchmark" / "data").is_dir(),
+    reason="benchmark not cloned into data/raw/ (it is never committed)",
+)
+@pytest.mark.parametrize("run_id, answer_chars", [("validate_layer1_judge_structured", 800),
+                                                  ("validate_layer1_judge_freeform", 2000)])
+def test_pr22_judge_estimates_from_the_real_judge_prompts(run_id, answer_chars):
+    """The judge estimates of the validation: the real benchmark-judge prompts of the 144 subsample items, an answer
+    of ``answer_chars`` characters, three models, the judge's own token assumptions (configs/prices.toml)."""
+    from binding_gate.scorers import llm_judge as lj
+
+    plan = runner.load_plan(load_config(CONFIGS / "dev_validation_freeform.toml"), repo_root=REPO_ROOT)
+    assert len(plan.items) == 144
+    book = load_prices(CONFIGS / "prices.toml")
+    model_id = "kimi-k3.1-pro"
+    tokens = sum(book.assumptions.input_tokens(sum(len(m.content) for m in lj.build_judge_request(item, "x" * answer_chars).messages))
+                 for item in plan.items)
+    calls = 3 * len(plan.items)
+    visible = book.assumptions.visible_output_tokens
+    low = book.get(model_id).cost(3 * tokens, calls * (visible + book.reasoning_low(model_id)))
+    high = book.get(model_id).cost(3 * tokens, calls * (visible + book.reasoning_high(model_id)))
+    (entry,) = [r for r in RUNS if r["id"] == run_id]
+    assert entry["low_usd"] == pytest.approx(low, abs=0.01) and entry["high_usd"] == pytest.approx(high, abs=0.01)

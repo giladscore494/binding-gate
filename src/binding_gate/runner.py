@@ -296,9 +296,9 @@ def load_plan(
             adapter.iter_items(), repo_root=repo_root, confirm_tag=test_unlock_tag, purpose=purpose or ""
         )
     if config.sample is not None:
-        from binding_gate.sampling import stratified_sample
+        from binding_gate.sampling import sample_items
 
-        items = stratified_sample(items, per_stratum=config.sample["per_stratum"], seed=config.sample["seed"])
+        items = sample_items(items, config.sample)
     if not items:
         raise RunnerError("the dataset yielded no items for this split")
     ids = [item.id for item in items]
@@ -1279,7 +1279,9 @@ def run_requirements(config: RunConfig) -> dict[str, Any]:
         "layer": LAYER_BY_DATASET.get(config.dataset.name, 0),
         "private_outputs": live,
         "single_job": live,
-        "baseline_report": any(s.name == "provenance" for s in config.scorers),
+        # PR 22: only where there is a no_gate arm to report on (the free_form validation run has none)
+        "baseline_report": any(s.name == "provenance" for s in config.scorers)
+        and any(a.label == "no_gate" for a in config.arms),
         # PR 12: the MiniCheck preparation step of the workflow, and the cache key of its weights
         "faithfulness_checker": faithfulness,
         "faithfulness_weights": weights,

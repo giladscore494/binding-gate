@@ -455,8 +455,8 @@ class RescoreConfig:
     concurrency: int
     judges: tuple[JudgeSpec, ...]
     description: str = ""
-    sample: dict[str, int] | None = None
-    """PR 13: optional ``[sample]`` (``per_stratum``, ``seed``): only records of the items of this
+    sample: dict[str, Any] | None = None
+    """PR 13: optional ``[sample]`` (``per_stratum``, ``seed``; PR 22: ``exclude_strata``): only records of the items of this
     pre-registered stratified subsample of the run's items are judged (``binding_gate.sampling``)."""
 
     @property
@@ -611,14 +611,9 @@ def _in_sample(config: RescoreConfig, run: LoadedRun, records: list[Any]) -> lis
     """The records whose item is in the config's subsample of the run's items (all records without one)."""
     if config.sample is None:
         return records
-    from binding_gate.sampling import stratified_sample
+    from binding_gate.sampling import sample_items
 
-    kept = {
-        item.id
-        for item in stratified_sample(
-            list(run.items.values()), per_stratum=config.sample["per_stratum"], seed=config.sample["seed"]
-        )
-    }
+    kept = {item.id for item in sample_items(list(run.items.values()), config.sample)}
     return [r for r in records if r.item_id in kept]
 
 

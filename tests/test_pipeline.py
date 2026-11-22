@@ -24,7 +24,8 @@ PLAN = tomllib.loads((REAL_REPO / "configs" / "budget.toml").read_text(encoding=
 
 def test_all_dev_covers_every_dev_run_of_the_budget_plan_once_and_nothing_of_the_test_split():
     dev = [r["config"] for r in PLAN["run"] if r["config"] and not Path(r["config"]).name.startswith("test_")]
-    assert sorted(pipeline.STAGES["all-dev"]) == sorted(dev)
+    # PR 22: the exploratory validation of the layer-1 STOP is its own stage, never part of all-dev
+    assert sorted(pipeline.STAGES["all-dev"] + pipeline.STAGES["validate-layer1"]) == sorted(dev)
     assert len(set(pipeline.STAGES["all-dev"])) == len(pipeline.STAGES["all-dev"])
     assert all(not Path(c).name.startswith("test_") for configs in pipeline.STAGES.values() for c in configs)
     assert pipeline.STAGES["all-dev"] == (pipeline.STAGES["smoke"] + pipeline.STAGES["dev-baseline"] + pipeline.STAGES["dev-rest"]
@@ -197,6 +198,21 @@ def test_smoke_check_fails_when_the_measured_usage_would_exceed_a_cap(tmp_path, 
                           "--markdown", str(tmp_path / "c.md")]) == 1
     assert "::error::smoke usage check" in capsys.readouterr().out
     assert "EXCEEDS CAP" in (tmp_path / "c.md").read_text(encoding="utf-8")
+
+
+def test_smoke_check_ignores_stopped_runs(tmp_path):
+    """PR 22: a run with status = "stopped" cannot run (the ledger refuses it), so it cannot fail the check."""
+    repo, run_dir = smoke_repo(tmp_path, output_tokens=3000, cap=0.55)
+    budget = (repo / "configs" / "budget.toml").read_text(encoding="utf-8")
+    budget = budget.replace('high_usd = 0.5\ncap_usd = 0.55\nnote = ""\n', 'high_usd = 0.5\ncap_usd = 0.55\nnote = ""\n'
+                            'status = "stopped"\nstopped_by = "test"\n')
+    (repo / "configs" / "budget.toml").write_text(budget, encoding="utf-8")
+    result = pipeline.smoke_check([run_dir], repo_root=repo)
+    assert result["ok"], result["failures"]
+    assert {r["id"] for r in result["runs"] if r["stopped"]} == {"later", "planned"}
+    assert result["projected_high_total_usd"] == pytest.approx(
+        sum(r["projected_high_usd"] for r in result["runs"] if not r["stopped"]))
+    assert "| stopped |" in pipeline.smoke_markdown(result)
 
 
 def test_smoke_check_fails_on_error_records(tmp_path):

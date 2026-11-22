@@ -1,0 +1,53 @@
+# PR 22: EXPLORATORY validation of the layer-1 STOP (PREREGISTRATION.md section 18, amendment 1,
+# decided by the owner on 2026-11-22 AFTER seeing the layer-1 dev baseline; post hoc; decides nothing).
+#
+# This is not a run config: it is read by python -m binding_gate.scorers.llm_judge (dry-run / run /
+# agreement), like configs/rescore/dev_llm_judge.toml, whose judge, prompt and settings it repeats
+# exactly (benchmark_judge.py at commit 61b0281d8d3897f53bef3f7402727c905614c1e4, Apache-2.0, see
+# NOTICE; temperature 0.0 and max_tokens 12288 as in the benchmark). Judge-family rule (section 5):
+# slot J (Moonshot) differs from every model under test (OpenAI, Google, Z.ai).
+#
+# Subsample (fixed before any validation output exists; binding_gate.sampling): seed 20261122,
+# 12 items per condition, the three null_control conditions excluded = 12 x 12 = 144 dev items per
+# model. With the same seed the 4-per-condition items of configs/rescore/dev_llm_judge.toml are
+# among them (48 of its 60; its 12 null_control items are not).
+#
+# STEP V2, judge part (configs/budget.toml, run "validate_layer1_judge_freeform"): the judge on the
+# FREE-FORM answers of configs/dev_validation_freeform.toml (arm free_form; the same 144 items per
+# model; one run directory per model A, E, H): ONE invocation over the three directories
+#   python -m binding_gate.scorers.llm_judge run --confirm-spend --arm free_form \
+#       --config configs/rescore/validation_judge_freeform.toml <run dirs>
+# = at most 432 judge calls. The response the judge reads is the model's whole reply (raw, with any
+# <think> block removed), exactly as the benchmark judge reads a free-form response.
+#
+# Budget: hard cap PER JUDGE MODEL for one invocation. Estimate from the real judge prompts of the
+# 432 records with a free-form answer of 2,000 characters (about 1,636 input tokens per call),
+# 250 visible + 0 / 2,000 hidden reasoning tokens per call: low 2.49, high 11.13 USD; cap 11.70.
+# PROPOSED. Nothing here is read from environment variables.
+
+rescore_version = 1
+name = "validation-judge-freeform"
+description = "PR 22 (amendment 1, exploratory) V2: benchmark judge on the free_form answers, the same 144-item subsample per model."
+scorer = "llm_judge"
+prices = "configs/prices.toml"
+max_usd = 11.70
+concurrency = 4
+
+[sample]                                 # the ONE subsample of steps V1 and V2 (amendment 1)
+per_stratum = 12
+seed = 20261122
+exclude_strata = ["absent/null_control", "partial/null_control", "complete/null_control"]
+
+[[judges]]
+name = "moonshot_chat"
+label = "judge-kimi-k3.1-pro"
+[judges.options]
+model_id = "kimi-k3.1-pro"
+max_output_tokens = 12288
+# 0.0 as in the benchmark; UNVERIFIED for this model on Moonshot's API. If it is
+# rejected, delete the line (provider default) and record the deviation.
+temperature = 0.0
+timeout_seconds = 300
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0

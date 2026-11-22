@@ -4,21 +4,27 @@ A deterministic verification gate for LLM agents that answer questions from web
 search or retrieved documents, and the pre-registered study that is meant to
 test it.
 
-> **Status: pre-registration DRAFT. Nothing has been measured.** No model has
-> been called, no API key is connected yet, and there is no result of any kind:
-> no baseline rate, no evidence that the gate works. Every number in
-> [PREREGISTRATION.md](PREREGISTRATION.md) marked **PROPOSED** (thresholds,
-> seeds, window sizes, budget caps, sample sizes) still needs the owner's
-> approval before the plan is frozen. The model clients have been tested only
-> against recorded-shape example responses; model ids and prices in the configs
-> are not yet confirmed against the live APIs.
+> **Status: pre-registration DRAFT (version 0.10). Layer-1 baseline: STOP; validation in progress.**
+> The smoke run and the layer-1 dev baseline have run (dev split only; 1.14 USD of 50 spent). The
+> baseline wrong-entity rate R was 2.0% / 2.4% / 1.6% for the three primary models (`gpt-6-luna`,
+> `gemini-3.1-flash-lite`, `glm-5.3-flash`), below 5% for every model, so the pre-registered stop rule
+> (PREREGISTRATION.md section 10) says STOP: layer-1 confirmatory work (gated arm, ablations,
+> comparison arms, H1-H3 on layer 1, the layer-1 test run) is stopped and nothing is re-thresholded.
+> Amendment 1 (section 18, decided after seeing that baseline) adds an EXPLORATORY, post hoc
+> validation on dev (stage `validate-layer1`): an LLM judge on a fixed subsample of the baseline
+> answers (does the quote-provenance metric undercount?) and free-form answers of the same items
+> (arm `free_form`: does forcing the structured answer suppress the failure?). Layer 2 (SEC filings)
+> continues under its own stop rule, written before its baseline is scored. There is no evidence yet
+> that the gate works. Every number marked **PROPOSED** in [PREREGISTRATION.md](PREREGISTRATION.md)
+> still needs the owner's approval before the plan is frozen.
 
 > **Owner: the only setup you do is in [docs/OWNER_SETUP.md](docs/OWNER_SETUP.md)** (Hebrew and
 > English): add seven repository secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`,
 > `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `SEC_CONTACT_EMAIL`) and set a
 > spending limit at each provider. Everything else runs in GitHub Actions, with no local command
 > line: the dev phase from the workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`,
-> PR 15; PR 17 added the free SEC dataset stage and the layer-2 stage), the frozen test runs from
+> PR 15; PR 17 added the free SEC dataset stage and the layer-2 stage; PR 22 the stage
+> `validate-layer1`), the frozen test runs from
 > **frozen test run** (`.github/workflows/frozen_test.yml`, PR 17), every paid step guarded by a
 > global budget ledger that refuses any run that could take the study's actual spend above USD 50.
 > After every run, the workflow **results log** commits its non-sensitive reports (never traces,

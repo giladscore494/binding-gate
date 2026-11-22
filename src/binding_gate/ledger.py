@@ -24,8 +24,11 @@ What is counted (one ENTRY per key; several copies of the same records count onc
 ``decomposer-eval:<run_id>``     a decomposer measurement (``decompositions.jsonl``):
                                  its calls priced the same way, or its recorded
                                  ``cost_usd`` if larger.
-``judge:<run_id>:<judge hash>``  the judge re-scoring (``scores.llm_judge.jsonl``
+``judge:<run_id>:<judge hash>:<session>``  the judge re-scoring (``scores.llm_judge.jsonl``
                                  beside a trace): the judge calls kept in each score.
+                                 PR 22: ``<session>`` = SHA-256 (12 digits) of the file's first
+                                 score line, so an independent re-scoring of the same run is
+                                 added, while copies of one file count once.
 ``manual:<id>``                  spend entered by hand in the committed snapshot
                                  ``results/ledger.json`` (for example a frozen test run
                                  made on a computer, outside GitHub Actions).
@@ -90,12 +93,15 @@ Commands
 ``check --ledger FILE (--config C [--model L] | --stage S | --cap USD)``
                                           exit 5 (refused) when the ledger is
                                           incomplete, another run is active, or
-                                          total + cap > hard limit.
+                                          total + cap > hard limit; PR 22: also
+                                          when a config to run is a STOPPED run of
+                                          configs/budget.toml (status = "stopped").
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -371,6 +377,7 @@ def judge_scores_spend(run_dir: str | Path, repo_root: str | Path, *, source: st
     run_id = read_manifest(run_dir).run_id
     prices = load_prices(repo_root / DEFAULT_PRICES)
     by_hash: dict[str, list[Any]] = defaultdict(list)
+    first_line: dict[str, str] = {}
     lines = 0
     for line in (run_dir / SCORES_NAME).read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -378,11 +385,18 @@ def judge_scores_spend(run_dir: str | Path, repo_root: str | Path, *, source: st
         lines += 1
         entry = json.loads(line)
         details = (entry.get("score") or {}).get("details") or {}
-        by_hash[str(entry.get("judge_hash", "unknown"))].extend(ModelCall.from_dict(c) for c in details.get("model_calls", []))
+        judge_hash = str(entry.get("judge_hash", "unknown"))
+        first_line.setdefault(judge_hash, line.strip())
+        by_hash[judge_hash].extend(ModelCall.from_dict(c) for c in details.get("model_calls", []))
     out = []
     for judge_hash, calls in sorted(by_hash.items()):
         usd, paid, unpriced = _price_calls(calls, prices, {}, {})
-        out.append(Entry(f"judge:{run_id}:{judge_hash[:16]}", usd, "judge_scores", source, paid, unpriced,
+        # PR 22: the key also names the scoring SESSION (the hash of its first score line, which carries
+        # its time): copies and resumed continuations of one score file share the key (largest kept), while
+        # an independent re-scoring of the same run directory (e.g. a re-dispatched validate-layer1 stage
+        # that downloaded the run again) is a new entry and is ADDED, never hidden behind the earlier one.
+        session = hashlib.sha256(first_line[judge_hash].encode("utf-8")).hexdigest()[:12]
+        out.append(Entry(f"judge:{run_id}:{judge_hash[:16]}:{session}", usd, "judge_scores", source, paid, unpriced,
                          {"score_lines": lines, "prices": DEFAULT_PRICES}))
     return out
 
@@ -597,11 +611,33 @@ def stage_cap(stage: str, *, repo_root: str | Path = ".") -> float:
     return sum(config_cap(p, repo_root=repo_root) for p in stage_configs(stage))
 
 
-def check(ledger: Mapping[str, Any], cap: float, *, what: str) -> dict[str, Any]:
-    """Allowed or refused, with the reasons (see the module docstring)."""
+STOPPED = "stopped"
+"""PR 22: ``status`` of a budget-plan run that a pre-registered stop rule stopped (PREREGISTRATION.md section 18,
+amendment 1). Its cap is not part of the planned totals, and the ledger refuses to run its config."""
+
+
+def stopped_configs(repo_root: str | Path = ".") -> dict[str, str]:
+    """Config path -> reason, for every run of ``configs/budget.toml`` whose ``status`` is ``stopped``."""
+    plan = load_budget(repo_root)
+    return {str(r["config"]): str(r.get("stopped_by", "")) for r in plan.get("run", []) if r.get("status") == STOPPED}
+
+
+def stopped_refusals(configs: Iterable[str], repo_root: str | Path = ".") -> list[str]:
+    """Why each of ``configs`` may not run: it is a stopped run of the budget plan."""
+    stopped = stopped_configs(repo_root)
+    return [
+        f"{path} is STOPPED in configs/budget.toml ({stopped[path] or 'status = stopped'}); only a new amendment "
+        "of PREREGISTRATION.md section 18 that sets its status back can start it"
+        for path in configs
+        if path in stopped
+    ]
+
+
+def check(ledger: Mapping[str, Any], cap: float, *, what: str, refusals: Sequence[str] = ()) -> dict[str, Any]:
+    """Allowed or refused, with the reasons (see the module docstring). ``refusals``: further reasons (PR 22)."""
     total = float(ledger["total_usd"])
     limit = float(ledger["hard_limit_usd"])
-    reasons = []
+    reasons = list(refusals)
     if not ledger.get("complete"):
         reasons.append("the ledger is INCOMPLETE (unknown spend): " + "; ".join(ledger.get("problems", [])))
     active = ledger.get("active_runs") or []
@@ -878,7 +914,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "check":
             ledger = read_ledger_file(args.ledger)
             cap, what = _cap_from_args(args)
-            result = check(ledger, cap, what=what)
+            if args.stage:
+                from binding_gate.pipeline import stage_configs
+
+                configs = list(stage_configs(args.stage))
+            else:
+                configs = [args.config] if args.config else []
+            result = check(ledger, cap, what=what, refusals=stopped_refusals(configs, args.repo_root))
             ledger["check"] = result
             Path(args.ledger).write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             if args.markdown:

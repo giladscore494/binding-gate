@@ -1,0 +1,102 @@
+# PR 22: step V2 of the EXPLORATORY validation of the layer-1 STOP (PREREGISTRATION.md section 18,
+# amendment 1, decided by the owner on 2026-11-22 AFTER seeing the layer-1 dev baseline; post hoc).
+# configs/budget.toml, run "validate_layer1_freeform". Dev split only; decides nothing.
+#
+# Arm free_form (binding_gate.arms.free_form): the Deceptive Grounding benchmark's OWN doc_injection
+# messages - its system prompt (which asks for [n] citations), the documents and the question -
+# with NO answer-format instruction (no JSON, no quote, no source id). The reply is free text,
+# carried as an "answered" candidate with sentinel quote/source id (binding_gate.answering); the
+# provenance scorer labels it not_applicable, and only the LLM judge scores it
+# (configs/rescore/validation_judge_freeform.toml). The stop-rule report and the statistics of
+# H1-H4 refuse these records.
+#
+# Items: the fixed subsample of step V1 (configs/rescore/validation_judge_structured.toml), so the
+# two arms are compared on the SAME items: binding_gate.sampling, seed 20261122, 12 items per
+# condition, the three null_control conditions excluded = 12 x 12 = 144 dev items per model.
+# Models: the three primary models (slots A, E, H) with exactly the settings of
+# configs/dev_baseline.toml (lowest reasoning setting, section 9), ONE repeat.
+#
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-validation-freeform"
+description = "PR 22 (amendment 1, exploratory): free_form answers on the V1 subsample (144 dev items per model), A, E, H, 1 repeat."
+split = "dev"
+repeats = 1
+
+[sample]                                 # identical to the [sample] of the two validation judge configs
+per_stratum = 12
+seed = 20261122
+exclude_strata = ["absent/null_control", "partial/null_control", "complete/null_control"]
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml). Each cap is
+# just above this run's HIGH estimate from the dev dry run (configs/budget.toml). PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+max_usd = 0.10                           # openai-low: HIGH 0.065 (minimum cap 0.10 per model)
+[runner.max_usd_by_model]
+google-low = 0.20                        # HIGH 0.188
+zai-low = 0.20                           # HIGH 0.178 (GLM: its own reasoning assumption, 2,000 tokens high)
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot H
+name = "zai_chat"
+label = "zai-low"
+[models.options]
+model_id = "glm-5.3-flash"
+max_output_tokens = 4096
+temperature = 0.0                        # documented range [0.0, 1.0] (docs.z.ai); UNVERIFIED live, see the header
+thinking = { type = "enabled" }          # GLM-5.3 models cannot disable thinking (docs.z.ai, read 2026-11-22)
+reasoning_effort = "low"                 # lowest setting for GLM-5.3 / GLM-5.3-Flash (section 9; docs.z.ai)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "free_form"
+label = "free_form"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+# The deterministic scorer is listed so that every record states explicitly that it does not apply
+# (label not_applicable); the judge scores these answers.
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
