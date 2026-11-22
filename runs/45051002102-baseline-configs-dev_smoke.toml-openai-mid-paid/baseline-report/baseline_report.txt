@@ -1,0 +1,28 @@
+BASELINE REPORT (PREREGISTRATION.md section 10) - dev split, arm 'no_gate', deterministic provenance scoring
+run directories: artifacts/runs-openai-mid/20261122T174343Z-311727c1-4efa
+Thresholds (PROPOSED, need owner approval): continue at R >= 10%, carry models at R >= 5%, measurement check above 20% ungrounded-or-unparseable.
+
+== model openai-mid  (served as: unknown)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 0, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 0, unparseable 0, error 12
+   outcomes, all 15 conditions            : target_grounded 0, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 0, unparseable 0, error 15
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 100.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 0 answered by the provider, 15 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 0, output 0 (of which reasoning 0, itemised by 0 call(s))
+   error x15: ModelCallFailed: model call failed after 1 attempt(s): ModelError: HTTP 400: { "error": { "code": "unsupported_value", "message": "Unsupported value: 'none' is not supported with the 'gpt-6.1-sol' model. Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'.", "param": "reasoning.effort"
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for openai-mid: STOP
+
+OVERALL STOP-RULE OUTCOME: STOP
+Meaning: every model has R < 5%. The baseline is the project's finding; PRs 3-10 are not started.

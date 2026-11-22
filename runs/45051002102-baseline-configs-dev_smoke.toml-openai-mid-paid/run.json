@@ -1,0 +1,79 @@
+{
+  "artifacts": [
+    "baseline-report",
+    "ledger",
+    "ledger-after-run",
+    "runs-openai-mid"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T17:44:29+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45051002102-baseline-configs-dev_smoke.toml-openai-mid-paid",
+  "head_branch": "main",
+  "head_sha": "f0aea4c4d790c6db62d97b736d77617e901d8e5f",
+  "kept": [
+    {
+      "bytes": 3157,
+      "path": "baseline-report/baseline_report.json",
+      "sha256": "1ff4a800f359c732212391efe85fd20badb7f75eec3addbd1bd24ac22f83cd45"
+    },
+    {
+      "bytes": 2285,
+      "path": "baseline-report/baseline_report.txt",
+      "sha256": "c82860db2772484591423f583fd658a6aae747417bf340cf507331ab6c9b7696"
+    },
+    {
+      "bytes": 10773,
+      "path": "ledger/ledger.json",
+      "sha256": "d548a2f02740c13ac9b7ddf0038c76b324f7554ccad1eb6263dfb897fa0ae615"
+    },
+    {
+      "bytes": 1895,
+      "path": "ledger/ledger.md",
+      "sha256": "9261845c04b91f93fdd46f0c7a820db20fabe1a42efecc19cb583c8c60578a13"
+    },
+    {
+      "bytes": 12476,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "b6c99524218a961df7293de4250ff92b8960e3f47dd31338da9161f1e408c180"
+    },
+    {
+      "bytes": 2363,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "ae89f4546987996e5a1dc05ca6732c06b197938cbb50b3e2e0eda282ca6570d4"
+    },
+    {
+      "bytes": 916,
+      "path": "runs-openai-mid/20261122T174343Z-311727c1-4efa/invocations.jsonl",
+      "sha256": "a800a05accff220c0d4d5b1df0e9c5b2f726907ae0e8646cb2025c871ba8bd8e"
+    },
+    {
+      "bytes": 4386,
+      "path": "runs-openai-mid/20261122T174343Z-311727c1-4efa/manifest.json",
+      "sha256": "06f7180681f0047cd9f7a9d3a9eb5573e0fe6040c5cd079c1cfa28fe948d2bed"
+    },
+    {
+      "bytes": 3136,
+      "path": "runs-openai-mid/baseline_report_openai-mid.json",
+      "sha256": "e79014980b7f8950ce9fc016a26ddaa5a8a14a1b901eac000fb1b4632a4b637c"
+    },
+    {
+      "bytes": 2264,
+      "path": "runs-openai-mid/baseline_report_openai-mid.txt",
+      "sha256": "00cc55c5d6e94d17c8854f7680ccfd803ee46fe663a8e07ca0176575a43991d0"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "runs-openai-mid/20261122T174343Z-311727c1-4efa/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45051002102,
+  "stage": "baseline-configs-dev_smoke.toml-openai-mid-paid",
+  "title": "baseline: configs/dev_smoke.toml (openai-mid, paid)",
+  "workflow": "baseline: configs/dev_smoke.toml (openai-mid, paid)"
+}
