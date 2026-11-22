@@ -2,9 +2,24 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.5 (2026-11-22, PR 13)
+**Document version:** 0.6 (2026-11-22, PR 14)
 
-**Changelog.** 0.5 (2026-11-22, PR 13): the paid plan of the whole study redesigned
+**Changelog.** 0.6 (2026-11-22, PR 14): models re-selected from the providers
+the owner funds (OpenAI, Google, Z.ai, Moonshot; decided by the orchestrator
+under the owner's delegation). Primary models A `gpt-6-luna`, E
+`gemini-3.1-flash-lite` and the new H `glm-5.3-flash` (Z.ai): three families,
+two US and one Chinese. Mid-tier B `gpt-6.1-sol`, F `gemini-3.5-flash` and the
+new I `glm-5.3`. Slots C, D (Anthropic) and G (DeepSeek) removed from every
+config of the plan; their clients stay, their configs only under
+`configs/extended/`. Judge (`kimi-k3.1-pro`) and decomposer (`gpt-6-luna`)
+unchanged. The GLM-5.3 models cannot switch thinking off; their lowest setting
+is `reasoning_effort = "low"` (section 9). Budget plan re-derived from dry
+runs (planned HIGH 39.21 USD, sum of caps 43.70 USD; section 9). Scope of the
+claims (section 2), arms (section 5), judge (section 6.5), the power note
+(section 8), section 11, threats (section 16) and open items 13, 14, 22-24,
+41, 43 and 44 (section 17) updated. No threshold, gate parameter or sample-size
+rule changed. Status stays DRAFT; every changed value is PROPOSED.
+0.5 (2026-11-22, PR 13): the paid plan of the whole study redesigned
 to fit the owner's hard total budget of USD 50 for every API and search call
 (section 9, "Budget plan", and `configs/budget.toml`: planned HIGH estimate
 43.24 USD, sum of all caps 48.65 USD). Four primary low-cost models, one of them
@@ -41,9 +56,10 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project at version 0.5 (PR 13):** all ten planned pull requests,
-the housekeeping PR 11 and PR 12 are merged; PR 13 fits the paid plan into the
-USD 50 budget (changelog). No model has been called and no result of any kind
+**State of the project at version 0.6 (PR 14):** all ten planned pull requests,
+the housekeeping PR 11, PR 12 and PR 13 are merged; PR 13 fitted the paid plan
+into the USD 50 budget and PR 14 moves it to the providers the owner funds
+(changelog). No model has been called and no result of any kind
 exists. The
 Deceptive Grounding benchmark has been cloned at a pinned commit and its files
 inspected for structure (section 3); the structural statistics quoted there were
@@ -104,16 +120,18 @@ Only (A) uses a model. (C), the matching in (D), and (E) are deterministic.
 
 Thresholds that decide whether each hypothesis is supported are in section 11.
 
-**Scope of the claims (version 0.5, USD 50 budget).** H1-H3 are tested
-confirmatorily on four low-cost models from four families (slots A, C, E and G
-of section 9: OpenAI, Anthropic, Google, DeepSeek) and H4 on two of them (A and
-E). A supported hypothesis is therefore a claim about low-cost models: the tier
+**Scope of the claims (version 0.6, USD 50 budget).** H1-H3 are tested
+confirmatorily on three low-cost models from three families (slots A, E and H
+of section 9: OpenAI, Google, Z.ai; two US families and one Chinese family),
+chosen from the providers the owner funds, and H4 on two of them (A and E). A supported hypothesis is therefore a claim about low-cost models: the tier
 that cost-sensitive agents run at scale, and the tier for which a cheap
 deterministic check matters most (the gate's arms reuse the model's own answer
 and add no answer cost). Whether the effect holds for mid-tier or flagship
 models is examined only exploratorily (section 9, "Mid-tier capability check")
 and is not claimed. Every model runs at its lowest reasoning setting (section
-9); nothing is claimed about the same models with heavier reasoning.
+9); nothing is claimed about the same models with heavier reasoning. No
+Anthropic model and no DeepSeek model is tested (version 0.6), so nothing is
+claimed about those families.
 
 ## 3. Datasets and layers
 
@@ -577,7 +595,7 @@ structured answer of section 6.2.
 - **Where each arm runs (version 0.5, USD 50 budget; `configs/budget.toml`).**
   Frozen layer-1 test run (`configs/test_layer1.toml`): `no_gate`, `gated`, the
   five ablations, `faithfulness_checker` and `prompt_entity_check`, on every
-  test item, for the four primary models; within that one run every gate arm
+  test item, for the three primary models; within that one run every gate arm
   judges the single `no_gate` answer of an item and model, so the only paid
   calls are `no_gate`, `prompt_entity_check` and the decomposer. On dev: `gated`
   and the ablations on every item (answers reused from the dev baseline);
@@ -930,14 +948,14 @@ for the human audit (section 13).
   `scores.<scorer>.jsonl` beside them (the trace is never edited; resumable),
   after a dry run with a cost estimate from the real prompts, with
   `--confirm-spend`, a free preflight of the judge, and a hard budget cap per
-  judge model and invocation of 6.35 USD in `configs/rescore/dev_llm_judge.toml`
-  (version 0.5; before: 100 USD) (**PROPOSED — requires owner approval before
-  freeze**). Test-split traces are scored only by the frozen procedure of PR 6.
+  judge model and invocation of 4.75 USD in `configs/rescore/dev_llm_judge.toml`
+  (version 0.6; 0.5: 6.35 USD for four models; before: 100 USD)
+  (**PROPOSED — requires owner approval before freeze**). Test-split traces are scored only by the frozen procedure of PR 6.
 - *Subsample (version 0.5, USD 50 budget).* The judge scores the records of a
   pre-registered subsample only: 4 items per condition (60 dev items; the
   subsample rule of section 9, the same items as `llm_judge_checks`), of the
-  `no_gate` records of the four primary models' dev baselines, in one
-  invocation: at most 240 calls, estimate 1.22-6.02 USD (the judge runs at its
+  `no_gate` records of the three primary models' dev baselines, in one
+  invocation: at most 180 calls, estimate 0.92-4.52 USD (the judge runs at its
   provider default reasoning, so its high estimate assumes 2,000 hidden tokens
   per call). Agreement is reported over the judged records
   (`judge_rate_non_null_control_scored`, `R_non_null_control_scored`); with 60
@@ -1189,7 +1207,7 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   very answer `no_gate` got (section 5), the paired comparisons of H1-H3
   contain no answer-sampling noise between the arms at all. Run-to-run
   variation is measured separately (exploratory; it decides nothing):
-  `configs/dev_repeats.toml` reruns `no_gate` for the four primary models on a
+  `configs/dev_repeats.toml` reruns `no_gate` for the three primary models on a
   pre-registered dev subsample (5 items per condition, 75 items; section 9)
   with 3 repeats, repeat 0 being the dev baseline's answer, and reports per
   model the per-repeat values, their minimum and maximum, and the share of
@@ -1242,11 +1260,11 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   reasons it is not confirmatory.
 - **Per model.** Every hypothesis is evaluated for each model separately; a
   pooled estimate (sums over models) is descriptive only and has no interval.
-  The confirmatory models are the four primary models of section 9 (layer 3:
+  The confirmatory models are the three primary models of section 9 (layer 3:
   slots A and E); the mid-tier models are analysed with the same code, from
   their own subsample run, and labelled exploratory.
-- **Power (version 0.5; a planning note, not a rule).** Layer 1 test: 2,505
-  items per primary model, 2,004 of them outside `null_control`, in 86 (X, C)
+- **Power (version 0.6; a planning note, not a rule).** Layer 1 test: 2,505
+  items per primary model, three primary models (A, E, H), 2,004 of them outside `null_control`, in 86 (X, C)
   clusters, one repeat. Under the dev-baseline rates of section 10, the
   expected number of wrong-entity answers per model is about 200 at R = 10%
   (about 17 per non-`null_control` condition) and about 100 at R = 5% (about
@@ -1267,6 +1285,14 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   a gate that removes nearly all wrong answers would have an interval clear of zero;
   it is reported with intervals and no threshold. Layer 3 (H4; about 146 test
   questions, slots A and E): the interval of M3 will be wide (section 11).
+  Version 0.6: every number above is per model and unchanged by the move from
+  four to three primary models (pooled over models: about 7,500 test items and
+  about 600 wrong-entity answers at R = 10%, 300 at 5%; pooled figures are
+  descriptive only). What drops is the replication across families: each
+  hypothesis is decided for three models instead of four, and the report says
+  for how many of the three it held. The GLM model H thinks at its lowest
+  setting while A and E do not (or barely) think, so a difference between H and
+  the others may reflect the reasoning setting as well as the family.
 - **Breakdowns.** Point estimates are reported per condition (15 for layer 1)
   and per factor level (X completeness; competing-document condition), together
   with the full outcome table and the cost per arm. They are exploratory.
@@ -1290,63 +1316,75 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
 ## 9. Models
 
 Working selection adopted for PR 2 on 2026-11-22 (the owner delegated model
-selection; see section 17) and revised for the USD 50 budget in version 0.5
+selection; see section 17), revised for the USD 50 budget in version 0.5
 (PR 13; slot G added under the same delegation, at the owner's request to
-include a Chinese model family). **PROPOSED — requires owner approval before
-freeze.** Nothing in this table has been confirmed against a live API: every id
+include a Chinese model family) and re-selected in version 0.6 (PR 14) from
+the providers the owner funds: OpenAI, Google, Z.ai and Moonshot only (no
+Anthropic, no DeepSeek account), by the orchestrator under the same
+delegation. **PROPOSED — requires owner approval before freeze.** Nothing in this table has been confirmed against a live API: every id
 must pass the free preflight (`python -m binding_gate.cli preflight`) before any
 paid call, and the preflight has not been run yet.
 
 | Slot | Model identifier (exact) | Family | Role | List price, USD per 1M tokens in / out | Source of id and price (accessed 2026-11-22) |
 |---|---|---|---|---|---|
-| A | `gpt-6-luna` | OpenAI | model under test, primary (low-cost tier) | 0.10 / 0.50 | id: developers.openai.com model page; price: The Register, 2026-10-26 |
-| C | `claude-haiku-5-5` | Anthropic | model under test, primary (low-cost tier) | 0.10 / 0.50 (prompts up to 100k tokens) | id: Anthropic product information; price: several November 2026 third-party pricing summaries (**official pricing page not fetched**) |
-| E | `gemini-3.1-flash-lite` | Google | model under test, primary (low-cost tier) | 0.25 / 1.50 | ai.google.dev/gemini-api/docs/pricing |
-| G | `deepseek-flash` | DeepSeek | model under test, primary (low-cost tier) | 0.30 / 1.20 (peak; off-peak 0.15 / 0.60) | api-docs.deepseek.com/quick_start/pricing (official): the current id, version DeepSeek-V4.1-Flash-1017; the legacy name `deepseek-v4-flash` routes to the same model |
-| B | `gpt-6.1-sol` | OpenAI | model under test, exploratory mid-tier check (test subsample) | 2.00 / 10.00 | price: The Register, 2026-10-26; **exact id unverified** (pattern of the verified `gpt-6.1-terra`) |
-| D | `claude-sonnet-5-5` | Anthropic | model under test, exploratory mid-tier check (test subsample) | 2.00 / 10.00 | as slot C |
-| F | `gemini-3.5-flash` | Google | model under test, exploratory mid-tier check (test subsample) | 1.50 / 9.00 | ai.google.dev/gemini-api/docs/pricing; third-party sources mention newer 3.6–3.8 Flash ids that were not seen on the official page, so **the preflight must confirm that this id exists** |
-| J | `kimi-k3.1-pro` | Moonshot | secondary judge | 2.00 / 10.00 (**price unverified**) | price: a tech-insider report; id: listed on platform.kimi.ai as a newer model |
+| A | `gpt-6-luna` | OpenAI (US) | model under test, primary (low-cost tier) | 0.10 / 0.50 | id: developers.openai.com model page; price: The Register, 2026-10-26 |
+| E | `gemini-3.1-flash-lite` | Google (US) | model under test, primary (low-cost tier) | 0.25 / 1.50 | ai.google.dev/gemini-api/docs/pricing |
+| H | `glm-5.3-flash` | Z.ai (China) | model under test, primary (low-cost tier) | 0.15 / 0.50 (cached input 0.03, not modelled) | price: docs.z.ai/guides/overview/pricing (official); id: listed among the `model` values of docs.z.ai/api-reference/llm/chat-completion and on docs.z.ai/guides/llm/glm-5.3-flash |
+| B | `gpt-6.1-sol` | OpenAI (US) | model under test, exploratory mid-tier check (test subsample) | 2.00 / 10.00 | price: The Register, 2026-10-26; **exact id unverified** (pattern of the verified `gpt-6.1-terra`) |
+| F | `gemini-3.5-flash` | Google (US) | model under test, exploratory mid-tier check (test subsample) | 1.50 / 9.00 | ai.google.dev/gemini-api/docs/pricing; third-party sources mention newer 3.6–3.8 Flash ids that were not seen on the official page, so **the preflight must confirm that this id exists** |
+| I | `glm-5.3` | Z.ai (China) | model under test, exploratory mid-tier check (test subsample) | 1.40 / 4.40 (cached input 0.26, not modelled) | price: docs.z.ai/guides/overview/pricing (official); id: docs.z.ai/guides/llm/glm-5.3 and the chat-completion reference |
+| J | `kimi-k3.1-pro` | Moonshot (China) | secondary judge | 2.00 / 10.00 (**price unverified**) | price: a tech-insider report; id: listed on platform.kimi.ai as a newer model |
 | Dec | `gpt-6-luna` | OpenAI | decomposer (A), provisional; PR 3 may change it through its own procedure | 0.10 / 0.50 | as slot A |
 
 The same ids and prices are in `configs/dev_baseline.toml`, `configs/dev_smoke.toml`
-and `configs/prices.toml`, and a test fails if they disagree. DeepSeek bills a
-peak price (01:00-04:00 and 06:00-10:00 UTC, Monday to Friday, excluding
-Chinese public holidays) and half that price at all other hours; the price file
-holds the peak price, so the caps hold at any hour, and runs of slot G at
-off-peak hours (for example at weekends) cost about half the estimate.
+and `configs/prices.toml`, and a test fails if they disagree. Z.ai's pricing
+page states no off-peak price for API billing, so slots H and I cost the same
+at any hour. Slots C (`claude-haiku-5-5`), D (`claude-sonnet-5-5`) and G
+(`deepseek-flash`) of version 0.5 are not part of the study since version 0.6:
+the owner funds no Anthropic or DeepSeek account. Their clients remain in the
+code (tested against fixtures) and their configs only under
+`configs/extended/`; slot letters are not reused.
 
-**Rationale for this selection (version 0.5).** The primary models under test
-are low-cost models from four families: OpenAI, Anthropic and Google, which
-dominate production agent stacks, and DeepSeek, so that the results are not
-limited to US labs. Low-cost models are what cost-sensitive agents run at
+**Rationale for this selection (version 0.6).** The providers are chosen from
+those the owner funds (OpenAI, Google, Z.ai, Moonshot), covering two US
+families and one Chinese family among the models under test: OpenAI and
+Google, which dominate production agent stacks, and Z.ai's GLM, so that the
+results are not limited to US labs. Moonshot is kept for the judge (below), so
+Z.ai is the one Chinese family under test. The primary models are each
+provider's low-cost tier. Low-cost models are what cost-sensitive agents run at
 scale, and they are where a free deterministic check pays: the gate's arms
 reuse the model's own answer, so they add no answer cost (section 5). Within
-each of the three US families a mid-tier model (about 1.5-2 USD per 1M input
-tokens) is kept as an exploratory capability check: it runs only on a
-pre-registered test subsample (below) and decides no hypothesis. The USD 50
-budget does not allow the mid-tier models on every item: at the high estimate
-the three mid-tier models alone would cost about 68 USD on the test split.
+each family a mid-tier model (about 1.4-2 USD per 1M input tokens) is kept as
+an exploratory capability check: it runs only on a pre-registered test
+subsample (below) and decides no hypothesis. The USD 50 budget does not allow
+the mid-tier models on every item: at the high estimate the three mid-tier
+models alone would cost about 72 USD on the test split.
 Only generally available ids are used (no preview, no deprecated model).
 Moonshot is reserved for the secondary judge, so that the judge is from a
-family different from every model under test (section 5); this also keeps the
+family different from every model under test (OpenAI, Google, Z.ai; section 5); this also keeps the
 lineage of the benchmark's own judge (its default was `moonshotai/Kimi-K2.5`,
 since deprecated on Moonshot's platform).
 
 **Settings, identical for every model and recorded in every trace record
-(version 0.5: lowest reasoning setting, identical policy for all models).**
+(version 0.5: lowest reasoning setting, identical policy for all models;
+version 0.6: Z.ai added).**
 Every model under test, and the decomposer, runs at the **lowest reasoning
 setting its API offers**, set in the config only: OpenAI `reasoning = {effort =
 "none"}` (Responses API; the parameter name and the value "none" are
 **unverified** for these ids: OpenAI's documentation could not be read in PR 13;
 if the smoke run answers HTTP 400, the value becomes "minimal", then "low", in
 every config, recorded here); Google `thinkingConfig = {thinkingLevel =
-"minimal"}` (**unverified** for these ids; fallback "low"); Anthropic without
-extended thinking (no `thinking` field is sent; the Messages API thinks only
-when thinking is enabled; **unverified** for these ids); DeepSeek non-thinking
-mode, `thinking = {type = "disabled"}` (documented at
-api-docs.deepseek.com/guides/thinking_mode, read 2026-11-22: "Thinking mode is
-enabled by default"). Why: the task is extraction from two short documents (a
+"minimal"}` (**unverified** for these ids; fallback "low"); Z.ai `thinking =
+{type = "enabled"}` with `reasoning_effort = "low"` (documented in the
+chat-completion reference on docs.z.ai, read 2026-11-22: "GLM-5.3 and
+GLM-5.3-FLASH no longer support disabling thinking", a request with `thinking.type
+= "disabled"` fails, and their reasoning depth supports only `low` / `high` /
+`max`, default `max`). The GLM models therefore still think at their lowest
+setting, unlike A and E; the policy is identical in intent (the lowest setting
+each API offers), not in hidden-token count, and the price file gives them
+their own assumption of 100 (low) to 2,000 (high) hidden tokens per call.
+Whether Z.ai counts the thinking in `completion_tokens` is not documented; the
+caps assume it does, and the smoke run checks the reported usage. Why: the task is extraction from two short documents (a
 value, a verbatim quote and a source id), for which extended reasoning is not
 needed, and reasoning tokens are billed as output and would dominate the cost
 (at the provider default the high estimate assumed 2,000 hidden tokens per
@@ -1355,24 +1393,26 @@ default (as deployed)" of versions 0.2-0.4. The judge (slot J) is not a model
 under test; it keeps its provider default (no option is sent), and its high
 estimate assumes 2,000 hidden tokens per call. Temperature: 0 where the API
 allows it, otherwise the provider default. The configs send `temperature = 0.0`
-to Anthropic, Google and DeepSeek and send no temperature to OpenAI (whose
+to Google and Z.ai (documented range [0.0, 1.0], default 1.0) and send no
+temperature to OpenAI (whose
 reasoning-model generations have rejected the parameter); **these choices are
 unverified against the live APIs** and the smoke run decides: a provider that
 rejects the setting gets the provider default, recorded here. Maximum output
 tokens: 4,096, generous so that truncation does not create unparseable outputs;
 truncated calls are counted in the baseline report.
 
-**Alias drift (slot G).** `deepseek-flash` is the provider's current name and
-may be repointed to a newer version. The trace records, for every call, the
-model id the provider returned (`provider_reported_model`); a change of the
-returned version during the study (smoke, dev and test runs) is reported as a
-deviation (section 15, R7) and, after the freeze, recorded in the amendment log.
+**Version drift (every slot).** A provider may serve a configured name from a
+newer version. The trace records, for every call, the model id the provider
+returned (`provider_reported_model`); a change of the returned id or version
+during the study (smoke, dev and test runs) is reported as a deviation
+(section 15, R7) and, after the freeze, recorded in the amendment log.
 
-**If a provider key is missing.** If no Anthropic API key is available, slots C
-and D are skipped by the workflow and the study proceeds with A, E and G as
-primary models (still three models from three families) and B and F in the
-mid-tier check; the same applies to slot G without a DeepSeek key. This is
-recorded as an amendment.
+**If a provider key is missing.** A model whose provider key is missing is
+skipped by the workflow, not failed. The study needs all three provider keys
+of the models under test (OpenAI, Google, Z.ai) to keep three families; if one
+is missing, the study proceeds with the remaining two primary models (still at
+least two families, selection rule 1) and their mid-tier counterparts, and this
+is recorded as an amendment. The Moonshot key is needed for the judge.
 
 **Pre-registered subsamples (version 0.5).** Where the budget does not allow
 every item, a fixed subsample is drawn by one rule
@@ -1394,7 +1434,7 @@ test split this is after the test lock has opened and logged the access
 (section 12). A run on a subsample is always exploratory (section 8).
 **PROPOSED — requires owner approval before freeze.**
 
-**Mid-tier capability check (exploratory).** Slots B, D and F run once, after
+**Mid-tier capability check (exploratory).** Slots B, F and I run once, after
 the freeze, on the 225-item stratified test subsample
 (`configs/test_layer1_midtier.toml`): `no_gate`, `gated` and
 `faithfulness_checker`, one repeat, the same settings. They are not run on dev
@@ -1403,7 +1443,7 @@ applied to them. Their results are reported with the same metrics and
 intervals, labelled exploratory; with about 18 wrong-entity answers per model
 at R = 10% only large effects are distinguishable (section 8, power).
 
-**Budget plan (version 0.5).** The owner's total budget for every paid API and
+**Budget plan (version 0.5, re-derived in version 0.6).** The owner's total budget for every paid API and
 search call of the study is **USD 50, hard**. Every planned paid run is listed
 in `configs/budget.toml` with its low and high estimate and its cap;
 `tests/test_budget_plan.py` checks that each cap is the one its config enforces,
@@ -1412,30 +1452,30 @@ the hard limit for re-runs and estimation error), that the sum of all caps is at
 most 50 USD, and that every paid config is in the plan. Estimates are dry runs
 on the dev split (nothing spent) with input = characters / 4, 250 visible
 output tokens and 0 (low) to 500 (high) hidden reasoning tokens per call (judge:
-0 to 2,000); answers reused from the dev baseline (`seed_responses_from =
+0 to 2,000; GLM models H and I, which cannot switch thinking off: 100 to 2,000); answers reused from the dev baseline (`seed_responses_from =
 ["seeds/*"]`) cost nothing; test-split runs are the dev dry run of the same
 arms scaled by 2,505 / 1,455 items; layer 3 on a synthetic stand-in of SealQA's
 reported size; searches free (SerpApi Free plan).
 
 | Run (config) | Models | Items and arms | Low | High | Cap |
 |---|---|---|---|---|---|
-| smoke (`dev_smoke.toml`) | A-G | first dev group (15 items), `no_gate` | 0.21 | 0.46 | 0.85 |
+| smoke (`dev_smoke.toml`) | A, B, E, F, H, I | first dev group (15 items), `no_gate` | 0.18 | 0.48 | 0.80 |
 | decomposer measurement, up to 4 times (`decomposer_eval_dev.toml`) | Dec | 45 questions × 3 | 0.11 | 0.24 | 0.40 |
-| dev baseline (`dev_baseline.toml`) | A, C, E, G | 1,455 dev items, `no_gate` | 2.40 | 5.09 | 5.45 |
-| nondeterminism (`dev_repeats.toml`) | A, C, E, G | 75 dev items × 3 repeats (repeat 0 reused) | 0.25 | 0.52 | 0.65 |
-| gated arm (`dev_gated.toml`) | A, C, E, G | 1,455 dev items (answers reused): decomposer | 0.00 | 0.08 | 0.40 |
-| five ablations (`dev_ablation_*.toml`) | A, C, E, G | 1,455 dev items each (answers reused): decomposer | 0.00 | 0.40 | 2.00 |
-| comparison baselines (`dev_baselines.toml`) | A, C, E, G | 300 dev items: `prompt_entity_check` (+ free MiniCheck) | 0.53 | 1.08 | 1.25 |
+| dev baseline (`dev_baseline.toml`) | A, E, H | 1,455 dev items, `no_gate` | 1.68 | 4.52 | 4.80 |
+| nondeterminism (`dev_repeats.toml`) | A, E, H | 75 dev items × 3 repeats (repeat 0 reused) | 0.17 | 0.46 | 0.55 |
+| gated arm (`dev_gated.toml`) | A, E, H | 1,455 dev items (answers reused): decomposer | 0.00 | 0.06 | 0.30 |
+| five ablations (`dev_ablation_*.toml`) | A, E, H | 1,455 dev items each (answers reused): decomposer | 0.00 | 0.30 | 1.50 |
+| comparison baselines (`dev_baselines.toml`) | A, E, H | 300 dev items: `prompt_entity_check` (+ free MiniCheck) | 0.37 | 0.95 | 1.10 |
 | LLM-judge arm (`dev_llm_judge_checks.toml`) | A, judge J | 60 dev items | 0.00 | 1.51 | 1.60 |
-| secondary judge (`rescore/dev_llm_judge.toml`) | judge J on A, C, E, G | 60 dev items × 4 models | 1.22 | 6.02 | 6.35 |
+| secondary judge (`rescore/dev_llm_judge.toml`) | judge J on A, E, H | 60 dev items × 3 models | 0.92 | 4.52 | 4.75 |
 | layer 3 smoke (`dev_live_smoke.toml`) | A | 5 SealQA dev questions | 0.01 | 0.02 | 0.10 |
 | layer 3 dev (`dev_live.toml`) | A, E | SealQA dev (about 108) | 0.45 | 1.20 | 1.30 |
 | layer 2 cost side (`dev_grab_rag_supportive.toml`) | A | 394 supportive dev items | 0.09 | 0.36 | 0.40 |
-| **layer 1 test, confirmatory** (`test_layer1.toml`) | A, C, E, G | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 8.53 | 17.93 | 19.00 |
-| mid-tier check (`test_layer1_midtier.toml`) | B, D, F | 225 test items | 2.82 | 6.14 | 6.50 |
+| **layer 1 test, confirmatory** (`test_layer1.toml`) | A, E, H | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 5.98 | 15.85 | 16.75 |
+| mid-tier check (`test_layer1_midtier.toml`) | B, F, I | 225 test items | 2.47 | 6.55 | 6.95 |
 | layer 3 test, confirmatory (config pending, item 39) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
 | layer 2 test (config pending, item 39) | A | 606 supportive test items | 0.13 | 0.56 | 0.60 |
-| **Total** | | | **17.35** | **43.24** | **48.65** |
+| **Total** | | | **13.16** | **39.21** | **43.70** |
 
 The caps are hard limits in the runner (a model stops when its reported usage
 reaches its cap) and are set at the high estimate × 1.05, rounded up to 0.05
@@ -1458,13 +1498,14 @@ run only if funding becomes available, after an amendment that names it.
 Selection rule (**PROPOSED — requires owner approval before freeze**):
 
 1. At least three models under test from at least two different model families
-   (version 0.5: four primary models from four families).
+   (version 0.6: three primary models from three families, two US and one
+   Chinese, from the providers the owner funds).
 2. The confirmatory models are low-cost models (version 0.5, budget); the
    dependence on capability is examined exploratorily with one mid-tier model
-   per US family (above).
+   per family (above).
 3. Each is identified by the provider's exact, dated or versioned model id;
-   aliases such as "latest" are not allowed (`deepseek-flash` is the provider's
-   current versioned name, with its drift rule above). Sampling parameters are
+   aliases such as "latest" are not allowed (every returned id is recorded,
+   with the drift rule above). Sampling parameters are
    fixed in the run config (temperature 0 where the API allows it, otherwise
    the provider default, stated). The model id and version the provider reports
    for each call are stored in the trace.
@@ -1479,8 +1520,8 @@ Selection rule (**PROPOSED — requires owner approval before freeze**):
 ## 10. PR 2 stop rule
 
 PR 2 runs `no_gate` only, on the **dev split only**, deterministic scoring;
-since version 0.5 with one repeat and the four primary models (A, C, E, G;
-`configs/dev_baseline.toml`). The quantity is the **baseline wrong-entity rate**
+since version 0.5 with one repeat and, since version 0.6, the three primary
+models (A, E, H; `configs/dev_baseline.toml`). The quantity is the **baseline wrong-entity rate**
 R = wrong-entity answers / all records, over the dev stimuli of the 12
 conditions whose competing-document condition is not `null_control`, per model.
 The mid-tier models are not run on dev and the rule is not applied to them
@@ -1577,7 +1618,7 @@ H4_MIN_NET_DIFFERENCE     = 0
   is an open owner decision (section 17).
 - Layer 2 has no pass/fail threshold. Its results are reported with the same
   metrics as evidence for or against generalisation beyond the clinical domain.
-- "Per model" means per primary model of section 9 (layer 1: A, C, E, G; layer
+- "Per model" means per primary model of section 9 (layer 1: A, E, H; layer
   3: A, E). The mid-tier check is evaluated with the same rules and reported,
   but its statuses are exploratory (subsample run, section 8).
 - A hypothesis that is not supported is reported as not supported. Thresholds
@@ -1857,7 +1898,7 @@ section in the generator.
   result is evidence for the gate on this kind of stimulus, not a general
   guarantee.
 - **Low-cost models only (version 0.5, USD 50 budget).** The confirmatory
-  evidence comes from four low-cost models (section 2). There is no
+  evidence comes from three low-cost models (version 0.6; section 2). There is no
   confirmatory evidence for mid-tier or flagship models: the mid-tier check
   (225 test items, about 18 wrong-entity answers per model at R = 10%) can show
   only large effects, and stronger models may make the failure less often,
@@ -1867,7 +1908,15 @@ section in the generator.
   more carefully; the baseline rates and the gate's benefit may differ for them.
   For OpenAI and Google the exact lowest values are unverified until the smoke
   run, so the "identical policy" is identical in intent, and the values sent are
-  recorded per call.
+  recorded per call. The GLM models (H, I) cannot switch thinking off (version
+  0.6): they think at `reasoning_effort = "low"`, so a difference between H and
+  A or E confounds family and reasoning setting.
+- **No Anthropic model, no DeepSeek model (version 0.6).** Only providers the
+  owner funds are used. The Claude family, a large share of production agent
+  stacks, is not tested, so nothing is claimed about it; the Chinese family
+  under test is Z.ai's GLM, and the judge is from Moonshot. The three families
+  under test (OpenAI, Google, Z.ai) are a convenience selection, not a sample of
+  the market.
 - **Single repeat.** Each item is answered once per model. The intervals do not
   include the model's run-to-run variation; the nondeterminism check (75 dev
   items, 3 repeats) estimates it, but only on dev and on a subsample.
@@ -1876,9 +1925,9 @@ section in the generator.
   and `faithfulness_checker` are seen on dev on 300 items. Their agreement
   figures and dev comparisons are imprecise, and `llm_judge_checks` has no test
   result at all.
-- **Provider alias and price drift.** `deepseek-flash` is an alias that the
-  provider may repoint (section 9, drift rule); DeepSeek's price depends on the
-  hour. Several prices are from secondary sources (section 17, item 23); the
+- **Provider version and price drift.** A provider may serve a configured id
+  from a newer version (section 9, drift rule; the returned id is recorded per
+  call). Several prices are from secondary sources (section 17, item 23); the
   caps are computed from them, so a wrong price can stop a run early or let it
   cost more than planned, within the provider-side spending limits.
 
@@ -1943,6 +1992,8 @@ changed on dev data before the freeze.
     *Version 0.5 (PR 13): every cap re-derived for the USD 50 budget from the
     budget plan (section 9, "Budget plan"; `configs/budget.toml`; sum of caps
     48.65 USD, planned high 43.24 USD, checked by `tests/test_budget_plan.py`).
+    Version 0.6 (PR 14): re-derived again for the new model set from dry runs
+    (sum of caps 43.70 USD, planned high 39.21 USD).
     Still to do: re-derive the caps of the later configs from the usage the
     smoke run and the dev baseline measure, within the 50 USD; approve the plan
     (item 43).*
@@ -1950,11 +2001,11 @@ changed on dev data before the freeze.
 **(B) Owner decisions.** Closed by the owner's decision recorded in the section
 named.
 
-14. The model list (section 9): confirm the working selection (version 0.5:
-    primary A, C, E, G; mid-tier B, D, F as an exploratory check on a test
-    subsample; no flagship model, for the budget). Whether an Anthropic and a
-    DeepSeek API key are available; a missing key skips those slots, recorded as
-    an amendment (section 9).
+14. The model list (section 9): confirm the working selection (version 0.6:
+    primary A, E, H; mid-tier B, F, I as an exploratory check on a test
+    subsample; no flagship model, for the budget; only providers the owner
+    funds, so no Anthropic and no DeepSeek model). A missing provider key skips
+    those slots, recorded as an amendment (section 9).
 15. Whether H4 gets a non-inferiority margin instead of "point estimate ≥ 0"
     (section 11).
 16. Whether ties in `no_closer_competitor` fail (`competitor_tie = "fail"`,
@@ -1981,20 +2032,26 @@ named.
 **(C) Facts to verify once data and keys exist.** Closed by the run or source
 named, with the result entered in the section named.
 
-22. Model ids `gpt-6.1-sol` (slot B), `gemini-3.5-flash` (slot F) and
-    `deepseek-flash` (slot G; also the version it returns) exist:
+22. Model ids `gpt-6.1-sol` (slot B) and `gemini-3.5-flash` (slot F) exist:
     free preflight (`python -m binding_gate.cli preflight`, also part of every
     workflow dry run) (section 9). The other ids are checked the same way.
-23. Prices of slots C and D (Claude) and J (Kimi) from the providers' official
-    pricing pages; every price in `configs/prices.toml` against official pages
-    or invoices (section 9). Slot G's price was read on DeepSeek's official
-    pricing page on 2026-11-22.
+    Version 0.6: `glm-5.3-flash` (H) and `glm-5.3` (I) are listed in Z.ai's
+    API reference, but Z.ai documents no list-models endpoint; the client's
+    preflight calls `GET https://api.z.ai/api/paas/v4/models` (**unverified**)
+    and fails if it is absent, in which case the config switches it off
+    (`preflight_list_models = false`) and the first smoke-run call checks the id.
+23. Price of slot J (Kimi) from the provider's official pricing page; every
+    price in `configs/prices.toml` against official pages or invoices
+    (section 9). Slots H and I were read on Z.ai's official pricing page
+    (docs.z.ai/guides/overview/pricing) on 2026-11-22.
 24. Whether each provider accepts the temperature setting sent (0 for
-    Anthropic, Google, DeepSeek and Moonshot; none for OpenAI) and the lowest
-    reasoning setting sent (OpenAI `reasoning.effort = "none"`, Google
-    `thinkingLevel = "minimal"`: both unverified; DeepSeek `thinking.type =
-    "disabled"`: documented), and the reported usage including reasoning tokens
-    (against the 500-token high assumption): smoke run (sections 9 and 6.5).
+    Google, Z.ai and Moonshot; none for OpenAI) and the lowest reasoning
+    setting sent (OpenAI `reasoning.effort = "none"`, Google `thinkingLevel =
+    "minimal"`: both unverified; Z.ai `thinking.type = "enabled"` with
+    `reasoning_effort = "low"`: documented), and the reported usage including
+    reasoning tokens (against the 500-token high assumption; 2,000 for the GLM
+    models, whose thinking stays on, and whether Z.ai counts it in
+    `completion_tokens`): smoke run (sections 9 and 6.5).
 25. SealQA row counts and values after `python -m binding_gate.cli
     dataset-prepare` (`data/raw/sealqa/conversion.json`), entered from dev-split
     counts only (section 3, layer 3, items 3 and 5).
@@ -2063,22 +2120,22 @@ owner in the repository settings).
     *Closed in version 0.4 (PR 12): the workflow prepares and verifies the
     pinned MiniCheck weights (cached) before the preflight when a config has
     that arm.*
-41. Repository secrets created by the owner: `OPENAI_API_KEY`,
-    `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` (optional, item 14),
-    `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`
-    (docs/RUNNING.md, step 1); since version 0.5 also `DEEPSEEK_API_KEY`
-    (item 44).
+41. Repository secrets created by the owner (version 0.6): `OPENAI_API_KEY`,
+    `GEMINI_API_KEY`, `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`
+    (Free plan) and `RUNS_ENCRYPTION_PASSPHRASE` (docs/RUNNING.md, step 1).
+    `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are not used by the USD 50
+    study.
 42. `PARAMETERS_STATUS` of the MCP server (`src/binding_gate/mcp/core.py`)
     updated at the freeze (section 5.1).
 43. Owner approval of the USD 50 budget plan (version 0.5; section 9 and
     `configs/budget.toml`): what is cut (mid-tier models confirmatorily, two
     repeats, `llm_judge_checks` on test, the judges beyond 60 dev items, layer 3
-    for slots C and G, the misleading condition of layer 2), the subsample sizes
-    and the reserve.
-44. Repository secret `DEEPSEEK_API_KEY` (slot G) and a monthly spending limit
-    set by the owner in every provider's dashboard (OpenAI, Anthropic, Google,
-    DeepSeek, Moonshot) as the outer safety net (docs/RUNNING.md, "Provider
-    spending limits"); SerpApi stays on the Free plan.
+    for slot H, the misleading condition of layer 2), the subsample sizes and
+    the reserve (version 0.6: planned high 39.21 USD, caps 43.70 USD).
+44. Repository secret `ZAI_API_KEY` (slots H, I; version 0.6) and a monthly
+    spending limit or prepaid balance set by the owner at every provider used
+    (OpenAI, Google, Z.ai, Moonshot) as the outer safety net (docs/RUNNING.md,
+    "Provider spending limits"); SerpApi stays on the Free plan.
 
 *Closed earlier, kept for the record:* layer-1 facts from the real files
 (PR 2; section 3, facts 1-11); "correct" for layer 1 cannot be tightened to a

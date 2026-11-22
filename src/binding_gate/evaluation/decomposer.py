@@ -858,7 +858,7 @@ def estimate(
     if prices.has(model_id):
         price = prices.get(model_id)
         visible = prices.assumptions.visible_output_tokens
-        low = price.cost(input_tokens, calls * (visible + prices.assumptions.reasoning_tokens_low))
+        low = price.cost(input_tokens, calls * (visible + prices.reasoning_low(model_id)))
         high = price.cost(input_tokens, calls * (visible + prices.reasoning_high(model_id)))
         if max_output is not None:
             ceiling = price.cost(input_tokens, calls * max_output)

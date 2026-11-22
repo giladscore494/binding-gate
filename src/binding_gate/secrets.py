@@ -17,10 +17,17 @@ KNOWN_SECRETS: dict[str, str] = {
     # "ENV_VAR_NAME": "what it is for and which component reads it",
     # No secrets are needed in PR 1: nothing in this PR calls a model or the network.
     "OPENAI_API_KEY": "OpenAI API key; read by models/openai_responses.py (PR 2)",
-    "ANTHROPIC_API_KEY": "Anthropic API key; read by models/anthropic_messages.py (PR 2)",
+    "ANTHROPIC_API_KEY": (
+        "Anthropic API key; read by models/anthropic_messages.py (PR 2). Optional: not used by the "
+        "USD 50 study (PR 14); used by configs under configs/extended/ and the commented MCP example"
+    ),
     "GEMINI_API_KEY": "Google Gemini API key; read by models/google_gemini.py (PR 2)",
     "MOONSHOT_API_KEY": "Moonshot (Kimi) API key; read by models/moonshot_chat.py (PR 2)",
-    "DEEPSEEK_API_KEY": "DeepSeek API key; read by models/deepseek_chat.py (PR 13, slot G)",
+    "DEEPSEEK_API_KEY": (
+        "DeepSeek API key; read by models/deepseek_chat.py (PR 13). Optional: not used by the USD 50 "
+        "study (PR 14 removed slot G)"
+    ),
+    "ZAI_API_KEY": "Z.ai (GLM) API key; read by models/zai_chat.py (PR 14, slots H and I)",
     "SERPAPI_API_KEY": "SerpApi key for live web search (layer 3); read by research/search.py (PR 8)",
     "RUNS_ENCRYPTION_PASSPHRASE": (
         "passphrase with which .github/workflows/baseline.yml encrypts the run artifacts of live-web runs, "

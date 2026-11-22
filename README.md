@@ -125,7 +125,7 @@ in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
 |---|---|
 | Dry run: calls and cost estimate, no API call, no key | `python -m binding_gate.cli dry-run --config configs/dev_smoke.toml` |
 | Free check that each model id exists | `python -m binding_gate.cli preflight --config configs/dev_smoke.toml` |
-| Smoke run (1 dev group, 1 repeat, all seven models) | `python -m binding_gate.cli run --config configs/dev_smoke.toml --confirm-spend` |
+| Smoke run (1 dev group, 1 repeat, all six models under test) | `python -m binding_gate.cli run --config configs/dev_smoke.toml --confirm-spend` |
 | Dev baseline, `no_gate` (section 10) | `python -m binding_gate.cli run --config configs/dev_baseline.toml --confirm-spend` |
 | Stop-rule report from traces | `python -m binding_gate.cli report runs/<run_id> --json baseline.json` |
 | Decomposer accuracy (section 7) | `python -m binding_gate.evaluation.decomposer dry-run\|run\|report --config configs/decomposer_eval_dev.toml` |
@@ -202,22 +202,39 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   dev baseline, decomposer measurement, gated arm and ablations, comparison
   baselines, judges, layers 2 and 3, the frozen test runs) is listed in
   [`configs/budget.toml`](configs/budget.toml) with its low and high estimate
-  and its cap: planned **17.35 USD (low) to 43.24 USD (high)**, all caps
-  together **48.65 USD**, so even if every run spent its full cap the study
+  and its cap: planned **13.16 USD (low) to 39.21 USD (high)**, all caps
+  together **43.70 USD**, so even if every run spent its full cap the study
   could not exceed 50 USD; `tests/test_budget_plan.py` checks this and that
   every paid config is in the plan. How it fits (PREREGISTRATION.md section 9):
-  four low-cost primary models (OpenAI, Anthropic, Google, DeepSeek) on every
-  item with one repeat, at their lowest reasoning setting; the gate arms reuse
+  three low-cost primary models (OpenAI, Google, Z.ai) on every item with one
+  repeat, at their lowest reasoning setting; the gate arms reuse
   the answer `no_gate` already paid for; later dev runs reuse the dev
   baseline's answers; mid-tier models, judges and the nondeterminism check run
   on pre-registered subsamples; web search on SerpApi's free plan. The largest
-  item is the confirmatory layer-1 test run (8.53-17.93 USD). The previous
+  item is the confirmatory layer-1 test run (5.98-15.85 USD). The previous
   full-scale design (six models, three repeats, every arm on every item; about
   550 USD at the low estimate) is kept, not run, under `configs/extended/`.
+- **Models and API keys (PR 14).** Only providers the owner funds are used,
+  covering two US families and one Chinese family (PREREGISTRATION.md section 9):
+
+  | Slot | Model id | Provider | Role | USD per 1M tokens in / out |
+  |---|---|---|---|---|
+  | A | `gpt-6-luna` | OpenAI | primary (confirmatory); also the decomposer | 0.10 / 0.50 |
+  | E | `gemini-3.1-flash-lite` | Google | primary (confirmatory) | 0.25 / 1.50 |
+  | H | `glm-5.3-flash` | Z.ai | primary (confirmatory) | 0.15 / 0.50 |
+  | B | `gpt-6.1-sol` | OpenAI | mid-tier (exploratory, 225 test items) | 2.00 / 10.00 |
+  | F | `gemini-3.5-flash` | Google | mid-tier (exploratory) | 1.50 / 9.00 |
+  | I | `glm-5.3` | Z.ai | mid-tier (exploratory) | 1.40 / 4.40 |
+  | J | `kimi-k3.1-pro` | Moonshot | LLM judge (a family not under test) | 2.00 / 10.00 |
+
+  Repository secrets the study needs: `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+  `ZAI_API_KEY`, `MOONSHOT_API_KEY`, `SERPAPI_API_KEY` (Free plan) and
+  `RUNS_ENCRYPTION_PASSPHRASE`. `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are
+  not used by the USD 50 study (their clients remain, for `configs/extended/`).
+  Every id and price is unverified until the free preflight and the smoke run.
 - **Provider-side limits.** Set a monthly spending limit in each provider's
   dashboard as the outer safety net (docs/RUNNING.md, "Provider spending
-  limits"). DeepSeek is priced at its peak rate; running its jobs off-peak
-  (for example at weekends) halves its actual cost.
+  limits").
 
 ## Use the gate as a tool (MCP server)
 
@@ -263,9 +280,12 @@ and the study's results are pending. See [docs/MCP.md](docs/MCP.md).
 - **Parameters are PROPOSED.** Thresholds, window sizes, seeds, sample sizes
   and caps are working values awaiting owner approval.
 - **Claims are about low-cost models.** To fit the USD 50 budget, H1-H4 are
-  tested on four low-cost models at their lowest reasoning setting, with one
+  tested on three low-cost models at their lowest reasoning setting, with one
   repeat; mid-tier models are only an exploratory check on a 225-item test
-  subsample, and the LLM judges see 60 dev items per model.
+  subsample, and the LLM judges see 60 dev items per model. No Anthropic model
+  is tested (only providers the owner funds are used), and the Z.ai GLM models
+  cannot switch thinking off, so "lowest reasoning setting" means light
+  thinking for them and none or minimal for the others.
 - **String matching is brittle.** Aliases, abbreviations, pronouns and tables
   can defeat a check that looks for a name near a quote; the scorer shares the
   gate's reliance on verbatim quotes.

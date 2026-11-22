@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from binding_gate import judging, registry, runner
-from binding_gate.config import load_config
+from binding_gate.config import ComponentSpec, load_config
 from binding_gate.secrets import KNOWN_SECRETS
 from test_model_clients import KEY, REQUEST, FakeTransport, sent
 
@@ -85,11 +85,13 @@ def test_thinking_must_be_a_table():
         make(FakeTransport(), thinking="disabled")
 
 
-def test_secret_family_and_the_committed_slot_g():
-    assert "DEEPSEEK_API_KEY" in KNOWN_SECRETS
+def test_secret_family_and_slot_g_left_the_usd_50_study():
+    assert "DEEPSEEK_API_KEY" in KNOWN_SECRETS and "not used by the USD 50 study" in KNOWN_SECRETS["DEEPSEEK_API_KEY"]
     client = make(FakeTransport())
     assert client.secret_name == "DEEPSEEK_API_KEY" and judging.model_family(client) == "deepseek"
+    # PR 14: the owner funds no DeepSeek account; the client stays (generic, tested) but no config of the plan uses it
     config = load_config(Path(__file__).resolve().parents[1] / "configs" / "dev_baseline.toml")
-    spec = {m.label: m for m in config.models}["deepseek-low"]
+    assert "deepseek_chat" not in {m.name for m in config.models}
+    spec = ComponentSpec(name="deepseek_chat", label="deepseek-low", options={"model_id": "deepseek-flash", "max_output_tokens": 4096, "thinking": {"type": "disabled"}})
     built = runner.build_model(spec)
     assert built.model_id == "deepseek-flash" and built.thinking == {"type": "disabled"}

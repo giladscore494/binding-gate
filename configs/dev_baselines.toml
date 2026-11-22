@@ -1,5 +1,5 @@
 # PR 5 comparison baselines (PREREGISTRATION.md section 5; configs/budget.toml, run
-# "dev_baselines"), dev split, 1 repeat, the four primary models, on a pre-registered stratified
+# "dev_baselines"), dev split, 1 repeat, the three primary models (A, E, H), on a pre-registered stratified
 # dev subsample: 20 items per condition (300 items; binding_gate.sampling, seed 20261122).
 #
 # Arms, all in ONE run:
@@ -31,14 +31,14 @@ seed = 20261122
 [runner]
 # Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
 # calls such as the decomposer and the judge included). Each cap is this run's allotment in
-# configs/budget.toml, just above its HIGH estimate; sum of caps 1.25 USD. PROPOSED.
+# configs/budget.toml, just above its HIGH estimate; sum of caps 1.1 USD. PROPOSED.
 concurrency = 8
 prices = "configs/prices.toml"
 seed_responses_from = ["seeds/*"]      # PR 13: every run of the workflow run given in seed_run_id
 max_usd = 0.2
 [runner.max_usd_by_model]
 google-low = 0.45
-deepseek-low = 0.4
+zai-low = 0.45
 
 [dataset]
 name = "deceptive_grounding"
@@ -61,19 +61,6 @@ max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot C
-name = "anthropic_messages"
-label = "anthropic-low"
-[models.options]
-model_id = "claude-haiku-5-5"
-max_output_tokens = 4096
-temperature = 0.0
-# thinking: not sent = no extended thinking (the lowest setting; section 9)
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
 [[models]]                               # slot E
 name = "google_gemini"
 label = "google-low"
@@ -87,14 +74,15 @@ max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot G
-name = "deepseek_chat"
-label = "deepseek-low"
+[[models]]                               # slot H
+name = "zai_chat"
+label = "zai-low"
 [models.options]
-model_id = "deepseek-flash"
+model_id = "glm-5.3-flash"
 max_output_tokens = 4096
-temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
-thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
+temperature = 0.0                        # documented range [0.0, 1.0] (docs.z.ai); UNVERIFIED live, see the header
+thinking = { type = "enabled" }          # GLM-5.3 models cannot disable thinking (docs.z.ai, read 2026-11-22)
+reasoning_effort = "low"                 # lowest setting for GLM-5.3 / GLM-5.3-Flash (section 9; docs.z.ai)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0

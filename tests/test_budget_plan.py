@@ -103,7 +103,11 @@ def test_extended_price_file_has_the_same_token_prices_and_the_old_assumptions()
     main = load_prices(CONFIGS / "prices.toml")
     extended = load_prices(CONFIGS / "extended" / "prices.toml")
     assert extended.assumptions.reasoning_tokens_high == 2000
+    dropped = {"claude-haiku-5-5", "claude-sonnet-5-5", "deepseek-flash"}  # PR 14: not in the USD 50 study
+    assert not dropped & set(main.prices) and {"claude-haiku-5-5", "claude-sonnet-5-5"} <= set(extended.prices)
     for model_id, price in extended.prices.items():
+        if model_id in dropped:
+            continue
         if model_id == "serpapi/google":
             assert price.per_call_usd == 0.025 and main.get(model_id).per_call_usd == 0.0
             continue

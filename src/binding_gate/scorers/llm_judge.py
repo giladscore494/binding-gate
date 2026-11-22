@@ -694,7 +694,7 @@ def estimate(
         client = next(c for (s, c) in chosen.values() if s.label == label)
         price = book.get(entry.judge_model_id)
         visible = book.assumptions.visible_output_tokens
-        entry.cost_low = price.cost(entry.input_tokens, entry.calls * (visible + book.assumptions.reasoning_tokens_low))
+        entry.cost_low = price.cost(entry.input_tokens, entry.calls * (visible + book.reasoning_low(entry.judge_model_id)))
         entry.cost_high = price.cost(entry.input_tokens, entry.calls * (visible + book.reasoning_high(entry.judge_model_id)))
         max_output = int(getattr(client, "max_output_tokens", 0) or 0)
         entry.cost_ceiling = price.cost(entry.input_tokens, entry.calls * max_output)

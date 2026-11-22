@@ -18,7 +18,7 @@ from binding_gate.scorers.llm_judge import RescoreConfig
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = REPO_ROOT / "configs"
 ABLATIONS = sorted(CONFIGS.glob("dev_ablation_*.toml"))
-FAMILIES_UNDER_TEST = {"openai", "anthropic", "google", "deepseek"}
+FAMILIES_UNDER_TEST = {"openai", "google", "zai"}  # PR 14: the providers the owner funds
 
 
 def baseline() -> dict:
@@ -76,7 +76,7 @@ def test_baselines_judge_is_slot_j_priced_and_of_another_family_than_every_model
     assert (spec.name, client.model_id, judging.model_family(client)) == ("moonshot_chat", "kimi-k3.1-pro", "moonshot")
     assert load_prices(REPO_ROOT / options["prices"]).has("kimi-k3.1-pro")
     assert options["judge_max_usd"] > 0
-    under_test = load_config(CONFIGS / "dev_smoke.toml")  # every model under test (A-G)
+    under_test = load_config(CONFIGS / "dev_smoke.toml")  # every model under test (A, B, E, F, H, I)
     families = {judging.model_family(runner.build_model(m)) for m in under_test.models}
     assert families == FAMILIES_UNDER_TEST and "moonshot" not in families
     monkeypatch.setenv("MOONSHOT_API_KEY", "placeholder-for-construction-only")
@@ -88,7 +88,7 @@ def test_baselines_judge_is_slot_j_priced_and_of_another_family_than_every_model
 
 
 def test_baselines_dry_run_works_without_any_key_or_heavy_dependency(tmp_path, monkeypatch):
-    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY"):
+    for name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     repo = h.make_repo(tmp_path)
     (repo / "configs" / "prices.toml").write_text((CONFIGS / "prices.toml").read_text(), encoding="utf-8")
@@ -96,7 +96,7 @@ def test_baselines_dry_run_works_without_any_key_or_heavy_dependency(tmp_path, m
     report = runner.dry_run(config, repo_root=repo)
     # the synthetic checkout has 3 conditions x 15 items: 20 per condition keeps all 45
     assert report.n_items == 45 and report.requests_per_repeat == 45 * 2
-    assert len(report.models) == 4 and all(m.calls == 45 * 2 for m in report.models)
+    assert len(report.models) == 3 and all(m.calls == 45 * 2 for m in report.models)
     assert "none was found" in report.seed_note  # no seed run downloaded: nothing subtracted
 
 

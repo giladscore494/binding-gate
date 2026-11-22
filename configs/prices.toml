@@ -5,6 +5,10 @@
 # project's code; they were supplied with the model selection on 2026-11-22
 # (PREREGISTRATION.md section 9) and are UNVERIFIED unless the note says otherwise.
 # Check them against the provider invoices after the smoke run.
+#
+# PR 14: the USD 50 study uses only providers the owner funds (OpenAI, Google, Z.ai, Moonshot).
+# The Anthropic (claude-haiku-5-5, claude-sonnet-5-5) and DeepSeek (deepseek-flash) prices left
+# this file; they stay in configs/extended/prices.toml for the extended design.
 
 prices_version = 1
 
@@ -14,14 +18,16 @@ chars_per_token = 4.0          # input tokens ~= prompt characters / 4 (rule of 
 visible_output_tokens = 250    # the JSON answer: a one/two-sentence value, a quote, a source id
 reasoning_tokens_low = 0       # hidden reasoning/thinking tokens per call billed as output: none ...
 reasoning_tokens_high = 500    # ... up to an average of 500 at the LOWEST reasoning setting (PR 13; an assumption)
-# PR 13: every model under test runs at its lowest reasoning setting (PREREGISTRATION.md
-# section 9: OpenAI reasoning effort "none", Gemini thinkingLevel "minimal", Claude without
-# extended thinking, DeepSeek non-thinking mode). At those settings the expected hidden
+# PR 13/14: every model under test runs at its lowest reasoning setting (PREREGISTRATION.md
+# section 9: OpenAI reasoning effort "none", Gemini thinkingLevel "minimal", Z.ai GLM
+# reasoning_effort "low" - GLM-5.3 models cannot switch thinking off, so they carry their own
+# low and high assumptions below). At those settings the expected hidden
 # reasoning is near zero; 500 tokens per call on average is a deliberately generous high
 # assumption (before PR 13: 2,000 at the provider default; that value is kept in
 # configs/extended/prices.toml for the extended design). The smoke run measures the real
 # usage. A model that runs at its provider default (the judge, slot J) carries its own
-# reasoning_tokens_high below.
+# reasoning_tokens_high below; so do the GLM models (slots H and I, PR 14), whose thinking stays on
+# at the lowest setting and which also carry their own reasoning_tokens_low.
 
 [[price]]
 model_id = "gpt-6-luna"
@@ -39,21 +45,6 @@ accessed = "2026-11-22"
 note = "exact model id unverified (pattern of the verified gpt-6.1-terra); the preflight must confirm it"
 
 [[price]]
-model_id = "claude-haiku-5-5"
-input_per_mtok = 0.10
-output_per_mtok = 0.50
-source = "several November 2026 third-party pricing summaries (official pricing page not fetched); id from Anthropic product information"
-accessed = "2026-11-22"
-note = "price stated for prompts up to 100k tokens; our prompts are about 1k tokens"
-
-[[price]]
-model_id = "claude-sonnet-5-5"
-input_per_mtok = 2.00
-output_per_mtok = 10.00
-source = "several November 2026 third-party pricing summaries (official pricing page not fetched); id from Anthropic product information"
-accessed = "2026-11-22"
-
-[[price]]
 model_id = "gemini-3.1-flash-lite"
 input_per_mtok = 0.25
 output_per_mtok = 1.50
@@ -69,6 +60,26 @@ accessed = "2026-11-22"
 note = "third-party sources mention newer 3.6-3.8 Flash ids not seen on the official page; the preflight must confirm this id exists"
 
 [[price]]
+model_id = "glm-5.3-flash"
+input_per_mtok = 0.15
+output_per_mtok = 0.50
+source = "docs.z.ai/guides/overview/pricing (official; read 2026-11-22); id listed in docs.z.ai/api-reference/llm/chat-completion"
+accessed = "2026-11-22"
+note = "slot H (PR 14), primary. Cached input $0.03 (not modelled: the estimate assumes no cache hits); no off-peak price is stated for API billing. Thinking cannot be disabled (docs.z.ai): lowest setting reasoning_effort = low, hence its own low and high reasoning assumptions (UNVERIFIED; the smoke run measures them). Whether completion_tokens includes the thinking is not documented; the cap assumes it does"
+reasoning_tokens_low = 100
+reasoning_tokens_high = 2000
+
+[[price]]
+model_id = "glm-5.3"
+input_per_mtok = 1.40
+output_per_mtok = 4.40
+source = "docs.z.ai/guides/overview/pricing (official; read 2026-11-22); id from docs.z.ai/guides/llm/glm-5.3 and the chat-completion API reference"
+accessed = "2026-11-22"
+note = "slot I (PR 14), exploratory mid-tier. Cached input $0.26 (not modelled). Thinking cannot be disabled; lowest setting reasoning_effort = low, hence its own reasoning assumptions (UNVERIFIED)"
+reasoning_tokens_low = 100
+reasoning_tokens_high = 2000
+
+[[price]]
 model_id = "kimi-k3.1-pro"
 input_per_mtok = 2.00
 output_per_mtok = 10.00
@@ -76,14 +87,6 @@ source = "tech-insider report (price); platform.kimi.ai model list (id)"
 accessed = "2026-11-22"
 note = "secondary judge (slot J); price unverified. Runs at its provider-default reasoning (no option is sent), hence its own high assumption"
 reasoning_tokens_high = 2000
-
-[[price]]
-model_id = "deepseek-flash"
-input_per_mtok = 0.30
-output_per_mtok = 1.20
-source = "api-docs.deepseek.com/quick_start/pricing (official): deepseek-flash = DeepSeek-V4.1-Flash-1017; PEAK prices (input cache miss $0.30, output $1.20)"
-accessed = "2026-11-22"
-note = "slot G (PR 13). Peak = 01:00-04:00 and 06:00-10:00 UTC Mon-Fri; off-peak (all other hours, weekends) is half: $0.15 / $0.60; cache-hit input $0.006 peak / $0.003 off-peak. The peak price is entered so the caps hold at any hour. deepseek-flash is an alias (legacy deepseek-v4-flash routes to the same model)"
 
 # PR 8 (layer 3): per-call prices (per_call_usd) for the web search API and the page fetcher.
 # Every call in a trace is priced by the id in its response ("serpapi/google",

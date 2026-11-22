@@ -15,20 +15,21 @@
 #
 # Judge-family rule (section 5): for every model under test, the first judge in the
 # list whose family differs is used. Only slot J (Moonshot) is listed; it differs
-# from every model under test of section 9. If a model under test were a Moonshot
+# from every model under test of section 9 (OpenAI, Google, Z.ai). If a model under test were a Moonshot
 # model, re-scoring would refuse for that model instead of substituting a judge.
 #
 # Subsample (PR 13, configs/budget.toml run "rescore_dev_llm_judge"): only the records of a
 # pre-registered stratified subsample of the run's dev items are judged: 4 items per
 # condition (60 items; binding_gate.sampling, seed 20261122; the same items as
-# configs/dev_llm_judge_checks.toml). Intended use: ONE invocation over the four
-# dev-baseline run directories (one per primary model) = at most 240 judge calls.
+# configs/dev_llm_judge_checks.toml). Intended use: ONE invocation over the three
+# dev-baseline run directories (one per primary model: A, E, H; PR 14) = at most 180 judge calls.
 #
 # Budget: max_usd is a hard cap PER JUDGE MODEL for one invocation, enforced from the
-# usage the provider reports. PR 13: 6.35 USD, just above the HIGH estimate of 240 calls
+# usage the provider reports. PR 14: 4.75 USD, just above the HIGH estimate of 180 calls
 # (about 1,290 input tokens per call from the real prompts; 250 visible + 2,000 hidden
 # reasoning tokens per call, the judge's own high assumption in configs/prices.toml):
-# low 1.22, high 6.02 USD. PROPOSED - requires owner approval before any paid use.
+# low 0.92, high 4.52 USD (PR 13, four models / 240 calls: cap 6.35, low 1.22, high 6.02).
+# PROPOSED - requires owner approval before any paid use.
 # Nothing here is read from environment variables.
 
 rescore_version = 1
@@ -36,7 +37,7 @@ name = "dev-llm-judge"
 description = "Benchmark-style attribution judge (secondary scorer) on dev traces."
 scorer = "llm_judge"
 prices = "configs/prices.toml"
-max_usd = 6.35
+max_usd = 4.75
 concurrency = 4
 
 [sample]                                 # PROPOSED (section 6.5): 4 items per condition
