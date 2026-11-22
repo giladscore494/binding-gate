@@ -1,0 +1,53 @@
+{
+  "artifacts": [
+    "check-secrets--ledger",
+    "check-secrets--report",
+    "ledger-after-run"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T17:57:05+00:00",
+  "conclusion": "failure",
+  "event": "workflow_dispatch",
+  "folder": "runs/45052172832-dev-pipeline-check-secrets",
+  "head_branch": "main",
+  "head_sha": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "kept": [
+    {
+      "bytes": 14581,
+      "path": "check-secrets--ledger/ledger.json",
+      "sha256": "e2c8666f7a8214c3cadd15ba4678e2050517a9c729160d75992e0cfb0f0d6659"
+    },
+    {
+      "bytes": 2828,
+      "path": "check-secrets--ledger/ledger.md",
+      "sha256": "91498477956dbf614dbe94a2a0ab0e810db0aea2a5d6d49c1f88df995ce9f2c3"
+    },
+    {
+      "bytes": 3150,
+      "path": "check-secrets--report/report.json",
+      "sha256": "6171df006814f008807b76f9dc6eb2b75e473a72c63c01f303d537e24f234a49"
+    },
+    {
+      "bytes": 1460,
+      "path": "check-secrets--report/report.md",
+      "sha256": "915ad5c2c450b153713b9b70e4867c17d32e9bb6958a9c7990ddaa151154e922"
+    },
+    {
+      "bytes": 15621,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "1fe576c758b0cb50b6f187ac8d4292a6b450c94dfaa38f55bd2ca5c31b5d39be"
+    },
+    {
+      "bytes": 3532,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "26396a9a9d5ca02428575b9fbcebed18ba76440abaf60c9ac4e5a2fcb682aeae"
+    }
+  ],
+  "left_out": [],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45052172832,
+  "stage": "dev-pipeline-check-secrets",
+  "title": "dev pipeline: check-secrets",
+  "workflow": "dev pipeline: check-secrets"
+}
