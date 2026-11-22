@@ -1,0 +1,113 @@
+{
+  "arm": "no_gate",
+  "models": [
+    {
+      "R": 0.0,
+      "by_condition": {
+        "absent/class_proximate": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "absent/context_adjacent": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "absent/null_control": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "absent/prior_completing": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "absent/synthetic_y": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "complete/class_proximate": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "complete/null_control": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "partial/class_proximate": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "partial/context_adjacent": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "partial/null_control": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "partial/prior_completing": {
+          "n": 1,
+          "wrong_entity": 0
+        },
+        "partial/synthetic_y": {
+          "n": 1,
+          "wrong_entity": 0
+        }
+      },
+      "calls_reporting_reasoning": 0,
+      "complete": true,
+      "decision": "STOP",
+      "failed_calls": 0,
+      "input_tokens": 8911,
+      "measurement_check": false,
+      "model": "google-mid",
+      "n_groups": 1,
+      "n_items": 12,
+      "n_records": 12,
+      "n_relevant": 9,
+      "outcomes_all": {
+        "abstention": 5,
+        "ambiguous": 0,
+        "error": 0,
+        "target_grounded": 7,
+        "ungrounded": 0,
+        "unparseable": 0,
+        "wrong_entity": 0
+      },
+      "outcomes_relevant": {
+        "abstention": 4,
+        "ambiguous": 0,
+        "error": 0,
+        "target_grounded": 5,
+        "ungrounded": 0,
+        "unparseable": 0,
+        "wrong_entity": 0
+      },
+      "output_tokens": 1109,
+      "paid_calls": 12,
+      "reasoning_tokens": 0,
+      "repeats": [
+        0
+      ],
+      "served_models": [
+        "gemini-3.6-flash"
+      ],
+      "source_id_mismatches": 0,
+      "truncated_calls": 0,
+      "ungrounded_or_unparseable_share": 0.0,
+      "wrong_entity_relevant": 0
+    }
+  ],
+  "overall": "STOP",
+  "provisional": true,
+  "run_dirs": [
+    "runs/20261122T173212Z-311727c1-be21"
+  ],
+  "thresholds_percent": {
+    "carry": 5,
+    "continue": 10,
+    "measurement_check": 20
+  },
+  "unfinished_runs": [
+    "runs/20261122T173212Z-311727c1-be21"
+  ]
+}

@@ -1,0 +1,134 @@
+BASELINE REPORT (PREREGISTRATION.md section 10) - dev split, arm 'no_gate', deterministic provenance scoring
+run directories: artifacts/smoke--dev_smoke--runs-google-low/20261122T173210Z-311727c1-60e3, artifacts/smoke--dev_smoke--runs-google-mid/20261122T173212Z-311727c1-be21, artifacts/smoke--dev_smoke--runs-openai-low/20261122T173212Z-311727c1-0a02, artifacts/smoke--dev_smoke--runs-openai-mid/20261122T173216Z-311727c1-259d, artifacts/smoke--dev_smoke--runs-zai-low/20261122T173214Z-311727c1-e882, artifacts/smoke--dev_smoke--runs-zai-mid/20261122T173213Z-311727c1-e141
+WARNING: unfinished run(s): artifacts/smoke--dev_smoke--runs-google-mid/20261122T173212Z-311727c1-be21
+Thresholds (PROPOSED, need owner approval): continue at R >= 10%, carry models at R >= 5%, measurement check above 20% ungrounded-or-unparseable.
+
+== model google-low  (served as: gemini-3.1-flash-lite)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 8, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 10, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 15 answered by the provider, 3 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 11,514, output 1,228 (of which reasoning 0, itemised by 0 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for google-low: STOP
+
+== model google-mid  (served as: gemini-3.6-flash)
+   realised counts : 1 groups, 12 items, repeats [0], 12 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 9 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 5, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 7, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 12 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 12 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 8,911, output 1,109 (of which reasoning 0, itemised by 0 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1                 -       0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1                 -       0/1    
+      synthetic_y                0/1                 -       0/1    
+   STOP-RULE OUTCOME for google-mid: STOP
+
+== model openai-low  (served as: gpt-6-luna)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 8, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 10, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 15 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 11,359, output 1,216 (of which reasoning 0, itemised by 15 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for openai-low: STOP
+
+== model openai-mid  (served as: unknown)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 0, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 0, unparseable 0, error 12
+   outcomes, all 15 conditions            : target_grounded 0, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 0, unparseable 0, error 15
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 100.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 0 answered by the provider, 15 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 0, output 0 (of which reasoning 0, itemised by 0 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for openai-mid: STOP
+
+== model zai-low  (served as: glm-5.3-flash)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 8, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 10, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 15 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 11,669, output 1,416 (of which reasoning 343, itemised by 15 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for zai-low: STOP
+
+== model zai-mid  (served as: glm-5.3)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 8, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 10, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 15 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 11,669, output 1,581 (of which reasoning 12, itemised by 15 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for zai-mid: STOP
+
+OVERALL STOP-RULE OUTCOME: STOP  (PROVISIONAL)
+PROVISIONAL because a run is unfinished or a model's records are incomplete; the stop rule is applied to complete baselines only.
+Meaning: every model has R < 5%. The baseline is the project's finding; PRs 3-10 are not started.

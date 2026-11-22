@@ -1,0 +1,100 @@
+{
+  "active_runs": [],
+  "artifacts": [
+    {
+      "created_at": "2026-11-22T17:25:46Z",
+      "dir": "a14764967071",
+      "expired": false,
+      "id": 14764967071,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 1060,
+      "status": "read",
+      "workflow_run_id": 45049349443
+    },
+    {
+      "created_at": "2026-11-22T17:25:42Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764867395,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1456,
+      "status": "no-spend",
+      "workflow_run_id": 45049349443
+    },
+    {
+      "created_at": "2026-11-22T15:49:24Z",
+      "dir": "a14761177250",
+      "expired": false,
+      "id": 14761177250,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 999,
+      "status": "read",
+      "workflow_run_id": 45040365316
+    },
+    {
+      "created_at": "2026-11-22T15:49:20Z",
+      "dir": null,
+      "expired": false,
+      "id": 14760918128,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1252,
+      "status": "no-spend",
+      "workflow_run_id": 45040365316
+    },
+    {
+      "created_at": "2026-11-22T14:43:16Z",
+      "dir": null,
+      "expired": false,
+      "id": 14759340505,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1221,
+      "status": "no-spend",
+      "workflow_run_id": 45034295602
+    },
+    {
+      "created_at": "2026-11-22T14:43:18Z",
+      "dir": "a14759230767",
+      "expired": false,
+      "id": 14759230767,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 905,
+      "status": "read",
+      "workflow_run_id": 45034295602
+    }
+  ],
+  "check": {
+    "after_cap_usd": 0.8,
+    "allowed": true,
+    "cap_usd": 0.8,
+    "hard_limit_usd": 50.0,
+    "reasons": [],
+    "remaining_after_cap_usd": 49.2,
+    "total_usd": 0.0,
+    "what": "stage 'smoke'"
+  },
+  "complete": true,
+  "covered_artifact_ids": [],
+  "current_run_id": 45049920447,
+  "entries": {},
+  "fetched_at": "2026-11-22T17:31:40+00:00",
+  "generated_at": "2026-11-22T17:31:40+00:00",
+  "hard_limit_usd": 50.0,
+  "ledger_version": 1,
+  "note": "Actual spend from run records priced with configs/prices.toml as the runner prices them. Commit this file as results/ledger.json to carry the spend beyond the 90-day artifact retention; add 'manual:<id>' entries for spend made outside GitHub Actions.",
+  "problems": [],
+  "remaining_usd": 50.0,
+  "repository": "giladscore494/binding-gate",
+  "retention_days": 90,
+  "sources": [
+    "snapshot results/ledger.json (0 entries)",
+    "3 artifacts read from ledger-inputs",
+    "directory ledger-results-log"
+  ],
+  "total_usd": 0
+}
