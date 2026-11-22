@@ -1,0 +1,37 @@
+{
+  "artifacts": [
+    "ledger-after-run",
+    "sec-dataset-prepare--dataset"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T18:44:26+00:00",
+  "conclusion": "failure",
+  "event": "workflow_dispatch",
+  "folder": "runs/45056703737-dev-pipeline-sec-dataset-prepare",
+  "head_branch": "main",
+  "head_sha": "aac85861cff5cc46c20409208d93f2944a7c2bee",
+  "kept": [
+    {
+      "bytes": 39947,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "fe38ea79fbe5b5538e87cbfb85aa9727e4d13df506610d5cc2c0bf3675bec531"
+    },
+    {
+      "bytes": 10602,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "77c5bebaaf5685a7aa0eb585e6017414343ea57687da8048c6ec7f645c4de340"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "sec-dataset-prepare--dataset/prepare.json",
+      "reason": "not valid JSON"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45056703737,
+  "stage": "dev-pipeline-sec-dataset-prepare",
+  "title": "dev pipeline: sec-dataset-prepare",
+  "workflow": "dev pipeline: sec-dataset-prepare"
+}
