@@ -20,9 +20,10 @@ Implements the requirements of ARCHITECTURE.md section 8:
 Execution settings come from the ``[runner]`` table of the run config:
 
 ``concurrency``       number of (item, model, repeat) units in flight (default 4).
-``max_usd``           hard budget cap in US dollars PER MODEL LABEL for the run.
-                      Required for a paid run. The worst case for a whole run is
-                      the sum of the caps of its models.
+``max_usd``           hard budget cap in US dollars PER MODEL LABEL for the run,
+                      covering the calls of that model's records, auxiliary calls
+                      (decomposer, judge, search) included. Required for a paid
+                      run. The worst case for a whole run is the sum of the caps.
 ``max_usd_by_model``  optional table ``label -> cap`` overriding ``max_usd``.
 ``prices``            path of the price file (default ``configs/prices.toml``).
 
@@ -38,6 +39,27 @@ max_output_tokens output", which errs on the expensive side.
 **Dry run.** :func:`dry_run` loads the items, runs every arm against a recording
 client that returns a canned abstention, and so builds and counts every request
 without any network access. No trace is written.
+
+**Auxiliary calls (PR 8).** Besides the model under test, arms make paid calls
+to other endpoints: the decomposer's model (``purpose = "decompose"``), LLM
+judges (``"check"``) and, in layer 3, the web search API (``"search"``) and the
+free page fetcher (``"fetch"``). :func:`auxiliary_clients` finds them in the
+arm options (``decomposer``, ``judges``, ``search``). Every call in a trace
+record is priced by the model or provider id IN THE RESPONSE
+(``raw["requested_model"]``, else ``ModelResponse.model``; the client label is
+only a fallback), and is charged to the budget cap of the record's model label,
+so auxiliary calls fall under the same caps. Before the first paid call the
+runner requires a price for every auxiliary client, runs their free
+preflights, and checks the low estimate (model under test + auxiliary calls)
+against the cap. The dry run estimates auxiliary calls per model job: the
+first-attempt searches and fetches it observes (live-web arms use no-network
+stand-ins in a dry run), plus upper bounds for decompositions (one per distinct
+question), judge calls (one per item and repeat) and re-search attempts
+(``max_attempts - 1`` per item and repeat).
+
+**Run context (PR 8).** Arms are built inside
+``binding_gate.research.context.activate`` so that live-web arms can store
+snapshots under ``runs/<run_id>/snapshots/`` (dry run: in memory).
 
 Arms and scorers must be safe to call from several threads.
 """
@@ -65,6 +87,7 @@ from binding_gate.contracts import (
     TraceRecord,
 )
 from binding_gate.pricing import PriceBook, PricingError, load_prices
+from binding_gate.research import context as run_context
 from binding_gate.split import select_dev
 from binding_gate.testlock import load_test_split
 from binding_gate.trace import TRACES_NAME, TraceWriter, read_traces
@@ -197,15 +220,20 @@ def load_plan(
 
 
 def select_models(config: RunConfig, selection: str | None) -> tuple[ComponentSpec, ...]:
-    """All models for ``None``/"all", otherwise the one whose label is ``selection``."""
+    """All models for ``None``/"all", otherwise the one whose label is ``selection``.
+
+    A comma-separated list of labels selects several models (PR 8: the workflow
+    runs a live-web config as ONE job over every model whose API key is set, so
+    that all models share one rate-limited search budget and the same evidence).
+    """
     if selection is None or selection == "all":
         return config.models
-    chosen = tuple(spec for spec in config.models if spec.label == selection)
-    if not chosen:
-        raise RunnerError(
-            f"no model with label {selection!r} in the config; labels: {[s.label for s in config.models]}"
-        )
-    return chosen
+    wanted = [part.strip() for part in selection.split(",")] if "," in selection else [selection]
+    labels = [s.label for s in config.models]
+    unknown = [w for w in wanted if w not in labels]
+    if unknown or not wanted:
+        raise RunnerError(f"no model with label {unknown[0] if unknown else selection!r} in the config; labels: {labels}")
+    return tuple(spec for spec in config.models if spec.label in wanted)
 
 
 def build_model(spec: ComponentSpec) -> Any:
@@ -293,6 +321,24 @@ def _request_chars(request: ModelRequest) -> int:
     return sum(len(message.content) for message in request.messages)
 
 
+def priced_id(call: ModelCall, prices: PriceBook, label_ids: dict[str, str]) -> str | None:
+    """The price-book id of a logged call: the id in the response first, the label last.
+
+    Order: ``response.raw["requested_model"]`` (the exact id the client was
+    configured with and sent), ``response.model`` (the id the provider
+    reported), then the configured id behind the call's client label. The first
+    one with a price wins; ``None`` if none has a price.
+    """
+    candidates: list[Any] = []
+    if call.response is not None:
+        candidates += [call.response.raw.get("requested_model"), call.response.model]
+    candidates.append(label_ids.get(call.client))
+    for candidate in candidates:
+        if isinstance(candidate, str) and prices.has(candidate):
+            return candidate
+    return None
+
+
 @dataclass(frozen=True)
 class CostModel:
     """Prices plus what is needed to charge a call whose usage was not reported."""
@@ -303,13 +349,18 @@ class CostModel:
     unpriced_clients: set[str] = field(default_factory=set)
 
     def call_cost(self, call: ModelCall) -> float:
-        """Dollars for one logged call. Failed and cached calls cost nothing."""
+        """Dollars for one logged call. Failed and cached calls cost nothing.
+
+        Priced by :func:`priced_id` (the id in the response), so auxiliary calls
+        (decomposer, judge, search) are charged like calls of the model under
+        test. A call that cannot be priced is listed in the run summary instead
+        of being charged silently; the runner refuses to start when it can see
+        in advance that a client has no price.
+        """
         if call.response is None or is_cache_hit(call):
             return 0.0
-        model_id = self.model_ids.get(call.client)
-        if model_id is None or not self.prices.has(model_id):
-            # A client that is not a model of this config (none exists in PR 2). It cannot be
-            # priced, so it is listed in the run summary instead of being charged silently.
+        model_id = priced_id(call, self.prices, self.model_ids)
+        if model_id is None:
             self.unpriced_clients.add(call.client)
             return 0.0
         usage = call.response.usage
@@ -318,10 +369,124 @@ class CostModel:
                 self.prices.assumptions.input_tokens(_request_chars(call.request)),
                 self.max_output_tokens.get(call.client, 0),
             )
-        return self.prices.get(model_id).cost(usage.input_tokens, usage.output_tokens)
+        return self.prices.get(model_id).call_cost(usage.input_tokens, usage.output_tokens)
 
     def record_cost(self, record: TraceRecord) -> float:
         return sum(self.call_cost(call) for call in record.model_calls)
+
+
+# --------------------------------------------------------------------------- #
+# Auxiliary clients (decomposer, judges, search, fetch)
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class AuxiliaryClient:
+    """A paid (or priced) endpoint used by an arm besides the model under test."""
+
+    arm: str
+    role: str  # "decomposer", "judge", "search", "fetch"
+    purpose: str  # the ModelCall purpose of its calls
+    client: Any
+    detail: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def label(self) -> str:
+        return self.client.name
+
+    @property
+    def model_id(self) -> str:
+        return model_id_of(self.client)
+
+    @property
+    def secret(self) -> str:
+        return getattr(self.client, "secret_name", "") or ""
+
+
+class _FetchInfo:
+    """Describes the page fetcher for pricing; it has no key and no preflight."""
+
+    secret_name = ""
+
+    def __init__(self) -> None:
+        from binding_gate.research.fetch import FETCH_MODEL_ID
+
+        self.name = "fetch"
+        self.model_id = FETCH_MODEL_ID
+        self.max_output_tokens = None
+
+
+def auxiliary_clients(config: RunConfig) -> tuple[list[AuxiliaryClient], list[str]]:
+    """Every auxiliary client named in the arm options, and the problems met while building them.
+
+    ``options.decomposer`` -> the decomposer's model client (if the decomposer
+    has one, as ``model_decomposer`` does); ``options.judges`` -> every listed
+    judge; ``options.search`` -> the web search client and the page fetcher.
+    Building needs no API key. A component that cannot be built is reported as
+    a problem (the arm itself will then fail with an error record) instead of
+    stopping a dry run.
+    """
+    found: list[AuxiliaryClient] = []
+    problems: list[str] = []
+    for spec in config.arms:
+        options = spec.options
+        decomposer = options.get("decomposer")
+        if isinstance(decomposer, dict) and isinstance(decomposer.get("name"), str):
+            try:
+                built = registry.create("decomposer", decomposer["name"], **dict(decomposer.get("options", {})))
+            except Exception as exc:  # noqa: BLE001 - reported, see the docstring
+                problems.append(f"arm {spec.label}: decomposer {decomposer['name']!r} cannot be built: {_describe(exc)}")
+            else:
+                client = getattr(built, "client", None)
+                if client is not None:
+                    found.append(AuxiliaryClient(spec.label, "decomposer", "decompose", client, {"decomposer": built, "spec": decomposer}))
+        judges = options.get("judges")
+        if judges is not None:
+            from binding_gate.judging import parse_judges
+
+            try:
+                for judge in parse_judges(f"arm {spec.label}: judges", judges):
+                    found.append(AuxiliaryClient(spec.label, "judge", "check", judge.build(), {"arm_options": options}))
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"arm {spec.label}: judges cannot be built: {_describe(exc)}")
+        search = options.get("search")
+        if search is not None:
+            from binding_gate.research.search import build_search_client
+
+            try:
+                found.append(AuxiliaryClient(spec.label, "search", "search", build_search_client(search)))
+                found.append(AuxiliaryClient(spec.label, "fetch", "fetch", _FetchInfo()))
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"arm {spec.label}: search client cannot be built: {_describe(exc)}")
+    return found, problems
+
+
+def distinct_clients(aux: Sequence[AuxiliaryClient]) -> list[AuxiliaryClient]:
+    """One entry per (client class, label, model id, secret): what needs one preflight / key check."""
+    seen: set[tuple[str, str, str, str]] = set()
+    out = []
+    for entry in aux:
+        key = (type(entry.client).__name__, entry.label, entry.model_id, entry.secret)
+        if key not in seen:
+            seen.add(key)
+            out.append(entry)
+    return out
+
+
+def missing_keys(config: RunConfig, selection: str | None) -> list[tuple[str, str]]:
+    """``(label, secret name)`` of every selected model and every auxiliary client whose API key is not set."""
+    from binding_gate import secrets
+
+    missing = []
+    for spec in select_models(config, selection):
+        secret = getattr(build_model(spec), "secret_name", None)
+        if secret and not secrets.has_secret(secret):
+            missing.append((spec.label, secret))
+    aux, _problems = auxiliary_clients(config)
+    for entry in distinct_clients(aux):
+        if entry.secret and not secrets.has_secret(entry.secret) and (entry.label, entry.secret) not in missing:
+            missing.append((f"{entry.role} {entry.label} (arm {entry.arm})", entry.secret))
+    return missing
 
 
 # --------------------------------------------------------------------------- #
@@ -365,6 +530,29 @@ class ModelEstimate:
 
 
 @dataclass(frozen=True)
+class AuxEstimate:
+    """Estimated auxiliary calls of one kind for one model job (see :func:`dry_run`)."""
+
+    role: str
+    purpose: str
+    client: str
+    model_id: str | None
+    calls_low: int
+    calls_high: int
+    input_tokens_low: int
+    input_tokens_high: int
+    max_output_tokens: int | None
+    priced: bool
+    cost_low: float | None
+    cost_high: float | None
+    cost_ceiling: float | None
+    note: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self.__dict__)
+
+
+@dataclass(frozen=True)
 class DryRunReport:
     config_name: str
     config_hash: str
@@ -382,16 +570,31 @@ class DryRunReport:
     prices_path: str
     prices_sha256: str
     models: tuple[ModelEstimate, ...]
+    auxiliary: dict[str, tuple[AuxEstimate, ...]] = field(default_factory=dict)
+    auxiliary_problems: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = dict(self.__dict__)
         data["arms"] = list(self.arms)
         data["models"] = [m.to_dict() for m in self.models]
+        data["auxiliary"] = {label: [a.to_dict() for a in rows] for label, rows in self.auxiliary.items()}
+        data["auxiliary_problems"] = list(self.auxiliary_problems)
         return data
 
     def total(self, name: str) -> float | None:
         values = [getattr(m, name) for m in self.models]
         return None if any(v is None for v in values) else sum(values)
+
+    def auxiliary_total(self, label: str, name: str) -> float | None:
+        """Sum of one cost column over the auxiliary rows of one model job (None if any is unpriced)."""
+        values = [getattr(a, name) for a in self.auxiliary.get(label, ())]
+        return None if any(v is None for v in values) else sum(values)
+
+    def model_total(self, label: str, name: str) -> float | None:
+        """Model under test plus auxiliary calls, for one model job."""
+        model = next(m for m in self.models if m.label == label)
+        own, aux = getattr(model, name), self.auxiliary_total(label, name)
+        return None if own is None or aux is None else own + aux
 
     def format(self) -> str:
         def money(value: float | None) -> str:
@@ -432,10 +635,41 @@ class DryRunReport:
             f"{money(self.total('cost_ceiling')):>11}"
             f"{('none' if cap_total is None else f'${cap_total:,.2f}'):>10}"
         )
+        if any(self.auxiliary.values()):
+            lines.append("")
+            lines.append("AUXILIARY CALLS per model job (decomposer, judge, web search, page fetch, re-search answers):")
+            lines.append(
+                f"{'model label':<16}{'role':<12}{'client':<14}{'model/provider id':<24}{'calls':>13}"
+                f"{'low':>10}{'high':>10}{'ceiling':>10}"
+            )
+            for m in self.models:
+                for a in self.auxiliary.get(m.label, ()):
+                    lines.append(
+                        f"{m.label:<16}{a.role:<12}{a.client:<14}{(a.model_id or '?'):<24}"
+                        f"{f'{a.calls_low}-{a.calls_high}':>13}"
+                        f"{money(a.cost_low):>10}{money(a.cost_high):>10}{money(a.cost_ceiling):>10}"
+                    )
+            lines.append("")
+            lines.append(f"{'TOTAL per model job':<24}{'low':>11}{'high':>11}{'ceiling':>11}{'cap':>10}")
+            for m in self.models:
+                lines.append(
+                    f"{m.label:<24}{money(self.model_total(m.label, 'cost_low')):>11}"
+                    f"{money(self.model_total(m.label, 'cost_high')):>11}"
+                    f"{money(self.model_total(m.label, 'cost_ceiling')):>11}"
+                    f"{('none' if m.cap is None else f'${m.cap:,.2f}'):>10}"
+                )
+            lines.append(
+                "Low = calls that happen whatever the model answers (first-attempt searches and fetches); "
+                "high and ceiling add upper bounds: one decomposition per distinct question, one judge call "
+                "per item and repeat, and max_attempts - 1 re-search attempts per item and repeat."
+            )
+        for problem in self.auxiliary_problems:
+            lines.append(f"NOTE: {problem}")
         lines.append("")
         lines.append(
             "The cap column is the hard budget limit per model ([runner] max_usd); a paid run "
-            "stops a model when its reported usage reaches it. Estimates are not measurements."
+            "stops a model when its reported usage, auxiliary calls included, reaches it. "
+            "Estimates are not measurements."
         )
         return "\n".join(lines)
 
@@ -449,6 +683,122 @@ def _build_arms(config: RunConfig, client: Any) -> list[tuple[str, Any]]:
         (spec.label, registry.create("arm", spec.name, model=client, **spec.options))
         for spec in config.arms
     ]
+
+
+def _price_aux(
+    prices: PriceBook,
+    *,
+    role: str,
+    purpose: str,
+    client: str,
+    model_id: str | None,
+    calls: tuple[int, int],
+    input_tokens: tuple[int, int],
+    max_output_tokens: int | None,
+    note: str = "",
+) -> AuxEstimate:
+    a = prices.assumptions
+    low = high = ceiling = None
+    priced = model_id is not None and prices.has(model_id)
+    if priced:
+        price = prices.get(model_id)  # type: ignore[arg-type]
+        low = price.cost(input_tokens[0], calls[0] * (a.visible_output_tokens + a.reasoning_tokens_low)) + price.calls_cost(calls[0])
+        high = price.cost(input_tokens[1], calls[1] * (a.visible_output_tokens + a.reasoning_tokens_high)) + price.calls_cost(calls[1])
+        ceiling = (
+            price.cost(input_tokens[1], calls[1] * max_output_tokens) + price.calls_cost(calls[1])
+            if max_output_tokens
+            else high
+        )
+    return AuxEstimate(
+        role=role, purpose=purpose, client=client, model_id=model_id, calls_low=calls[0], calls_high=calls[1],
+        input_tokens_low=input_tokens[0], input_tokens_high=input_tokens[1], max_output_tokens=max_output_tokens,
+        priced=priced, cost_low=low, cost_high=high, cost_ceiling=ceiling, note=note,
+    )
+
+
+def _auxiliary_estimates(
+    config: RunConfig,
+    plan: Plan,
+    prices: PriceBook,
+    model_label: str,
+    model_client: Any,
+    arms: Sequence[tuple[str, Any]],
+    aux: Sequence[AuxiliaryClient],
+    observed: dict[tuple[str, str, str], list[int]],
+    answer_chars: dict[str, int],
+) -> list[AuxEstimate]:
+    """Auxiliary rows of one model job (see the module docstring, "Auxiliary calls")."""
+    assumptions = prices.assumptions
+    n_items = len(plan.items)
+    rows: list[AuxEstimate] = []
+    live = [(label, arm) for label, arm in arms if hasattr(arm, "extra_attempt_bound")]
+    extra_attempts = {label: n_items * config.repeats * (getattr(arm, "max_attempts", 1) - 1) for label, arm in live}
+    bounds = {label: arm.extra_attempt_bound() for label, arm in live}
+    fetch_per_attempt = max((b["fetch"] for b in bounds.values()), default=0)
+
+    # Calls observed in the dry run (first attempts of live-web arms): searches and fetches.
+    for (purpose, client, model_id), (calls, chars) in sorted(observed.items()):
+        high = calls
+        if purpose == "search":
+            high += sum(extra_attempts[l] * bounds[l]["search"] for l in extra_attempts)
+        elif purpose == "fetch":
+            high = max(calls, n_items * fetch_per_attempt) + sum(extra_attempts[l] * bounds[l]["fetch"] for l in extra_attempts)
+        tokens = assumptions.input_tokens(chars) if chars else 0
+        rows.append(
+            _price_aux(prices, role=purpose, purpose=purpose, client=client, model_id=model_id, calls=(calls, high),
+                       input_tokens=(tokens, tokens), max_output_tokens=None,
+                       note="observed in the dry run (shared by all arms and repeats of the run); high adds re-search bounds")
+        )
+    # Re-search attempts: further answer calls of the model under test.
+    for label, extra in extra_attempts.items():
+        if extra <= 0:
+            continue
+        calls = extra * bounds[label]["answer"]
+        tokens = calls * assumptions.input_tokens(answer_chars.get(label, 0))
+        rows.append(
+            _price_aux(prices, role="re-answer", purpose="answer", client=model_label, model_id=model_id_of(model_client),
+                       calls=(0, calls), input_tokens=(0, tokens), max_output_tokens=getattr(model_client, "max_output_tokens", None),
+                       note=f"arm {label}: at most max_attempts - 1 further answer calls per item and repeat, largest prompt")
+        )
+    # Decomposers: at most one call per distinct question per process.
+    questions = sorted({item.question for item in plan.items})
+    done: set[str] = set()
+    for entry in aux:
+        if entry.role != "decomposer":
+            continue
+        key = canonical_json(entry.detail["spec"])
+        if key in done:
+            continue
+        done.add(key)
+        decomposer = entry.detail["decomposer"]
+        request_for = getattr(decomposer, "request_for", None)
+        chars = sum(_request_chars(request_for(q)) for q in questions) if request_for else 0
+        rows.append(
+            _price_aux(prices, role="decomposer", purpose="decompose", client=entry.label, model_id=entry.model_id,
+                       calls=(0, len(questions)), input_tokens=(0, assumptions.input_tokens(chars)),
+                       max_output_tokens=getattr(entry.client, "max_output_tokens", None),
+                       note=f"arm {entry.arm}: at most one decomposition per distinct question (only answered candidates need one)")
+        )
+    # LLM judges (llm_judge_checks): at most one call per item and repeat.
+    judged: set[str] = set()
+    for entry in aux:
+        if entry.role != "judge" or entry.arm in judged:
+            continue
+        judged.add(entry.arm)
+        from binding_gate.arms.llm_judge_checks import PLACEHOLDER_CHARS, build_check_request, canonical_checks
+        from binding_gate.contracts import AnswerCandidate
+
+        placeholder = AnswerCandidate.answered(value="v" * PLACEHOLDER_CHARS, quote="q" * PLACEHOLDER_CHARS, source_id="x", raw="")
+        checks = canonical_checks(entry.detail["arm_options"].get("checks"))
+        chars = sum(_request_chars(build_check_request(i.question, i.documents, placeholder, checks)) for i in plan.items)
+        calls = n_items * config.repeats
+        rows.append(
+            _price_aux(prices, role="judge", purpose="check", client=entry.label, model_id=entry.model_id,
+                       calls=(0, calls), input_tokens=(0, assumptions.input_tokens(chars) * config.repeats),
+                       max_output_tokens=getattr(entry.client, "max_output_tokens", None),
+                       note=f"arm {entry.arm}: first listed judge, at most one call per item and repeat")
+        )
+    return rows
 
 
 def dry_run(
@@ -466,12 +816,25 @@ def dry_run(
     clients = [build_model(spec) for spec in specs]  # validates the options; needs no API key
     _build_scorers(config)
     plan = load_plan(config, repo_root=repo_root, test_unlock_tag=test_unlock_tag, purpose=purpose)
+    aux, problems = auxiliary_clients(config)
 
     recorder = _RecordingClient("dry-run")
-    arms = _build_arms(config, CachedClient(recorder, 0, ResponseCache()))
+    with run_context.activate(run_context.RunContext(run_dir=None, dry_run=True)):
+        arms = _build_arms(config, CachedClient(recorder, 0, ResponseCache()))
+    observed: dict[tuple[str, str, str], list[int]] = {}
+    answer_chars: dict[str, int] = {}
     for item in plan.items:
-        for _label, arm in arms:
-            arm.run(item.arm_input())
+        for label, arm in arms:
+            output = arm.run(item.arm_input())
+            for call in output.model_calls:
+                if call.purpose == "answer":
+                    answer_chars[label] = max(answer_chars.get(label, 0), _request_chars(call.request))
+                    continue
+                if call.response is None or is_cache_hit(call):
+                    continue
+                entry = observed.setdefault((call.purpose, call.client, call.response.model), [0, 0])
+                entry[0] += 1
+                entry[1] += _request_chars(call.request) if call.purpose not in ("search", "fetch") else 0
     requests = len(recorder.requests)
     characters = sum(_request_chars(request) for request in recorder.requests)
 
@@ -480,6 +843,7 @@ def dry_run(
         assumptions.input_tokens(_request_chars(request)) for request in recorder.requests
     )
     estimates: list[ModelEstimate] = []
+    auxiliary: dict[str, tuple[AuxEstimate, ...]] = {}
     for spec, client in zip(specs, clients):
         model_id = model_id_of(client)
         calls = requests * config.repeats
@@ -513,6 +877,9 @@ def dry_run(
                 price_source=source,
             )
         )
+        auxiliary[spec.label] = tuple(
+            _auxiliary_estimates(config, plan, prices, spec.label, client, arms, aux, observed, answer_chars)
+        )
     by_stratum: dict[str, int] = {}
     for item in plan.items:
         key = item.stratum or "(none)"
@@ -534,6 +901,8 @@ def dry_run(
         prices_path=settings.prices,
         prices_sha256=prices.sha256,
         models=tuple(estimates),
+        auxiliary=auxiliary,
+        auxiliary_problems=tuple(problems),
     )
 
 
@@ -542,15 +911,51 @@ def dry_run(
 # --------------------------------------------------------------------------- #
 
 
+EXTRAS_BY_COMPONENT: dict[tuple[str, str], str] = {
+    ("arm", "faithfulness_checker"): "faithfulness",
+    ("dataset", "sealqa"): "sealqa",
+}
+"""Optional dependency groups (pyproject ``[project.optional-dependencies]``) that a
+component needs at run time or to prepare its data."""
+
+
+def run_requirements(config: RunConfig) -> dict[str, Any]:
+    """What a CI workflow needs to run ``config`` (printed by ``cli requirements``)."""
+    from binding_gate.stats.prereg import LAYER_BY_DATASET
+
+    extras = {EXTRAS_BY_COMPONENT[("dataset", config.dataset.name)]} if ("dataset", config.dataset.name) in EXTRAS_BY_COMPONENT else set()
+    extras |= {EXTRAS_BY_COMPONENT[("arm", a.name)] for a in config.arms if ("arm", a.name) in EXTRAS_BY_COMPONENT}
+    secret_names = {getattr(build_model(spec), "secret_name", "") for spec in config.models}
+    aux, _problems = auxiliary_clients(config)
+    secret_names |= {entry.secret for entry in aux}
+    live = any(entry.role == "search" for entry in aux)
+    return {
+        "extras": sorted(extras),
+        "secrets": sorted(s for s in secret_names if s),
+        "layer": LAYER_BY_DATASET.get(config.dataset.name, 0),
+        "private_outputs": live,
+        "single_job": live,
+        "baseline_report": any(s.name == "provenance" for s in config.scorers),
+    }
+
+
+def preflight_targets(config: RunConfig, selection: str | None = None) -> list[tuple[str, Any]]:
+    """``(description, client)`` of every selected model and every distinct auxiliary client."""
+    targets: list[tuple[str, Any]] = [(spec.label, build_model(spec)) for spec in select_models(config, selection)]
+    aux, _problems = auxiliary_clients(config)
+    for entry in distinct_clients(aux):
+        targets.append((f"{entry.role} {entry.label} (arm {entry.arm})", entry.client))
+    return targets
+
+
 def preflight(config: RunConfig, selection: str | None = None) -> list[Any]:
-    """Run the free model-id check of every selected model that offers one.
+    """Run the free check of every selected model and auxiliary client that offers one.
 
     Returns the list of ``PreflightResult``. Raises ``SecretError`` when a key is
     missing. Nothing billable is called.
     """
     results = []
-    for spec in select_models(config, selection):
-        client = build_model(spec)
+    for _where, client in preflight_targets(config, selection):
         check = getattr(client, "preflight", None)
         if check is not None:
             results.append(check())
@@ -723,27 +1128,39 @@ def execute_run(
                 f"{settings.prices} has no price for model id {model_id_of(clients[spec.label])!r}; "
                 "the budget cap cannot be enforced without it"
             )
+    aux, aux_problems = auxiliary_clients(config)
+    for problem in aux_problems:
+        log(f"WARNING: {problem}")
+    for entry in distinct_clients(aux):
+        if not prices.has(entry.model_id):
+            raise RunnerError(
+                f"{settings.prices} has no price for {entry.role} {entry.label!r} of arm {entry.arm!r} "
+                f"(id {entry.model_id!r}); its calls could not be charged to the budget cap"
+            )
 
     estimate = dry_run(
         config, repo_root=repo_root, selection=selection, test_unlock_tag=None, purpose=None
     ) if config.split is Split.DEV else None
     if estimate is not None:
         for model in estimate.models:
-            if model.cost_low is not None and model.cap is not None and model.cost_low > model.cap:
+            low = estimate.model_total(model.label, "cost_low")
+            if low is not None and model.cap is not None and low > model.cap:
                 raise RunnerError(
-                    f"model {model.label!r}: even the low cost estimate (${model.cost_low:.2f}) "
-                    f"exceeds its budget cap (${model.cap:.2f}); raise the cap in the config or "
+                    f"model {model.label!r}: even the low cost estimate (${low:.2f}, auxiliary calls "
+                    f"included) exceeds its budget cap (${model.cap:.2f}); raise the cap in the config or "
                     "reduce the run"
                 )
 
-    for label, client in clients.items():
+    preflights = [(label, client) for label, client in clients.items()]
+    preflights += [(f"{e.role} {e.label} (arm {e.arm})", e.client) for e in distinct_clients(aux)]
+    for label, client in preflights:
         check = getattr(client, "preflight", None)
         if check is None:
             continue
         result = check()
         log(f"preflight {label}: {'OK' if result.ok else 'FAILED'} - {result.detail}")
         if not result.ok:
-            raise RunnerError(f"preflight failed for model {label!r}: {result.detail}")
+            raise RunnerError(f"preflight failed for {'model ' if label in clients else ''}{label!r}: {result.detail}")
 
     plan = load_plan(config, repo_root=repo_root, test_unlock_tag=test_unlock_tag, purpose=purpose)
     scorers = _build_scorers(config)
@@ -756,11 +1173,13 @@ def execute_run(
         writer = TraceWriter.resume(resume_dir, config, repo_root=repo_root)
     summary = RunSummary(run_dir=writer.run_dir, run_id=writer.manifest.run_id)
     summary.spend_usd = {spec.label: 0.0 for spec in specs}
+    aux_ids = {e.label: e.model_id for e in aux}
     cost = CostModel(
         prices=prices,
-        model_ids={spec.label: model_id_of(build_model(spec)) for spec in config.models},
+        model_ids={**aux_ids, **{spec.label: model_id_of(build_model(spec)) for spec in config.models}},
         max_output_tokens={
-            label: getattr(client, "max_output_tokens", 0) or 0 for label, client in clients.items()
+            **{e.label: getattr(e.client, "max_output_tokens", 0) or 0 for e in aux},
+            **{label: getattr(client, "max_output_tokens", 0) or 0 for label, client in clients.items()},
         },
     )
     cache = ResponseCache()
@@ -789,11 +1208,12 @@ def execute_run(
             },
         )
         arm_labels = [spec.label for spec in config.arms]
-        arms_by_model_repeat = {
-            (label, repeat): _build_arms(config, CachedClient(client, repeat, cache))
-            for label, client in clients.items()
-            for repeat in range(config.repeats)
-        }
+        with run_context.activate(run_context.RunContext(run_dir=writer.run_dir)):
+            arms_by_model_repeat = {
+                (label, repeat): _build_arms(config, CachedClient(client, repeat, cache))
+                for label, client in clients.items()
+                for repeat in range(config.repeats)
+            }
         caps = {spec.label: settings.cap_for(spec.label) for spec in specs}
         aborted: set[str] = {
             label for label in caps if summary.spend_usd[label] >= caps[label]  # type: ignore[operator]
@@ -863,6 +1283,11 @@ def execute_run(
     finally:
         if not writer.closed:
             writer._handle.close()  # leave the manifest open: the run is visibly unfinished
+        snapshots = writer.run_dir / "snapshots"
+        if (snapshots / "index.jsonl").exists():
+            from binding_gate.research.snapshots import SnapshotStore
+
+            log(f"snapshot publish manifest: {SnapshotStore(snapshots).write_publish_manifest()}")
         _append_invocation(
             writer.run_dir, {"event": "ended", "timestamp": utc_now_iso(), **summary.to_dict()}
         )

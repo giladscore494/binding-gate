@@ -6,6 +6,14 @@ here is fetched from the network. Prices are list prices in US dollars per one
 million tokens; batch discounts, cached-input discounts and long-context
 surcharges are not modelled.
 
+PR 8 added ``per_call_usd`` (optional, default 0): a fixed charge per successful
+call, for endpoints billed per request rather than per token (web search APIs).
+A search API is entered with its provider id (for example ``serpapi/google``),
+``per_call_usd`` and zero token prices; the free page fetcher of
+``binding_gate.research`` is entered with every price zero, so that its calls
+are priced (at nothing) instead of being reported as unpriced. Files without the
+key keep their meaning, so ``prices_version`` stays 1.
+
 File format (``prices_version = 1``)::
 
     prices_version = 1
@@ -23,6 +31,7 @@ File format (``prices_version = 1``)::
     source = "where the price was read"
     accessed = "2026-11-22"
     note = "optional"
+    per_call_usd = 0.0               # optional (PR 8): fixed charge per successful call
 """
 
 from __future__ import annotations
@@ -37,7 +46,7 @@ from typing import Any, Mapping
 PRICES_VERSION = 1
 _TOP_KEYS = {"prices_version", "assumptions", "price"}
 _ASSUMPTION_KEYS = {"chars_per_token", "visible_output_tokens", "reasoning_tokens_low", "reasoning_tokens_high"}
-_PRICE_KEYS = {"model_id", "input_per_mtok", "output_per_mtok", "source", "accessed", "note"}
+_PRICE_KEYS = {"model_id", "input_per_mtok", "output_per_mtok", "source", "accessed", "note", "per_call_usd"}
 
 
 class PricingError(ValueError):
@@ -52,10 +61,19 @@ class Price:
     source: str
     accessed: str
     note: str = ""
+    per_call_usd: float = 0.0
 
     def cost(self, input_tokens: float, output_tokens: float) -> float:
-        """US dollars for the given token counts."""
+        """US dollars for the given token counts (token prices only; see :meth:`calls_cost`)."""
         return (input_tokens * self.input_per_mtok + output_tokens * self.output_per_mtok) / 1_000_000
+
+    def calls_cost(self, calls: float) -> float:
+        """US dollars of the fixed per-call charge for ``calls`` successful calls."""
+        return calls * self.per_call_usd
+
+    def call_cost(self, input_tokens: float, output_tokens: float) -> float:
+        """US dollars for ONE successful call with the given token counts."""
+        return self.cost(input_tokens, output_tokens) + self.per_call_usd
 
 
 @dataclass(frozen=True)
@@ -147,6 +165,7 @@ def parse_prices(raw: Mapping[str, Any], *, sha256: str = "", path: str = "<pric
             source=_text(f"{where}.source", entry.get("source")),
             accessed=_text(f"{where}.accessed", entry.get("accessed")),
             note=str(entry.get("note", "")),
+            per_call_usd=_number(f"{where}.per_call_usd", entry.get("per_call_usd", 0.0), minimum=0),
         )
     return PriceBook(assumptions=assumptions, prices=prices, sha256=sha256, path=path)
 

@@ -20,6 +20,11 @@ KNOWN_SECRETS: dict[str, str] = {
     "ANTHROPIC_API_KEY": "Anthropic API key; read by models/anthropic_messages.py (PR 2)",
     "GEMINI_API_KEY": "Google Gemini API key; read by models/google_gemini.py (PR 2)",
     "MOONSHOT_API_KEY": "Moonshot (Kimi) API key; read by models/moonshot_chat.py (PR 2)",
+    "SERPAPI_API_KEY": "SerpApi key for live web search (layer 3); read by research/search.py (PR 8)",
+    "RUNS_ENCRYPTION_PASSPHRASE": (
+        "passphrase with which .github/workflows/baseline.yml encrypts the run artifacts of live-web runs, "
+        "which contain third-party page text (PR 8); read by the workflow only, never by Python code"
+    ),
 }
 
 

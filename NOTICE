@@ -97,3 +97,16 @@ model weights lytang/MiniCheck-Flan-T5-Large (revision
 96eafd01cee2d16cf81aaa2fb226b14f422a37b3, MIT License, per its model card)
 when the optional "faithfulness" extra is installed. Neither the package nor
 the weights are included in this repository.
+
+------------------------------------------------------------------------------
+
+PR 8 (layer 3) uses the SealQA dataset (https://huggingface.co/datasets/vtllms/sealqa,
+revision 0e75db526ad93dd039714897b7631afc03510e30; Pham et al., "SealQA: Raising
+the Bar for Reasoning in Search-Augmented Language Models", arXiv 2506.01062),
+licensed under the Apache License, Version 2.0. No SealQA data is included in
+this repository: the user downloads it into data/raw/ (git-ignored) with
+`python -m binding_gate.cli dataset-prepare`; test fixtures use invented text.
+
+Web pages fetched during layer-3 runs are third-party material. They are
+stored privately with the run (runs/<run_id>/snapshots/, git-ignored); only
+their URLs, fetch times and SHA-256 hashes are published.

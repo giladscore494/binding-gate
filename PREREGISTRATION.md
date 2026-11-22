@@ -77,7 +77,7 @@ Thresholds that decide whether each hypothesis is supported are in section 11.
 |---|---|---|---|---|
 | 1. Controlled | Deceptive Grounding benchmark (github.com/CedricCaruzzo/deceptive-grounding-benchmark; arXiv 2607.09349), pinned at commit `61b0281d8d3897f53bef3f7402727c905614c1e4` | Confirmatory for H1-H3 | Apache-2.0 (LICENSE file in the checkout) | Files inspected in PR 2; facts below |
 | 2. Controlled, other domain | GRAB-RAG (github.com/andre44s/grab-rag; arXiv 2608.22228), pinned at commit `2006561476b39a6cd1ebc0ab5df1b09af01dbcab`; misleading condition, with the supportive condition as paired control | Exploratory (secondary); see below for what it can and cannot test | Code MIT; data CC BY-SA 3.0 (NQ-derived) and CC BY-SA 4.0 (HotpotQA-derived) | Files inspected in PR 7; facts below. The misleading contexts are **not shipped** and must be exported once with GRAB-RAG's code |
-| 3. Live web | SealQA (Hugging Face `vtllms/sealqa`) | Confirmatory for H4 | Apache-2.0 | Not yet downloaded |
+| 3. Live web | SealQA (Hugging Face `vtllms/sealqa`; arXiv 2506.01062), pinned at revision `0e75db526ad93dd039714897b7631afc03510e30`; subset `seal_hard` (which contains `seal_0`) | Confirmatory for H4 | Apache-2.0 (dataset card and `LICENSE` file at the pinned revision) | Revision, file hashes and column names checked against the Hub API in PR 8; the rows could not be downloaded in the PR 8 sandbox, so counts and values are **unverified** (facts below) |
 
 **Layer 1.** Each stimulus is built from a triple: queried drug X, competitor
 drug Y, disease C. The benchmark has 264 triples × 15 conditions = 3,960 stimuli.
@@ -312,10 +312,132 @@ that most of those answers repeated the planted wrong entity, and that a
 generator-side conflict check cut answering to 13.3% while discarding many
 correct answers. These figures are not a baseline for this study.
 
-**Layer 3.** SealQA is reported to have 619 rows (seal_0: 111, seal_hard: 254,
-longseal: 254). These counts are *reported*, not checked by us. The subset(s)
-used, the field names and the answer-correctness rule are decided by PR 8 on the
-dev split and recorded as an amendment before any test-split use.
+**Layer 3.** *Facts established in PR 8 (2026-11-22)* from the Hugging Face
+Hub API (`/api/datasets/vtllms/sealqa`, `.../tree/main`), the Hub's Croissant
+metadata (`/api/datasets/vtllms/sealqa/croissant`), the dataset card and the
+paper (arXiv 2506.01062, HTML version). Adapter:
+`src/binding_gate/datasets/sealqa.py`.
+
+1. **Revision and files.** The pinned revision is the dataset's `main` on
+   2026-11-22 (last modified 2026-11-04). Files and SHA-256 (the LFS object ids
+   reported by the Hub), checked on every download and load:
+   `seal-hard.parquet` (49,966 bytes, `b13fbacabac4b055dcabfae161df4dc661e31e915507324790779d107ab53e7e`),
+   `seal-0.parquet` (27,169 bytes, `89c729bd0a13c56847bb30cbdce1e091f7b832bbe9929d3744357cedcf4e33be`),
+   `LICENSE` (Apache-2.0; 11,357 bytes) and `README.md` (both downloaded and
+   hashed). `longseal.parquet` (73 MB) is not used and not downloaded. The card
+   says the answers are reviewed and updated over time ("Next update: Dec 9
+   2026"); the gold answers of this study are those of the pinned revision.
+2. **Fields** (Croissant metadata): `question`, `answer`, `urls` (list),
+   `freshness`, `question_types` (list), `effective_year`, `search_results`,
+   `topic`, `canary`; `longseal` adds the supplied documents (`golds`,
+   `12_docs`, `20_docs`, `30_docs`). There is no row id and no alias list. Per
+   the paper: `freshness` is never / slow / fast changing; `search_results` is
+   the expected kind of search results, "conflict" or "unhelpful";
+   `effective_year` is the year the answer last changed; Seal-Hard "includes
+   Seal-0"; the authors grade with a GPT-4o-mini auto-rater (SimpleQA-style
+   template; CORRECT / INCORRECT / NOT_ATTEMPTED; 98% agreement with human
+   ratings on 100 answers, *reported*).
+3. **Unverified.** The parquet files could not be downloaded in the PR 8
+   sandbox (the Hub's file CDN was blocked by the sandbox's network proxy), so
+   the row counts (reported: seal_0 111, seal_hard 254, longseal 254), the
+   value formats and the subset relation are taken from the card and the
+   paper. The adapter refuses data that contradicts what it relies on (missing
+   question or answer, a Seal-0 question absent from Seal-Hard, one question
+   with two different answers). `python -m binding_gate.cli dataset-prepare`
+   records the real counts and columns in `data/raw/sealqa/conversion.json`;
+   they are to be entered here, from dev-split counts only, before the freeze.
+4. **Subset (decision).** The items are the `seal_hard` questions; `seal_0` is
+   read only to label its questions (stratum `seal_0/<freshness>` versus
+   `seal_hard/<freshness>`), so Seal-0 can be reported separately without
+   counting a question twice. **LongSeal is not part of layer 3**: it supplies
+   the documents with each question (one gold page among 12-30 hard
+   negatives), so nothing is searched, and its questions are the Seal-Hard
+   questions again; it would be an offline long-context condition, not live-web
+   evidence.
+5. **Item mapping.** `group_id` = item id = `sealqa/` + the first 16 hex digits
+   of SHA-256 of the question after the normalisation of section 6.1. SealQA
+   has no row id, so "the row" of section 4 is identified by its question.
+   `gold` holds the answer, the metadata of item 2 and the annotators' source
+   URLs (which reveal the answer, so they never reach an arm); `documents` is
+   empty (evidence is fetched at run time). Expected dev size: about 40% of 254,
+   i.e. about 102 questions (a synthetic stand-in of the same size gave 114;
+   the realised count is known after preparation).
+6. **Search API (decision, by explicit criteria; official pages read on
+   2026-11-22).** Criteria, in order: terms permitting programmatic use,
+   storing results for research and use in evaluating AI systems; availability;
+   price per query; documented response and errors; a free preflight; result
+   quality; rate limits. *Brave Search API*: $5 per 1,000 requests, but its
+   terms (section 3(b)) forbid storing results beyond transient use and using
+   them to "create, evaluate, train ... benchmark" AI models (storage rights only
+   with a custom plan) - excluded. *Tavily*: its API agreement forbids storing
+   the output and using it in "machine learning or algorithmic activities" -
+   excluded. *Exa* ($4-7 per 1,000): its general terms could not be found
+   (only the Exa Connect marketplace terms); a third-party summary reports a
+   ban on persistent caching - excluded as unverifiable. *Google Custom Search
+   JSON API*: reported by several third-party sources to be closed to new
+   customers and to shut down on 2027-01-01 - excluded. *SerpApi* (Google
+   results): no clause against storing results, research or AI evaluation in
+   its terms (serpapi.com/legal; reselling the service is forbidden); a free
+   Account API usable as preflight ("not counted toward your monthly quota");
+   documented response, status codes and empty-result handling; Free plan 250
+   searches/month (50/hour), Starter $25 for 1,000/month (200/hour), "only
+   successful searches are counted". *Serper* (runner-up): no storage
+   restriction in its terms and about $1 per 1,000 queries (third-party price
+   summary), but less formal documentation and no documented free account
+   endpoint. **Chosen: SerpApi, Google engine** (`src/binding_gate/research/search.py`),
+   charged in the budget at $0.025 per search (`configs/prices.toml`;
+   conservative: SerpApi does not bill cached or failed searches). Note that
+   SerpApi assumes the legal risk of collecting Google's results; Google's own
+   terms are not a party to this study.
+7. **Agent protocol** (`src/binding_gate/arms/gated_research.py`). The harness,
+   not the model, chooses every query. First attempt: the query is the question
+   (whitespace collapsed); SerpApi `engine=google`, `hl=en`, `gl=us`; at most 10
+   organic results are kept in rank order; their pages are fetched in rank
+   order until 5 pages were fetched successfully; each page's stored extracted
+   text, cut to its first 8,000 characters, is shown as document `web1` ...
+   `web5` with its URL and the search date (presentation `sealqa_live_web`; a
+   system message written for this study that names no entity and gives no
+   hint about misleading pages). The live `no_gate` arm stops there. The first
+   attempt is shared by both arms, all models and all repeats of a run
+   (searches and pages are cached per run and reloaded on resume), so within a
+   run `gated_research` judges exactly the candidate `no_gate` got.
+   `gated_research` then applies the decomposer and the gate exactly as `gated`
+   (section 5.1); on RESEARCH it issues ONE targeted re-search with the query
+   `"<entity>" <qualifier 1> ... <qualifier n> <attribute>` built from the
+   verdict's research request (template version 1, double quotes and
+   case-insensitive duplicates removed), shows the new pages only (URLs used
+   before for the item are skipped; the prompt does not mention the earlier
+   attempt) and judges the new candidate against the same constraints. A
+   RESEARCH verdict at the last allowed attempt, a failed re-search or one
+   without a new page ends in an abstention. Page fetching
+   (`src/binding_gate/research/fetch.py`): one GET per URL with a fixed user
+   agent naming the project; robots.txt respected (RFC 9309: longest match;
+   robots.txt 4xx means allowed, 5xx or unreachable means disallowed); HTML,
+   XHTML and plain text only; extraction with the standard library's
+   `html.parser` (fixed rule, version 1); every failure recorded with its reason
+   and never retried. Parameters: `max_attempts = 2`, 10 results, 5 pages,
+   8,000 characters per page, fetch limits 2,000,000 bytes, 20 s, 5 redirects,
+   1 s between requests to one host, at most one search per 18 s (the Starter
+   plan's 200 per hour). **PROPOSED — requires owner approval before freeze.**
+8. **Cost** (dry run of `configs/dev_live.toml` on a synthetic stand-in of
+   254 questions, 114 of them dev; nothing spent): per model, 342 first-attempt
+   answer calls with about 3.55M input tokens (5 pages of 8,000 characters are
+   the worst case and dominate the prompt); searches 114 (low) to 456 (high,
+   a re-search for every item and repeat), $2.85-$11.40 per run; fetches are
+   free; answer calls $0.40 (low) to $14.80 (high) per model depending on the
+   tier, plus up to the same again for re-search answers. Totals per model job
+   including searches: $3.25-$13.02 (low tier) to $10.81-$41.14 (mid tier);
+   caps $14-$42 per model, $165 in all. The smoke config (5 dev questions, slot
+   A, 1 repeat) is estimated at $0.13-$0.28 with a $1 cap.
+9. **Limitations specific to layer 3.** The queries are chosen by the harness,
+   so this tests a gate on a fixed search-and-read pipeline, not on an agent
+   that plans its own searches. Gold answers are those of the pinned revision
+   while the web is read months later; for fast-changing questions the web may
+   have moved on (results are reported by `freshness`). Pages that forbid us in
+   robots.txt, that are not HTML or plain text (PDFs), or whose relevant part
+   lies beyond the first 8,000 characters are never seen. Search results depend
+   on the day, the engine's ranking and the `hl`/`gl` settings, so layer 3 is
+   reproducible from snapshots (section 14) but not re-runnable.
 
 Not part of this study's reported data: the Stanford news-intermediary benchmark
 (arXiv 2605.22785) ships outputs without a licence file. It may be looked at
@@ -747,12 +869,43 @@ Always reported as a pair, never one without the other.
 
 **Layer 3 (live web)**
 
-- **M3, net correct answers:** correct final answers / all items, `gated_research`
-  versus `no_gate`.
-- **M4, recovery rate after re-search:** among first attempts that ended in a
-  RESEARCH verdict, the share that end in a correct final answer.
-- wrong answers / answered; abstention rate; number of searches and model
-  tokens per item (cost).
+- **M3, net correct answers:** correct final answers / all records,
+  `gated_research` versus the live `no_gate` (arm `no_gate_live`, label
+  `no_gate`), same items, model and repeat (all-records denominator; section
+  6.4 applies: unparseable and error records count as not correct).
+- **M4, recovery rate after re-search:** among `gated_research` records whose
+  first attempt ended in a RESEARCH verdict, the share that end in a correct
+  final answer.
+- wrong answers / answered; abstention rate; unparseable and error rates;
+  per record: number of searches and page fetches (calls with purpose `search`
+  and `fetch` that were not cache hits) and model tokens (cost); all of it also
+  by stratum (Seal-0 versus the rest of Seal-Hard; `freshness`).
+
+*Correctness rule* (scorer `sealqa_answer`, `src/binding_gate/scorers/sealqa_answer.py`;
+version 1; **PROPOSED — requires owner approval before freeze**). Primary and
+deterministic: an `answered` final answer is *correct* when its value carries
+the gold answer - after the normalisation of section 6.1 and GRAB-RAG's answer
+normalisation (lower case, punctuation and articles removed, `1,000` -> `1000`,
+`1st` -> `first`), the gold answer occurs in the value as a whole-word
+sequence (the layer-2 containment rule); otherwise *incorrect*. Abstentions and
+unparseable answers are labelled as such; an answer whose quote has fewer than
+5 tokens is unparseable (section 6.3). SealQA gives one answer per question and
+no aliases. For the statistics, `correct` takes the place of
+`target_grounded` and `incorrect` that of `wrong_entity`
+(`layer3_outcome`, `analyse_layer3`; `python -m
+binding_gate.scorers.sealqa_answer analyze <run dirs>`), so M3 = correct / all
+and M4 as defined above; the layer-3 rule is then no longer a placeholder
+(section 8).
+
+The rule cannot be fully deterministic in the sense of SealQA's own grading:
+it misses semantically equivalent answers in other words, formats or orders
+(dates, units, spelled-out numbers) and partial answers that SealQA's
+auto-rater accepts, and can accept a value that names the gold answer while
+asserting something else. A **secondary LLM judge** is therefore planned as a
+cross-check only, never deciding H4: SealQA's grader template (paper,
+appendix C), run on dev records by a judge from a family different from the
+model under test (judge-family rule, section 5; slot J), reporting agreement
+with the primary rule. It is not implemented in PR 8 (open item, section 17).
 
 **Decomposer (A), measured on its own (PR 3)**
 
@@ -1302,6 +1455,33 @@ and hashes are published. Page contents are published only where their licence
 allows; otherwise they are kept privately and this is stated. Search results and
 pages change over time, so layer 3 is reproducible from snapshots but not
 re-runnable from scratch with identical inputs.
+
+*Implementation (PR 8, `src/binding_gate/research/snapshots.py`).* Each run
+keeps a store under `runs/<run_id>/snapshots/` (git-ignored): `blobs/<sha256>`
+holds raw page bytes, robots.txt files, the search provider's raw responses,
+extracted page texts and the exact text shown to the model, each named by the
+SHA-256 of its own bytes, written once and made read-only; `index.jsonl` is an
+append-only, fsynced log with one record per search (query, parameters, time,
+ranked results, response hash, the logged call), per robots.txt (origin, time,
+status, decision, hash) and per page fetch (snapshot id, requested and final
+URL, redirects, time, outcome, HTTP status, content type, charset, raw and text
+SHA-256, sizes, truncation, title, robots decision, extractor version, user
+agent). Failed fetches are recorded the same way. Documents shown to the model
+are built from the stored text read back and hash-checked, so the gate and the
+scorer only ever see stored snapshots. Every attempt lists
+`EvidenceRef(id = snapshot id, sha256 = hash of the shown text, url = final URL)`,
+in the order of the documents (`web<n>` is `evidence[n-1]`).
+`python -m binding_gate.research.snapshots verify <run dir>` re-hashes every
+blob and checks every evidence reference of the traces against the store.
+
+*Publication.* At the end of a run the runner writes
+`snapshots/publish_manifest.json`: URLs, times, HTTP status, content types and
+hashes of pages and robots.txt files, and for each search the query, time,
+provider and ranked result URLs - no page text, titles or snippets. Page texts
+are third-party material without a known licence and are kept privately. Trace
+files contain them too (prompts are part of the trace), so the run directories
+of live-web runs are uploaded by the workflow only encrypted (the
+`RUNS_ENCRYPTION_PASSPHRASE` secret), next to the unencrypted publish manifest.
 
 ## 15. Reporting commitments
 

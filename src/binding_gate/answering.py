@@ -22,6 +22,11 @@ prompt of a run is fixed by its config file.
     ``binding_gate.datasets.grab_rag.context_messages``) followed by the same
     instruction.
 
+``sealqa_live_web``
+    Layer 3 (PR 8, ``binding_gate.datasets.sealqa.live_web_messages``): the web
+    pages fetched for the question, each with its URL, then the question and
+    the same instruction.
+
 Retries
 -------
 :func:`call_model` is the only place where a model call is retried. Each attempt
@@ -65,9 +70,16 @@ def _grab_rag(question: str, documents: Sequence[Document]) -> tuple[Message, ..
     return context_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
 
 
+def _sealqa_live_web(question: str, documents: Sequence[Document]) -> tuple[Message, ...]:
+    from binding_gate.datasets.sealqa import live_web_messages
+
+    return live_web_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
+
+
 PRESENTATIONS: dict[str, Callable[[str, Sequence[Document]], tuple[Message, ...]]] = {
     "deceptive_grounding_doc_injection": _deceptive_grounding,
     "grab_rag_context": _grab_rag,
+    "sealqa_live_web": _sealqa_live_web,
 }
 
 

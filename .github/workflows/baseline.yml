@@ -4,6 +4,16 @@ name: baseline
 # baseline. Everything that defines a run is in the config file chosen below;
 # only API keys come from repository secrets. Step-by-step instructions with the
 # exact values to enter: docs/RUNNING_BASELINE.md.
+#
+# PR 8 additions, all driven by the config (`python -m binding_gate.cli requirements`):
+# optional dependency groups are installed when a component needs them (e.g. the
+# faithfulness checker, SealQA's data conversion); a dataset whose pin method is
+# "prepare" (SealQA) is downloaded at its pinned revision instead of cloned; a live-web
+# config (layer 3) runs as ONE job over every model whose API key is set (shared searches
+# and one search rate limit), is skipped like a model when SERPAPI_API_KEY is missing, and
+# its run directory - which holds third-party page text - is uploaded only encrypted with
+# the RUNS_ENCRYPTION_PASSPHRASE secret (the paid run refuses without it), next to an
+# unencrypted publish manifest of URLs, times and hashes (PREREGISTRATION.md section 14).
 
 on:
   workflow_dispatch:
@@ -47,6 +57,10 @@ jobs:
     timeout-minutes: 10
     outputs:
       models: ${{ steps.models.outputs.models }}
+      extras: ${{ steps.requirements.outputs.extras }}
+      private_outputs: ${{ steps.requirements.outputs.private_outputs }}
+      single_job: ${{ steps.requirements.outputs.single_job }}
+      baseline_report: ${{ steps.requirements.outputs.baseline_report }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -59,11 +73,20 @@ jobs:
         run: |
           echo "::error::dry_run is unchecked but confirm_spend is not checked. A paid run must be confirmed. Nothing was run."
           exit 1
+      - name: Read what the config needs (extras, secrets, output privacy)
+        id: requirements
+        run: |
+          python -m binding_gate.cli requirements --config "$CONFIG" | tee requirements.txt
+          cat requirements.txt >> "$GITHUB_OUTPUT"
       - name: Select models
         id: models
+        env:
+          SINGLE_JOB: ${{ steps.requirements.outputs.single_job }}
         run: |
           ALL="$(python -m binding_gate.cli models --config "$CONFIG")"
-          if [ "$MODEL" = "all" ]; then
+          if [ "$MODEL" = "all" ] && [ "$SINGLE_JOB" = "true" ]; then
+            SELECTED='["all"]'
+          elif [ "$MODEL" = "all" ]; then
             SELECTED="$ALL"
           else
             SELECTED="$(python -c 'import json,sys; labels=json.loads(sys.argv[1]); sys.exit("unknown model label %r; labels in this config: %s" % (sys.argv[2], labels)) if sys.argv[2] not in labels else print(json.dumps([sys.argv[2]]))' "$ALL" "$MODEL")"
@@ -85,52 +108,91 @@ jobs:
         model: ${{ fromJSON(needs.plan.outputs.models) }}
     env:
       MODEL: ${{ matrix.model }}
+      EXTRAS: ${{ needs.plan.outputs.extras }}
+      PRIVATE_OUTPUTS: ${{ needs.plan.outputs.private_outputs }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install package
-        run: python -m pip install -e .
+      - name: Install package (with the optional extras the config needs)
+        run: |
+          if [ -n "$EXTRAS" ]; then
+            python -m pip install -e ".[${EXTRAS}]"
+          else
+            python -m pip install -e .
+          fi
 
-      - name: Clone the benchmark at the pinned commit (into data/raw/, git-ignored)
+      - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
         run: |
           python -m binding_gate.cli dataset-pin --config "$CONFIG" > dataset-pin.txt
           cat dataset-pin.txt
           REPOSITORY="$(sed -n 's/^repository=//p' dataset-pin.txt)"
           COMMIT="$(sed -n 's/^commit=//p' dataset-pin.txt)"
           ROOT="$(sed -n 's/^root=//p' dataset-pin.txt)"
+          METHOD="$(sed -n 's/^method=//p' dataset-pin.txt)"
           case "$ROOT" in data/raw/*) ;; *) echo "::error::dataset root must be under data/raw/"; exit 1 ;; esac
-          mkdir -p "$ROOT"
-          git -C "$ROOT" init -q
-          git -C "$ROOT" remote add origin "$REPOSITORY"
-          git -C "$ROOT" fetch -q --depth 1 origin "$COMMIT"
-          git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
-          test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
+          if [ "$METHOD" = "prepare" ]; then
+            python -m binding_gate.cli dataset-prepare --config "$CONFIG"
+          else
+            mkdir -p "$ROOT"
+            git -C "$ROOT" init -q
+            git -C "$ROOT" remote add origin "$REPOSITORY"
+            git -C "$ROOT" fetch -q --depth 1 origin "$COMMIT"
+            git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
+            test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
+          fi
           rm -f dataset-pin.txt
 
-      - name: Dry run (no API call, no key needed)
-        run: python -m binding_gate.cli dry-run --config "$CONFIG" --model "$MODEL"
-
-      - name: Preflight (free check that the model id exists)
-        id: preflight
+      - name: Single live-web job - select every model whose API key is set
+        if: ${{ matrix.model == 'all' && needs.plan.outputs.single_job == 'true' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
         run: |
+          AVAILABLE="$(python -m binding_gate.cli models --config "$CONFIG" --available | python -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
+          if [ -z "$AVAILABLE" ]; then
+            echo "::warning::No model of this config has its API key configured; the preflight below will skip the run."
+          else
+            echo "Models with an API key: $AVAILABLE"
+            echo "SELECTED_MODELS=$AVAILABLE" >> "$GITHUB_ENV"
+          fi
+
+      - name: Dry run (no API call, no key needed)
+        run: python -m binding_gate.cli dry-run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}"
+
+      - name: Preflight (free check that the model ids and the search account exist)
+        id: preflight
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: |
           set +e
-          python -m binding_gate.cli preflight --config "$CONFIG" --model "$MODEL"
+          python -m binding_gate.cli preflight --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}"
           CODE=$?
           set -e
           if [ "$CODE" -eq 4 ]; then
-            echo "::warning::Model $MODEL was SKIPPED: its API key is not configured as a repository secret. Other models are not affected."
+            echo "::warning::Model $MODEL was SKIPPED: an API key it needs (model, judge or web search) is not configured as a repository secret. Other models are not affected."
             echo "skipped=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "skipped=false" >> "$GITHUB_OUTPUT"
           exit "$CODE"
+
+      - name: Refuse a live-web paid run whose artifacts could not be encrypted
+        if: ${{ !inputs.dry_run && inputs.confirm_spend && steps.preflight.outputs.skipped == 'false' && needs.plan.outputs.private_outputs == 'true' }}
+        env:
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          if [ -z "$RUNS_ENCRYPTION_PASSPHRASE" ]; then
+            echo "::error::This config stores third-party page text. Set the repository secret RUNS_ENCRYPTION_PASSPHRASE so its artifacts can be uploaded encrypted. Nothing was run."
+            exit 1
+          fi
 
       - name: Paid run
         id: paid
@@ -140,17 +202,18 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
-        run: python -m binding_gate.cli run --config "$CONFIG" --model "$MODEL" --runs-dir runs --confirm-spend
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+        run: python -m binding_gate.cli run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}" --runs-dir runs --confirm-spend
 
       - name: Baseline report for this model
-        if: ${{ always() && steps.paid.conclusion != 'skipped' && hashFiles('runs/*/traces.jsonl') != '' }}
+        if: ${{ always() && steps.paid.conclusion != 'skipped' && needs.plan.outputs.baseline_report == 'true' && hashFiles('runs/*/traces.jsonl') != '' }}
         run: |
           RUN_DIRS=(runs/*/)
           python -m binding_gate.cli report "${RUN_DIRS[@]}" --json "baseline_report_${MODEL}.json" | tee "baseline_report_${MODEL}.txt"
           mv "baseline_report_${MODEL}.json" "baseline_report_${MODEL}.txt" runs/
 
       - name: Upload runs/ (traces, manifest, report)
-        if: ${{ always() && hashFiles('runs/**') != '' }}
+        if: ${{ always() && needs.plan.outputs.private_outputs != 'true' && hashFiles('runs/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: runs-${{ matrix.model }}
@@ -158,10 +221,42 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
+      - name: Encrypt runs/ of a live-web run (third-party page text is never uploaded in clear)
+        if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('runs/**') != '' }}
+        env:
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          mkdir -p private public
+          tar -czf private/runs.tar.gz runs
+          printf '%s' "$RUNS_ENCRYPTION_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o private/runs.tar.gz.gpg private/runs.tar.gz
+          rm -f private/runs.tar.gz
+          find runs -path '*/snapshots/publish_manifest.json' -exec cp --parents {} public/ \;
+          find runs -maxdepth 2 -name manifest.json -exec cp --parents {} public/ \;
+          echo "Decrypt with: gpg --decrypt runs.tar.gz.gpg > runs.tar.gz (passphrase: the RUNS_ENCRYPTION_PASSPHRASE secret)"
+
+      - name: Upload the encrypted runs/ of a live-web run
+        if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('private/runs.tar.gz.gpg') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-encrypted-${{ matrix.model == 'all' && 'all-models' || matrix.model }}
+          path: private/runs.tar.gz.gpg
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload the publish manifest of a live-web run (URLs, times, hashes; no page text)
+        if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('public/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-manifest-${{ matrix.model == 'all' && 'all-models' || matrix.model }}
+          path: public/
+          if-no-files-found: ignore
+          retention-days: 90
+
   report:
     name: baseline report (all models of this run)
-    needs: run
-    if: ${{ always() && !inputs.dry_run && inputs.confirm_spend }}
+    needs: [plan, run]
+    if: ${{ always() && !inputs.dry_run && inputs.confirm_spend && needs.plan.outputs.baseline_report == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

@@ -1,0 +1,132 @@
+# PR 8 smoke run of layer 3 (live web, SealQA): the first 5 dev questions, 1 repeat, one
+# low-cost model (slot A), arms no_gate (live) and gated_research. Dev split only.
+#
+# Arms (PREREGISTRATION.md section 5; protocol in src/binding_gate/arms/gated_research.py):
+#   no_gate         component "no_gate_live": the harness searches the question (SerpApi,
+#                   Google), fetches the top results until 5 pages were fetched, shows their
+#                   stored text (first 8,000 characters each) and the model answers. No gate.
+#   gated_research  the SAME first attempt (shared searches, pages and answer request, so the
+#                   runner's cache returns no_gate's candidate), then decomposer + gate; on
+#                   RESEARCH one targeted re-search ("<entity>" <qualifiers> <attribute>) and a
+#                   second answer + gate. max_attempts = 2.
+# Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/;
+# the gate and the scorer only see documents built from the stored text. Page text is
+# third-party material: the workflow encrypts the run artifacts of this config.
+#
+# Budget: [runner] max_usd caps EVERYTHING charged to a model's records: its answer calls,
+# the decomposer, web searches (configs/prices.toml: serpapi/google $0.025 per search) and
+# fetches ($0). Run `python -m binding_gate.cli dry-run --config <this file>` first.
+#
+# All numeric choices marked PROPOSED require owner approval before the freeze.
+# Nothing in this file is read from environment variables; only API keys are
+# (repository secrets for the model providers and for SerpApi, the web search).
+
+config_version = 1
+name = "dev-live-smoke"
+description = "PR 8: live-web smoke run on 5 SealQA dev questions, 1 repeat, slot A, no_gate (live) and gated_research."
+split = "dev"
+repeats = 1
+limit = 5
+
+[runner]
+concurrency = 2
+prices = "configs/prices.toml"
+max_usd = 1.0                            # hard cap for slot A, searches and decomposer included;
+                                         # dry-run estimate 0.13 (low) to 0.28 (high) USD
+
+[dataset]
+name = "sealqa"
+[dataset.options]
+root = "data/raw/sealqa"                 # filled by `python -m binding_gate.cli dataset-prepare` (git-ignored)
+revision = "0e75db526ad93dd039714897b7631afc03510e30"
+subsets = ["seal_hard", "seal_0"]        # items = seal_hard; seal_0 only marks its questions
+repository = "https://huggingface.co/datasets/vtllms/sealqa"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default; PREREGISTRATION.md section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate_live"                    # the live baseline: same first attempt, no gate
+label = "no_gate"                        # the reference arm of the statistics (PREREGISTRATION.md section 8)
+[arms.options]
+presentation = "sealqa_live_web"
+documents_per_attempt = 5                # PROPOSED
+max_document_chars = 8000                # PROPOSED
+[arms.options.search]
+name = "serpapi_google"
+label = "search"
+[arms.options.search.options]
+max_results = 10                         # PROPOSED: organic results kept per search
+hl = "en"
+gl = "us"
+min_interval_seconds = 18.0              # 200 searches per hour = SerpApi Starter plan limit
+timeout_seconds = 60
+max_retries = 4
+backoff_seconds = 5.0
+max_backoff_seconds = 120.0
+[arms.options.fetch]                     # PROPOSED limits (research/fetch.py)
+max_bytes = 2000000
+timeout_seconds = 20.0
+max_redirects = 5
+per_host_interval_seconds = 1.0
+
+[[arms]]
+name = "gated_research"
+[arms.options]
+presentation = "sealqa_live_web"
+documents_per_attempt = 5                # PROPOSED; must equal no_gate's so the first attempt is shared
+max_document_chars = 8000                # PROPOSED; idem
+max_attempts = 2                         # PROPOSED: the first attempt plus ONE targeted re-search
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]                # PROPOSED (section 5.1), identical to configs/dev_gated.toml
+window_tokens = 40
+min_quote_tokens = 5
+lead_max_tokens = 4
+lead_min_repeats = 2
+premise_scope = "document"
+competitor_tie = "fail"
+[arms.options.search]                    # must equal no_gate's so searches are shared
+name = "serpapi_google"
+label = "search"
+[arms.options.search.options]
+max_results = 10
+hl = "en"
+gl = "us"
+min_interval_seconds = 18.0
+timeout_seconds = 60
+max_retries = 4
+backoff_seconds = 5.0
+max_backoff_seconds = 120.0
+[arms.options.fetch]
+max_bytes = 2000000
+timeout_seconds = 20.0
+max_redirects = 5
+per_host_interval_seconds = 1.0
+[arms.options.decomposer]
+name = "model_decomposer"                # slot "Dec" (provisional), as in configs/dev_gated.toml
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "sealqa_answer"                   # deterministic correctness rule (PREREGISTRATION.md section 7, layer 3)
+[scorers.options]
+min_quote_tokens = 5
