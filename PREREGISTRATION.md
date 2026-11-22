@@ -413,11 +413,140 @@ Always reported as a pair, never one without the other.
 
 **Decomposer (A), measured on its own (PR 3)**
 
-- Agreement of the decomposer's entity, attribute and qualifiers with a
-  reference decomposition on a dev sample; how the reference is produced is TODO
-  for PR 3 and is recorded before freeze.
+- Agreement of the decomposer's entity, qualifiers and presuppositions with a
+  reference decomposition on a dev sample, as specified below. Implemented in
+  `src/binding_gate/evaluation/decomposer.py` (`python -m
+  binding_gate.evaluation.decomposer dry-run|run|report`), configured by
+  `configs/decomposer_eval_dev.toml`. Dev split only; the tool refuses any other
+  split and never loads test items.
 - Share of gate errors in the human audit that trace back to a wrong
   decomposition.
+
+*The decomposer that is measured.* `model_decomposer`
+(`src/binding_gate/decomposers/`): the model of slot "Dec" (section 9), the
+fixed prompt version 1 (`decomposition_format.py`, SHA-256
+`9e655050a2eaac39615ba4b2e9f974730757ba84d9e396305a98adf79084af90`, written
+before any decomposer output was seen; it names no benchmark, drug or disease
+and its one worked example is invented), a strict JSON output format and a
+deterministic parser. A reply that breaks the format is a failure: it is never
+repaired and never re-asked. Every call is logged with purpose `decompose`. In
+the gated arm a failed decomposition leaves no constraints, so that item becomes
+an error record (section 6.4). Within one run the gated arm obtains one
+decomposition per question (a cache keyed by the decomposer's configuration hash
+and the exact question text), shared by all conditions, models and repeats, so
+the spread across repeats in section 8 does not include decomposer variability;
+that variability is measured here instead (stability, below).
+
+*Reference procedure, layer 1 (version 1; `decomposers/deceptive_grounding_reference.py`).*
+Every layer 1 question is the template "What does the literature say about
+using {X} to treat {C}?", so the reference is derived mechanically from the
+item's gold metadata; nothing is written by hand per question. It reads gold,
+so it is measurement code only and is never used by the gate or any arm.
+
+- entity: name X, no aliases (the benchmark has none);
+- qualifiers: one, text C, kind `other` (the disease restricts which facts
+  about X count; `time`, `version` and `unit` do not apply, and `place` means a
+  location or setting, not a condition);
+- presuppositions: one, "X is used, or has been proposed, to treat C", key
+  terms X and C;
+- forbidden entity names: the competitors Y and `Y_synthetic` of every triple
+  of the question's (X, C) pair; the competitor must never be the entity or one
+  of its aliases (the drug of `class_proximate` documents is not recorded by the
+  benchmark and cannot be listed);
+- attribute: recorded, not scored (the question is open-ended, and no gate
+  check reads the attribute).
+
+Layers 2 and 3 have no reference procedure yet. PR 7 and PR 8 define one (for
+example a reference written by a person for a sample, blind to the decomposer's
+output) before those layers are frozen, or state that the decomposer is not
+measured there.
+
+*Unit, sample and repeats.* The unit is the distinct dev question (in layer 1
+one (X, C) pair; the pinned benchmark has 45 distinct dev questions). Each
+question is decomposed `REPEATS` times independently (cache disabled).
+**PROPOSED — requires owner approval before freeze.**
+
+```
+DECOMPOSER_EVAL_SAMPLE_SIZE = 45
+DECOMPOSER_EVAL_SEED = 20261122
+DECOMPOSER_EVAL_REPEATS = 3
+sample = the SAMPLE_SIZE dev questions with the smallest SHA-256("<SEED>\n<question>")
+```
+
+With 45 of 45 questions the seed does not change the sample; it is fixed so that
+the rule stays the same if a smaller sample is ever used. Dry-run estimate with
+the pinned benchmark (nothing spent): 135 calls, about 99,000 input tokens,
+$0.03 (low) to $0.16 (high), ceiling $0.29; budget cap $0.50.
+
+*Matching rules.* Strings are compared after the normalisation of section 6.1.
+The *forms* of an entity or qualifier are its text plus its aliases. Every
+record (question × repeat) counts; a failed decomposition stays in every
+all-records denominator and is wrong on every all-records metric.
+
+- **Entity correct:** a form of the decomposer's entity equals a form of the
+  reference entity (so the queried name given as an alias counts), and no form
+  equals a forbidden name. A form equal to a forbidden name is a **competitor
+  collision**, counted separately.
+- **Qualifier match (exact):** a decomposer qualifier and a reference qualifier
+  share a form; the kind is not required to agree (kind agreement is reported).
+  Recall = matched reference qualifiers / reference qualifiers, all records.
+  Precision = matched decomposer qualifiers / decomposer qualifiers, parsed
+  records.
+- **Presupposition agreement (exact):** for each reference presupposition, one
+  decomposer presupposition has a key term equal to each reference key term; a
+  key term naming the entity may also be any form of a correct decomposer
+  entity, one naming a reference qualifier any form of a decomposer qualifier
+  that matched it.
+- Secondary, reported but not used for the thresholds: *lenient* qualifier and
+  presupposition matching, where the word tokens of one form may occur as a
+  contiguous run inside the other.
+
+*Reported.* Entity accuracy (all records and among parsed), name-exact rate,
+competitor collisions, qualifier recall and precision (exact and lenient), kind
+agreement, presupposition agreement (exact and lenient), parse-failure and
+call-failure rates, stability across repeats (share of questions with identical
+constraints in every repeat), and how each error would propagate into the gate:
+every record is assigned consequence categories (unparseable or failed call →
+error records; wrong entity → correct answers blocked; competitor collision →
+wrong-entity answers can pass; missed qualifier → evidence about another disease
+cannot be blocked; extra qualifier → correct answers at risk; missed
+presupposition → the premise check loses its target), with the number of dev
+items each would affect per run. These categories are the expected effect by the
+design of the checks of section 1; PR 4's checks determine the actual effect.
+
+*Thresholds* (on the complete dev measurement). **PROPOSED — requires owner approval before freeze.**
+
+| Metric | Threshold |
+|---|---|
+| Entity accuracy, all records | ≥ 95% |
+| Failure rate (unparseable + failed calls), all records | ≤ 2% |
+| Competitor collisions | 0 |
+| Qualifier recall, exact | ≥ 90% |
+| Qualifier precision, exact | ≥ 80% |
+| Presupposition agreement, exact | ≥ 80% |
+
+Why: a wrong entity makes the gate test the wrong name for every condition of a
+question, so entity errors must be rare; failures become error records in the
+gated arm and must stay well below the 5% validity guard of section 6.4; a
+single competitor collision lets the gate accept exactly the failure it exists
+to block. Qualifier and presupposition errors weaken single checks rather than
+the whole gate, hence lower bars.
+
+*If the thresholds are not met* (**PROPOSED — requires owner approval before freeze**):
+the prompt (as a new prompt version) or the model of slot "Dec" may be revised on dev
+and measured again, at most three times; every measurement run is kept and
+listed in the report. The decomposer used by the gated arm is the configuration
+frozen with this document. If no revision meets the thresholds, the gated arm
+is still run and reported, with the decomposer's measured accuracy stated next
+to H1-H3; whether to proceed is an owner decision recorded in section 18. The
+thresholds are a quality bar for a component, not a hypothesis.
+
+*Limitations.* The 45 dev questions are the questions on which the decomposer
+may be revised, so the dev measurement is optimistic. They also share one
+template, so they say little about other question shapes. The frozen test runs
+store the gated arm's constraints for every test question
+(`TraceRecord.constraints`); the same comparison can be applied there after the
+test run to obtain an unbiased layer 1 estimate (proposed for PR 6 or PR 10).
 
 ## 8. Statistics
 

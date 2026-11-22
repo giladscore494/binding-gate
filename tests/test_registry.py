@@ -31,7 +31,8 @@ def test_pr2_components_are_registered_and_later_kinds_are_still_empty():
     assert {"openai_responses", "anthropic_messages", "google_gemini", "moonshot_chat"} <= set(available("model"))
     assert "no_gate" in available("arm")
     assert "provenance" in available("scorer")
-    for kind in ("decomposer", "check", "gate"):
+    assert available("decomposer") == ["model_decomposer"]  # PR 3
+    for kind in ("check", "gate"):
         assert available(kind) == []
 
 

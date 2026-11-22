@@ -1,0 +1,75 @@
+# Separate accuracy measurement of the decomposer (A) on the dev split
+# (PREREGISTRATION.md section 7, "Decomposer (A), measured on its own"; PR 3).
+#
+# This is NOT a run config of binding_gate.cli: it is read by
+#   python -m binding_gate.evaluation.decomposer dry-run --config configs/decomposer_eval_dev.toml
+#   python -m binding_gate.evaluation.decomposer run     --config configs/decomposer_eval_dev.toml --confirm-spend
+# The dry run calls no API and needs no key. The paid run needs the OpenAI key
+# (an environment variable read only through src/binding_gate/secrets.py) and refuses without --confirm-spend.
+#
+# Sample, repeats and thresholds are the PROPOSED values of PREREGISTRATION.md
+# section 7 and require owner approval before freeze; a test fails if this file
+# and the document disagree.
+
+eval_version = 1
+name = "decomposer-eval-dev"
+description = "Decomposer (A) versus the Deceptive Grounding reference decomposition, all dev questions, 3 repeats."
+split = "dev"                    # the only split this tool accepts
+repeats = 3                      # independent decompositions per question (cache disabled)
+
+[sample]
+# Unit: the distinct dev question (= one (X, C) pair in Deceptive Grounding).
+# Rule: rank questions by SHA-256("<seed>\n<question>") and keep the first `size`.
+# The pinned benchmark has 45 distinct dev questions, so size = 45 takes all of them.
+size = 45
+seed = 20261122
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[reference]
+# binding_gate/decomposers/deceptive_grounding_reference.py: entity = X,
+# qualifier = C (kind "other"), presupposition "X is used to treat C" with key
+# terms (X, C), forbidden entity names = Y and Y_synthetic. Uses gold metadata,
+# so it exists only here, never in the gate.
+name = "deceptive_grounding"
+
+[decomposer]
+name = "model_decomposer"
+[decomposer.options]
+prompt_version = 1
+[decomposer.options.model]
+# Slot "Dec" of PREREGISTRATION.md section 9 (provisional): the same id and the
+# same sampling settings as slot A in configs/dev_baseline.toml. No temperature is
+# sent (provider default), no reasoning option is sent ("as deployed").
+name = "openai_responses"
+label = "decomposer"
+[decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[runner]
+prices = "configs/prices.toml"
+# Hard budget cap in US dollars for the whole measurement (135 calls).
+# Dry-run estimate with the pinned benchmark: $0.03 (low) to $0.16 (high), ceiling $0.29.
+max_usd = 0.5
+
+[thresholds]
+# PROPOSED - require owner approval before freeze. Rates are fractions of all
+# records (question x repeat), failures included, except precision (fraction of
+# predicted qualifiers in parsed records).
+entity_accuracy_min = 0.95
+failure_rate_max = 0.02
+competitor_collisions_max = 0
+qualifier_recall_min = 0.90
+qualifier_precision_min = 0.80
+presupposition_agreement_min = 0.80
