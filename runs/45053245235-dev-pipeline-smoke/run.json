@@ -1,0 +1,226 @@
+{
+  "artifacts": [
+    "ledger-after-run",
+    "pipeline--smoke--ledger",
+    "smoke--dev_smoke--baseline-report",
+    "smoke--dev_smoke--ledger",
+    "smoke--dev_smoke--runs-google-low",
+    "smoke--dev_smoke--runs-google-mid",
+    "smoke--dev_smoke--runs-openai-low",
+    "smoke--dev_smoke--runs-openai-mid",
+    "smoke--dev_smoke--runs-zai-low",
+    "smoke--dev_smoke--runs-zai-mid",
+    "smoke--dev_smoke--usage-check"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T18:09:45+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45053245235-dev-pipeline-smoke",
+  "head_branch": "main",
+  "head_sha": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "kept": [
+    {
+      "bytes": 32888,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "4c7ed286336b562fa625d699db774fcc79b8c520771b1d6bd91827d9b2f7c3c5"
+    },
+    {
+      "bytes": 7974,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "f44f40ed577ed163c7521fd3baf9449115b44658bfe9a2db10136f60d7fb1c27"
+    },
+    {
+      "bytes": 23677,
+      "path": "pipeline--smoke--ledger/ledger.json",
+      "sha256": "28cd009a79b974e805a804181c18b965f883371cfa404401b01f121b5111844c"
+    },
+    {
+      "bytes": 5210,
+      "path": "pipeline--smoke--ledger/ledger.md",
+      "sha256": "8a7e3369263591ff9a86c01ce7a419dd69d6beb8e231012cdc9dbaf2623a30c1"
+    },
+    {
+      "bytes": 15825,
+      "path": "smoke--dev_smoke--baseline-report/baseline_report.json",
+      "sha256": "105593a3974c0818dea7e5027e3cbb2098c22c5ae4bade0543f1960df8b196d4"
+    },
+    {
+      "bytes": 9979,
+      "path": "smoke--dev_smoke--baseline-report/baseline_report.txt",
+      "sha256": "12c0c6026892df84e677678e9f284eefeb6bd3b98fa61e0c749b006b4dcd9d80"
+    },
+    {
+      "bytes": 24528,
+      "path": "smoke--dev_smoke--ledger/ledger.json",
+      "sha256": "3a59c5a6e90f68e48b9d1f7c4c1b23e9abf2e4647190c362b44288777e43ce02"
+    },
+    {
+      "bytes": 5771,
+      "path": "smoke--dev_smoke--ledger/ledger.md",
+      "sha256": "4b0aa8c9522c4c99e9b3dbd9a10bee17eea422daf5925fa858b174dc4fea8abf"
+    },
+    {
+      "bytes": 918,
+      "path": "smoke--dev_smoke--runs-google-low/20261122T180815Z-5867d17e-1d88/invocations.jsonl",
+      "sha256": "129b38fadd39390c155785ca43eff9fcf0aa602b79be94ebe5f52be38dfc4957"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-google-low/20261122T180815Z-5867d17e-1d88/manifest.json",
+      "sha256": "d54ff489965e40d5e5a5b4535ee49a930364822d5ae15c1ae70c7c1afcdfe8a8"
+    },
+    {
+      "bytes": 2793,
+      "path": "smoke--dev_smoke--runs-google-low/baseline_report_google-low.json",
+      "sha256": "c601e361f3e7f89c030343b46bebdf3ab9fe319e578489e5163295f4e3fe7094"
+    },
+    {
+      "bytes": 1969,
+      "path": "smoke--dev_smoke--runs-google-low/baseline_report_google-low.txt",
+      "sha256": "7cee9af347c2759f6724638c4798bd1373402d4c8c289a0deeaebb5c69f8f5c1"
+    },
+    {
+      "bytes": 920,
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T180817Z-5867d17e-f55a/invocations.jsonl",
+      "sha256": "5c9150109e85d1b90e6b10a449bffd40739a77b26cd68c1439282d86c7f6af8c"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T180817Z-5867d17e-f55a/manifest.json",
+      "sha256": "52baa6e1432651cc7c5c42dc37678229570702d2c15e3bf0fbcba3252cd83229"
+    },
+    {
+      "bytes": 2788,
+      "path": "smoke--dev_smoke--runs-google-mid/baseline_report_google-mid.json",
+      "sha256": "407bc4b54ef3d5b1133d9d854c62774992b1f0cab9cf900e5ccb75c3a1f55aee"
+    },
+    {
+      "bytes": 1964,
+      "path": "smoke--dev_smoke--runs-google-mid/baseline_report_google-mid.txt",
+      "sha256": "7a0e1d46310b2011e79cc12af6d118c7840d8aaafed114c43c574aa4a791100f"
+    },
+    {
+      "bytes": 919,
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T180818Z-5867d17e-dafc/invocations.jsonl",
+      "sha256": "611444d387d6fdddb4ed6316e7136c5ffe63569bab9cf741430572b7c490ad3d"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T180818Z-5867d17e-dafc/manifest.json",
+      "sha256": "ef6d03a9c90660dd552dc1fffcdb1d41ca46785e12693c297714a7280441d7a2"
+    },
+    {
+      "bytes": 2798,
+      "path": "smoke--dev_smoke--runs-openai-low/baseline_report_openai-low.json",
+      "sha256": "287f2a191c105f39a5771b49f21f0900405c29140ff6f4dcc7311d7e0bb0a583"
+    },
+    {
+      "bytes": 1958,
+      "path": "smoke--dev_smoke--runs-openai-low/baseline_report_openai-low.txt",
+      "sha256": "bec808b083df90b3c6e8e9a15a4de20e1cc3177b1482928fbb643a6f2f0db5d5"
+    },
+    {
+      "bytes": 920,
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T180814Z-5867d17e-56cf/invocations.jsonl",
+      "sha256": "7a5fb0f290ccbe3c5f0083065edb6062db960dc8a646faf1e3e780ad1159260a"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T180814Z-5867d17e-56cf/manifest.json",
+      "sha256": "fff4c99a0a5e3ac744cb5e15f42390e39b0ee94722d7a5780534f049e296fd26"
+    },
+    {
+      "bytes": 2786,
+      "path": "smoke--dev_smoke--runs-openai-mid/baseline_report_openai-mid.json",
+      "sha256": "af369e0a54063c8a3c895651aabc73d50f9212949f6e5007c37cabb88d36972a"
+    },
+    {
+      "bytes": 1962,
+      "path": "smoke--dev_smoke--runs-openai-mid/baseline_report_openai-mid.txt",
+      "sha256": "a094e630fc41937b0b616213e6424c9c155d99d59344e505938d3e9e9d5e4511"
+    },
+    {
+      "bytes": 910,
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T180821Z-5867d17e-b057/invocations.jsonl",
+      "sha256": "ee73af8986a587c1498c7f0b9d66cd329bd93d59ff3adf3050a2304ebf900212"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T180821Z-5867d17e-b057/manifest.json",
+      "sha256": "156b16660ad265455f7b30d1fad523b13195000a19e410077e891279e553c552"
+    },
+    {
+      "bytes": 2785,
+      "path": "smoke--dev_smoke--runs-zai-low/baseline_report_zai-low.json",
+      "sha256": "60068345354c661bdd84a206d69069cd19c04362ac84f4adcf883b67cce14078"
+    },
+    {
+      "bytes": 1958,
+      "path": "smoke--dev_smoke--runs-zai-low/baseline_report_zai-low.txt",
+      "sha256": "fd464f542d9905d3fd8a7fbfa95d377bb6458c4f4b86384b7831ca523a0aa529"
+    },
+    {
+      "bytes": 909,
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T180816Z-5867d17e-0726/invocations.jsonl",
+      "sha256": "7affbe82476396ae8239e2dca8a776571735e78177a2bd0e7286b3b03195f365"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T180816Z-5867d17e-0726/manifest.json",
+      "sha256": "e80032e29c9699c43c0fd25842cd260aaee13bb0343d1dfa99fecdc44612de7d"
+    },
+    {
+      "bytes": 2777,
+      "path": "smoke--dev_smoke--runs-zai-mid/baseline_report_zai-mid.json",
+      "sha256": "083d74919f4f1d1f6ab58b98973fcb0cc8da191f9bfda6833e5a69ab4f5b5582"
+    },
+    {
+      "bytes": 1950,
+      "path": "smoke--dev_smoke--runs-zai-mid/baseline_report_zai-mid.txt",
+      "sha256": "09a3ec5caa7f4d7d0d2d1ba26562d6b19d6ee91b75edbc1ee18b0dc4f1e0b461"
+    },
+    {
+      "bytes": 11469,
+      "path": "smoke--dev_smoke--usage-check/smoke_usage_check.json",
+      "sha256": "b36bb5e08411debd8f061aa4ead161e6ff1dbe832a75c7d0e6ac02150d23065b"
+    },
+    {
+      "bytes": 2223,
+      "path": "smoke--dev_smoke--usage-check/smoke_usage_check.md",
+      "sha256": "0a1339eb3ddfe7ea0b6c66abf4bea11242aca49ae70b4b40e8fa07e87fd431e8"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "smoke--dev_smoke--runs-google-low/20261122T180815Z-5867d17e-1d88/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T180817Z-5867d17e-f55a/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T180818Z-5867d17e-dafc/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T180814Z-5867d17e-56cf/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T180821Z-5867d17e-b057/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T180816Z-5867d17e-0726/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45053245235,
+  "stage": "dev-pipeline-smoke",
+  "title": "dev pipeline: smoke",
+  "workflow": "dev pipeline: smoke"
+}

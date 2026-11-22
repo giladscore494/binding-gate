@@ -1,0 +1,741 @@
+{
+  "active_runs": [],
+  "artifacts": [
+    {
+      "created_at": "2026-11-22T17:59:32Z",
+      "dir": null,
+      "expired": false,
+      "id": 14766376757,
+      "name": "smoke--dev_smoke--usage-check",
+      "role": null,
+      "size_in_bytes": 2248,
+      "status": "no-spend",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:56:36Z",
+      "dir": "a14766286704",
+      "expired": false,
+      "id": 14766286704,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 2810,
+      "status": "read",
+      "workflow_run_id": 45052172832
+    },
+    {
+      "created_at": "2026-11-22T17:59:03Z",
+      "dir": null,
+      "expired": false,
+      "id": 14766107775,
+      "name": "smoke--dev_smoke--runs-zai-mid",
+      "role": "runs",
+      "size_in_bytes": 14532,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:54:18Z",
+      "dir": null,
+      "expired": false,
+      "id": 14766076899,
+      "name": "baseline-report",
+      "role": null,
+      "size_in_bytes": 1816,
+      "status": "no-spend",
+      "workflow_run_id": 45051941828
+    },
+    {
+      "created_at": "2026-11-22T17:43:46Z",
+      "dir": null,
+      "expired": false,
+      "id": 14766075195,
+      "name": "runs-openai-mid",
+      "role": "runs",
+      "size_in_bytes": 11565,
+      "status": "covered",
+      "workflow_run_id": 45051002102
+    },
+    {
+      "created_at": "2026-11-22T18:07:35Z",
+      "dir": "a14766044227",
+      "expired": false,
+      "id": 14766044227,
+      "name": "pipeline--smoke--ledger",
+      "role": "ledger",
+      "size_in_bytes": 3723,
+      "status": "read",
+      "workflow_run_id": 45053245235
+    },
+    {
+      "created_at": "2026-11-22T17:58:40Z",
+      "dir": null,
+      "expired": false,
+      "id": 14766012868,
+      "name": "smoke--dev_smoke--runs-google-low",
+      "role": "runs",
+      "size_in_bytes": 2696,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:59:04Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765973059,
+      "name": "smoke--dev_smoke--runs-openai-mid",
+      "role": "runs",
+      "size_in_bytes": 16585,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:56:26Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765952817,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1456,
+      "status": "no-spend",
+      "workflow_run_id": 45052172832
+    },
+    {
+      "created_at": "2026-11-22T17:58:39Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765931900,
+      "name": "smoke--dev_smoke--runs-google-mid",
+      "role": "runs",
+      "size_in_bytes": 2695,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:58:25Z",
+      "dir": "a14765927985",
+      "expired": false,
+      "id": 14765927985,
+      "name": "smoke--dev_smoke--ledger",
+      "role": "ledger",
+      "size_in_bytes": 3085,
+      "status": "read",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:43:25Z",
+      "dir": "a14765840321",
+      "expired": false,
+      "id": 14765840321,
+      "name": "ledger",
+      "role": "ledger",
+      "size_in_bytes": 2471,
+      "status": "read",
+      "workflow_run_id": 45051002102
+    },
+    {
+      "created_at": "2026-11-22T17:58:48Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765783595,
+      "name": "smoke--dev_smoke--runs-openai-low",
+      "role": "runs",
+      "size_in_bytes": 16893,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:59:18Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765548039,
+      "name": "smoke--dev_smoke--baseline-report",
+      "role": null,
+      "size_in_bytes": 2349,
+      "status": "no-spend",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:58:54Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765474982,
+      "name": "smoke--dev_smoke--runs-zai-low",
+      "role": "runs",
+      "size_in_bytes": 14563,
+      "status": "covered",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:44:06Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765472508,
+      "name": "baseline-report",
+      "role": null,
+      "size_in_bytes": 2128,
+      "status": "no-spend",
+      "workflow_run_id": 45051002102
+    },
+    {
+      "created_at": "2026-11-22T17:35:41Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765471151,
+      "name": "smoke--dev_smoke--usage-check",
+      "role": null,
+      "size_in_bytes": 2598,
+      "status": "no-spend",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:57:56Z",
+      "dir": "a14765463260",
+      "expired": false,
+      "id": 14765463260,
+      "name": "pipeline--smoke--ledger",
+      "role": "ledger",
+      "size_in_bytes": 3040,
+      "status": "read",
+      "workflow_run_id": 45052325086
+    },
+    {
+      "created_at": "2026-11-22T17:35:29Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765450660,
+      "name": "smoke--dev_smoke--baseline-report",
+      "role": null,
+      "size_in_bytes": 2668,
+      "status": "no-spend",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:54:03Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765278385,
+      "name": "runs-openai-mid",
+      "role": "runs",
+      "size_in_bytes": 16565,
+      "status": "covered",
+      "workflow_run_id": 45051941828
+    },
+    {
+      "created_at": "2026-11-22T17:53:37Z",
+      "dir": "a14765278332",
+      "expired": false,
+      "id": 14765278332,
+      "name": "ledger",
+      "role": "ledger",
+      "size_in_bytes": 2711,
+      "status": "read",
+      "workflow_run_id": 45051941828
+    },
+    {
+      "created_at": "2026-11-22T17:32:19Z",
+      "dir": null,
+      "expired": false,
+      "id": 14765027802,
+      "name": "smoke--dev_smoke--runs-openai-low",
+      "role": "runs",
+      "size_in_bytes": 15670,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:31:41Z",
+      "dir": "a14765012747",
+      "expired": false,
+      "id": 14765012747,
+      "name": "pipeline--smoke--ledger",
+      "role": "ledger",
+      "size_in_bytes": 1216,
+      "status": "read",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:25:46Z",
+      "dir": "a14764967071",
+      "expired": false,
+      "id": 14764967071,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 1060,
+      "status": "read",
+      "workflow_run_id": 45049349443
+    },
+    {
+      "created_at": "2026-11-22T17:25:42Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764867395,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1456,
+      "status": "no-spend",
+      "workflow_run_id": 45049349443
+    },
+    {
+      "created_at": "2026-11-22T17:35:14Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764754473,
+      "name": "smoke--dev_smoke--runs-google-low",
+      "role": "runs",
+      "size_in_bytes": 16061,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:32:23Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764674350,
+      "name": "smoke--dev_smoke--runs-zai-mid",
+      "role": "runs",
+      "size_in_bytes": 16337,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:32:24Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764659424,
+      "name": "smoke--dev_smoke--runs-zai-low",
+      "role": "runs",
+      "size_in_bytes": 16802,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:32:26Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764639671,
+      "name": "smoke--dev_smoke--runs-google-mid",
+      "role": "runs",
+      "size_in_bytes": 15009,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:32:19Z",
+      "dir": null,
+      "expired": false,
+      "id": 14764528518,
+      "name": "smoke--dev_smoke--runs-openai-mid",
+      "role": "runs",
+      "size_in_bytes": 10188,
+      "status": "covered",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T17:31:56Z",
+      "dir": "a14764404104",
+      "expired": false,
+      "id": 14764404104,
+      "name": "smoke--dev_smoke--ledger",
+      "role": "ledger",
+      "size_in_bytes": 1276,
+      "status": "read",
+      "workflow_run_id": 45049920447
+    },
+    {
+      "created_at": "2026-11-22T15:49:24Z",
+      "dir": "a14761177250",
+      "expired": false,
+      "id": 14761177250,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 999,
+      "status": "read",
+      "workflow_run_id": 45040365316
+    },
+    {
+      "created_at": "2026-11-22T15:49:20Z",
+      "dir": null,
+      "expired": false,
+      "id": 14760918128,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1252,
+      "status": "no-spend",
+      "workflow_run_id": 45040365316
+    },
+    {
+      "created_at": "2026-11-22T14:43:16Z",
+      "dir": null,
+      "expired": false,
+      "id": 14759340505,
+      "name": "check-secrets--report",
+      "role": null,
+      "size_in_bytes": 1221,
+      "status": "no-spend",
+      "workflow_run_id": 45034295602
+    },
+    {
+      "created_at": "2026-11-22T14:43:18Z",
+      "dir": "a14759230767",
+      "expired": false,
+      "id": 14759230767,
+      "name": "check-secrets--ledger",
+      "role": "ledger",
+      "size_in_bytes": 905,
+      "status": "read",
+      "workflow_run_id": 45034295602
+    }
+  ],
+  "check": {
+    "after_cap_usd": 0.965972,
+    "allowed": true,
+    "cap_usd": 0.8,
+    "hard_limit_usd": 50.0,
+    "reasons": [],
+    "remaining_after_cap_usd": 49.034028,
+    "total_usd": 0.165972,
+    "what": "configs/dev_smoke.toml (model all)"
+  },
+  "complete": true,
+  "covered_artifact_ids": [
+    14764528518,
+    14764639671,
+    14764659424,
+    14764674350,
+    14764754473,
+    14765027802,
+    14765278385,
+    14765474982,
+    14765783595,
+    14765931900,
+    14765973059,
+    14766012868,
+    14766075195,
+    14766107775
+  ],
+  "current_run_id": 45053245235,
+  "entries": {
+    "run:20261122T173210Z-311727c1-60e3": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "google-low": 0.0047205
+        },
+        "by_purpose_usd": {
+          "answer": 0.0047205
+        },
+        "closed": true,
+        "computed_usd": 0.0047205,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.004721,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14764754473 'smoke--dev_smoke--runs-google-low' (workflow run 45049920447): 20261122T173210Z-311727c1-60e3",
+      "unpriced_calls": 0,
+      "usd": 0.004721
+    },
+    "run:20261122T173212Z-311727c1-0a02": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "openai-low": 0.0017439
+        },
+        "by_purpose_usd": {
+          "answer": 0.0017439
+        },
+        "closed": true,
+        "computed_usd": 0.0017439,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.001744,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14765027802 'smoke--dev_smoke--runs-openai-low' (workflow run 45049920447): 20261122T173212Z-311727c1-0a02",
+      "unpriced_calls": 0,
+      "usd": 0.001744
+    },
+    "run:20261122T173212Z-311727c1-be21": {
+      "calls": 12,
+      "detail": {
+        "by_model_usd": {
+          "google-mid": 0.0233475
+        },
+        "by_purpose_usd": {
+          "answer": 0.0233475
+        },
+        "closed": false,
+        "computed_usd": 0.0233475,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.023348,
+        "records": 12,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14764639671 'smoke--dev_smoke--runs-google-mid' (workflow run 45049920447): 20261122T173212Z-311727c1-be21",
+      "unpriced_calls": 0,
+      "usd": 0.023348
+    },
+    "run:20261122T173213Z-311727c1-e141": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "zai-mid": 0.023293
+        },
+        "by_purpose_usd": {
+          "answer": 0.023293
+        },
+        "closed": true,
+        "computed_usd": 0.023293,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.023293,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14764674350 'smoke--dev_smoke--runs-zai-mid' (workflow run 45049920447): 20261122T173213Z-311727c1-e141",
+      "unpriced_calls": 0,
+      "usd": 0.023293
+    },
+    "run:20261122T173214Z-311727c1-e882": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "zai-low": 0.00245835
+        },
+        "by_purpose_usd": {
+          "answer": 0.00245835
+        },
+        "closed": true,
+        "computed_usd": 0.00245835,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.002458,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14764659424 'smoke--dev_smoke--runs-zai-low' (workflow run 45049920447): 20261122T173214Z-311727c1-e882",
+      "unpriced_calls": 0,
+      "usd": 0.00245835
+    },
+    "run:20261122T173216Z-311727c1-259d": {
+      "calls": 0,
+      "detail": {
+        "by_model_usd": {},
+        "by_purpose_usd": {},
+        "closed": true,
+        "computed_usd": 0,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.0,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765840321 'ledger' (workflow run 45051002102): ledger.json <- ledger-results-log: runs/45049920447-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14764528518 'smoke--dev_smoke--runs-openai-mid' (workflow run 45049920447): 20261122T173216Z-311727c1-259d",
+      "unpriced_calls": 0,
+      "usd": 0.0
+    },
+    "run:20261122T174343Z-311727c1-4efa": {
+      "calls": 0,
+      "detail": {
+        "by_model_usd": {},
+        "by_purpose_usd": {},
+        "closed": true,
+        "computed_usd": 0,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "51cfcedb0a3608e3d19cdc74cf1cd9267eed06b5a3d491b43968928a3070bd48",
+        "recorded_usd": 0.0,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- artifact 14765278332 'ledger' (workflow run 45051941828): ledger.json <- ledger-results-log: runs/45051002102-baseline-configs-dev_smoke.toml-openai-mid-paid/ledger-after-run/ledger.json <- artifact 14766075195 'runs-openai-mid' (workflow run 45051002102): 20261122T174343Z-311727c1-4efa",
+      "unpriced_calls": 0,
+      "usd": 0.0
+    },
+    "run:20261122T175350Z-5867d17e-087a": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "openai-mid": 0.041708
+        },
+        "by_purpose_usd": {
+          "answer": 0.041708
+        },
+        "closed": true,
+        "computed_usd": 0.041708,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.041708,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766286704 'check-secrets--ledger' (workflow run 45052172832): ledger.json <- ledger-results-log: runs/45051941828-baseline-configs-dev_smoke.toml-openai-mid-paid/ledger-after-run/ledger.json <- artifact 14765278385 'runs-openai-mid' (workflow run 45051941828): 20261122T175350Z-5867d17e-087a",
+      "unpriced_calls": 0,
+      "usd": 0.041708
+    },
+    "run:20261122T175838Z-5867d17e-8bb1": {
+      "calls": 0,
+      "detail": {
+        "by_model_usd": {},
+        "by_purpose_usd": {},
+        "closed": false,
+        "computed_usd": 0,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.0,
+        "records": 0,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14765931900 'smoke--dev_smoke--runs-google-mid' (workflow run 45052325086): 20261122T175838Z-5867d17e-8bb1",
+      "unpriced_calls": 0,
+      "usd": 0.0
+    },
+    "run:20261122T175839Z-5867d17e-b059": {
+      "calls": 0,
+      "detail": {
+        "by_model_usd": {},
+        "by_purpose_usd": {},
+        "closed": false,
+        "computed_usd": 0,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.0,
+        "records": 0,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14766012868 'smoke--dev_smoke--runs-google-low' (workflow run 45052325086): 20261122T175839Z-5867d17e-b059",
+      "unpriced_calls": 0,
+      "usd": 0.0
+    },
+    "run:20261122T175841Z-5867d17e-5fce": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "openai-low": 0.0017324
+        },
+        "by_purpose_usd": {
+          "answer": 0.0017324
+        },
+        "closed": true,
+        "computed_usd": 0.0017324,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.001732,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14765783595 'smoke--dev_smoke--runs-openai-low' (workflow run 45052325086): 20261122T175841Z-5867d17e-5fce",
+      "unpriced_calls": 0,
+      "usd": 0.0017324
+    },
+    "run:20261122T175843Z-5867d17e-a2bc": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "zai-low": 0.00246535
+        },
+        "by_purpose_usd": {
+          "answer": 0.00246535
+        },
+        "closed": true,
+        "computed_usd": 0.00246535,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.002465,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14765474982 'smoke--dev_smoke--runs-zai-low' (workflow run 45052325086): 20261122T175843Z-5867d17e-a2bc",
+      "unpriced_calls": 0,
+      "usd": 0.00246535
+    },
+    "run:20261122T175843Z-5867d17e-d0fb": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "zai-mid": 0.0235834
+        },
+        "by_purpose_usd": {
+          "answer": 0.0235834
+        },
+        "closed": true,
+        "computed_usd": 0.0235834,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.023583,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14766107775 'smoke--dev_smoke--runs-zai-mid' (workflow run 45052325086): 20261122T175843Z-5867d17e-d0fb",
+      "unpriced_calls": 0,
+      "usd": 0.0235834
+    },
+    "run:20261122T175850Z-5867d17e-d2b5": {
+      "calls": 15,
+      "detail": {
+        "by_model_usd": {
+          "openai-mid": 0.040918
+        },
+        "by_purpose_usd": {
+          "answer": 0.040918
+        },
+        "closed": true,
+        "computed_usd": 0.040918,
+        "config_name": "dev-smoke",
+        "dataset": "deceptive_grounding",
+        "prices_sha256_now": "fb5769bc0c4c517cc410eae1098ebd4d20c1c977415156b76f1b194cda5b0f8a",
+        "recorded_usd": 0.040918,
+        "records": 15,
+        "split": "dev"
+      },
+      "kind": "trace",
+      "source": "artifact 14766044227 'pipeline--smoke--ledger' (workflow run 45053245235): ledger.json <- ledger-results-log: runs/45052325086-dev-pipeline-smoke/ledger-after-run/ledger.json <- artifact 14765973059 'smoke--dev_smoke--runs-openai-mid' (workflow run 45052325086): 20261122T175850Z-5867d17e-d2b5",
+      "unpriced_calls": 0,
+      "usd": 0.040918
+    }
+  },
+  "fetched_at": "2026-11-22T18:07:58+00:00",
+  "generated_at": "2026-11-22T18:07:58+00:00",
+  "hard_limit_usd": 50.0,
+  "ledger_version": 1,
+  "note": "Actual spend from run records priced with configs/prices.toml as the runner prices them. Commit this file as results/ledger.json to carry the spend beyond the 90-day artifact retention; add 'manual:<id>' entries for spend made outside GitHub Actions.",
+  "problems": [],
+  "remaining_usd": 49.834029,
+  "repository": "giladscore494/binding-gate",
+  "retention_days": 90,
+  "sources": [
+    "snapshot results/ledger.json (0 entries)",
+    "11 artifacts read from ledger-inputs",
+    "directory ledger-results-log"
+  ],
+  "total_usd": 0.165972
+}
