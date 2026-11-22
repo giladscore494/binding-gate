@@ -912,7 +912,8 @@ class DryRunReport:
             "token assumptions : input = characters / "
             f"{a['chars_per_token']}; visible output = {a['visible_output_tokens']} tokens per call; "
             f"hidden reasoning = {a['reasoning_tokens_low']} (low) to {a['reasoning_tokens_high']} (high) "
-            "tokens per call, billed as output; ceiling = every call uses its full max_output_tokens.",
+            "tokens per call, billed as output (a model id with its own reasoning_tokens_low/high in the "
+            "price file uses those); ceiling = every call uses its full max_output_tokens.",
             "",
             f"{'model label':<24}{'model id':<26}{'calls':>7}{'input tok':>12}"
             f"{'low':>11}{'high':>11}{'ceiling':>11}{'cap':>10}",
@@ -1015,7 +1016,7 @@ def _price_aux(
     priced = model_id is not None and prices.has(model_id)
     if priced:
         price = prices.get(model_id)  # type: ignore[arg-type]
-        low = price.cost(input_tokens[0], calls[0] * (a.visible_output_tokens + a.reasoning_tokens_low)) + price.calls_cost(calls[0])
+        low = price.cost(input_tokens[0], calls[0] * (a.visible_output_tokens + prices.reasoning_low(model_id))) + price.calls_cost(calls[0])
         high = price.cost(input_tokens[1], calls[1] * (a.visible_output_tokens + prices.reasoning_high(model_id))) + price.calls_cost(calls[1])
         ceiling = (
             price.cost(input_tokens[1], calls[1] * max_output_tokens) + price.calls_cost(calls[1])
@@ -1189,7 +1190,7 @@ def dry_run(
             price = prices.get(model_id)
             source = f"{price.source} (accessed {price.accessed})"
             visible = assumptions.visible_output_tokens
-            low = price.cost(input_tokens, calls * (visible + assumptions.reasoning_tokens_low))
+            low = price.cost(input_tokens, calls * (visible + prices.reasoning_low(model_id)))
             high = price.cost(input_tokens, calls * (visible + prices.reasoning_high(model_id)))
             if max_output is not None:
                 ceiling = price.cost(input_tokens, calls * max_output)

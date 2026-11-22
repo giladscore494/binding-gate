@@ -43,9 +43,15 @@ def test_only_documented_secrets_are_used_and_a_missing_one_skips_the_model():
     assert used == {
         "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY",
         "SERPAPI_API_KEY", "RUNS_ENCRYPTION_PASSPHRASE",  # PR 8: web search key, artifact encryption
-        "DEEPSEEK_API_KEY",  # PR 13: slot G
+        "DEEPSEEK_API_KEY",  # PR 13: slot G (optional since PR 14; unused by the USD 50 study)
+        "ZAI_API_KEY",  # PR 14: slots H and I (Z.ai GLM)
     }
     assert used <= set(KNOWN_SECRETS)
+    # PR 14: the Z.ai key reaches every step that a model key reaches
+    for step in ("Single live-web job - select every model whose API key is set",
+                 "Preflight (free check that the model ids and the search account exist)", "Paid run"):
+        block = WORKFLOW.split(f"- name: {step}", 1)[1].split("- name:", 1)[0]
+        assert "ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}" in block and "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in block
     assert '"$CODE" -eq 4' in WORKFLOW and "SKIPPED" in WORKFLOW
     assert "fail-fast: false" in WORKFLOW
     assert "contents: read" in WORKFLOW

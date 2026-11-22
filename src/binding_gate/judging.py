@@ -48,7 +48,8 @@ FAMILY_BY_PROVIDER: dict[str, str] = {
     "anthropic": "anthropic",
     "google": "google",
     "moonshot": "moonshot",
-    "deepseek": "deepseek",  # PR 13: slot G
+    "deepseek": "deepseek",  # PR 13: slot G (not used by the USD 50 study since PR 14)
+    "zai": "zai",  # PR 14: slots H and I (Z.ai GLM)
 }
 """Provider of a model client -> model family used by the judge-family rule.
 Every PR 2 client declares ``provider``; a client whose provider is not listed

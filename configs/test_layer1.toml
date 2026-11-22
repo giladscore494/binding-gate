@@ -10,7 +10,7 @@
 # freeze tag, the working tree is clean and PREREGISTRATION.md says FROZEN. Then it runs every
 # arm below on the test split and writes the analysis under runs/<run_id>/analysis/.
 #
-# PR 13 ($50 budget): the four PRIMARY low-cost models (A, C, E, G), every test item (2,505), ONE
+# PR 13/14 ($50 budget): the three PRIMARY low-cost models (A, E, H), every test item (2,505), ONE
 # repeat. All gate arms (gated, the five ablations, faithfulness_checker) send the no_gate answer
 # request, so within this run the runner answers it ONCE per item and model and every gate arm
 # judges that same answer: the only paid calls are no_gate, prompt_entity_check (its own prompt)
@@ -29,20 +29,20 @@
 
 config_version = 1
 name = "test-layer1"
-description = "Frozen layer-1 test run: pre-registered arms, four primary low-cost models, 1 repeat, test split."
+description = "Frozen layer-1 test run: pre-registered arms, three primary low-cost models (A, E, H), 1 repeat, test split."
 split = "test"
 repeats = 1
 
 [runner]
 # Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
 # calls such as the decomposer and the judge included). Each cap is this run's allotment in
-# configs/budget.toml, just above its HIGH estimate; sum of caps 19.0 USD. PROPOSED.
+# configs/budget.toml, just above its HIGH estimate; sum of caps 16.75 USD. PROPOSED.
 concurrency = 8
 prices = "configs/prices.toml"
 max_usd = 2.6
 [runner.max_usd_by_model]
 google-low = 7.35
-deepseek-low = 6.45
+zai-low = 6.8
 
 [dataset]
 name = "deceptive_grounding"
@@ -65,19 +65,6 @@ max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot C
-name = "anthropic_messages"
-label = "anthropic-low"
-[models.options]
-model_id = "claude-haiku-5-5"
-max_output_tokens = 4096
-temperature = 0.0
-# thinking: not sent = no extended thinking (the lowest setting; section 9)
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
 [[models]]                               # slot E
 name = "google_gemini"
 label = "google-low"
@@ -91,14 +78,15 @@ max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot G
-name = "deepseek_chat"
-label = "deepseek-low"
+[[models]]                               # slot H
+name = "zai_chat"
+label = "zai-low"
 [models.options]
-model_id = "deepseek-flash"
+model_id = "glm-5.3-flash"
 max_output_tokens = 4096
-temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
-thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
+temperature = 0.0                        # documented range [0.0, 1.0] (docs.z.ai); UNVERIFIED live, see the header
+thinking = { type = "enabled" }          # GLM-5.3 models cannot disable thinking (docs.z.ai, read 2026-11-22)
+reasoning_effort = "low"                 # lowest setting for GLM-5.3 / GLM-5.3-Flash (section 9; docs.z.ai)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0

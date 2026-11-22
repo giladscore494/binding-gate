@@ -25,6 +25,11 @@ name: baseline
 #   (outside runs/, so they are never uploaded or reported as part of the new run).
 #   PR 13: `seed_responses_from = ["seeds/*"]` takes every run directory downloaded from
 #   that workflow run, so the committed dev configs need no edit after the baseline.
+#
+# PR 14: the USD 50 study uses the providers the owner funds - OPENAI_API_KEY, GEMINI_API_KEY,
+# ZAI_API_KEY (Z.ai GLM, slots H and I) and MOONSHOT_API_KEY (the judge). ANTHROPIC_API_KEY and
+# DEEPSEEK_API_KEY are still passed (optional; no config of the USD 50 study uses them);
+# as for every key, a model whose key is missing is SKIPPED, not failed.
 
 on:
   workflow_dispatch:
@@ -235,6 +240,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
         run: |
           AVAILABLE="$(python -m binding_gate.cli models --config "$CONFIG" --available | python -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
           if [ -z "$AVAILABLE" ]; then
@@ -271,6 +277,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
         run: |
           set +e
@@ -304,6 +311,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
         run: python -m binding_gate.cli run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}" --runs-dir runs --confirm-spend
 

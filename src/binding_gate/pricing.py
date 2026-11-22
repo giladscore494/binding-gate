@@ -33,6 +33,7 @@ File format (``prices_version = 1``)::
     note = "optional"
     per_call_usd = 0.0               # optional (PR 8): fixed charge per successful call
     reasoning_tokens_high = 2000     # optional (PR 13): high assumption for THIS model id
+    reasoning_tokens_low = 100       # optional (PR 14): low assumption for THIS model id
 
 PR 13 added the optional per-price ``reasoning_tokens_high``: the high
 assumption of hidden reasoning tokens for one model id, overriding the file's
@@ -41,6 +42,12 @@ reasoning setting (PREREGISTRATION.md section 9), for which the file-wide value
 is meant; a model that runs at its provider default (the LLM judge, slot J)
 carries its own, larger value. ``PriceBook.reasoning_high(model_id)`` returns
 the value that applies.
+
+PR 14 added the symmetric optional per-price ``reasoning_tokens_low`` for a model
+whose thinking cannot be switched off (Z.ai GLM-5.3 and GLM-5.3-Flash: their
+lowest setting still thinks), so that its low estimate does not assume zero
+hidden tokens. ``PriceBook.reasoning_low(model_id)`` returns the value that
+applies. A per-price low value above that price's high value is refused.
 """
 
 from __future__ import annotations
@@ -57,7 +64,7 @@ _TOP_KEYS = {"prices_version", "assumptions", "price"}
 _ASSUMPTION_KEYS = {"chars_per_token", "visible_output_tokens", "reasoning_tokens_low", "reasoning_tokens_high"}
 _PRICE_KEYS = {
     "model_id", "input_per_mtok", "output_per_mtok", "source", "accessed", "note", "per_call_usd",
-    "reasoning_tokens_high",
+    "reasoning_tokens_high", "reasoning_tokens_low",
 }
 
 
@@ -75,6 +82,7 @@ class Price:
     note: str = ""
     per_call_usd: float = 0.0
     reasoning_tokens_high: int | None = None
+    reasoning_tokens_low: int | None = None
 
     def cost(self, input_tokens: float, output_tokens: float) -> float:
         """US dollars for the given token counts (token prices only; see :meth:`calls_cost`)."""
@@ -125,6 +133,13 @@ class PriceBook:
         if price is not None and price.reasoning_tokens_high is not None:
             return price.reasoning_tokens_high
         return self.assumptions.reasoning_tokens_high
+
+    def reasoning_low(self, model_id: str | None) -> int:
+        """Low reasoning-token assumption for ``model_id``: its own value if set, else the file-wide one."""
+        price = self.prices.get(model_id) if model_id is not None else None
+        if price is not None and price.reasoning_tokens_low is not None:
+            return price.reasoning_tokens_low
+        return self.assumptions.reasoning_tokens_low
 
 
 def _number(where: str, value: Any, *, minimum: float, exclusive: bool = False) -> float:
@@ -191,7 +206,17 @@ def parse_prices(raw: Mapping[str, Any], *, sha256: str = "", path: str = "<pric
                 if entry.get("reasoning_tokens_high") is None
                 else _count(f"{where}.reasoning_tokens_high", entry["reasoning_tokens_high"])
             ),
+            reasoning_tokens_low=(
+                None
+                if entry.get("reasoning_tokens_low") is None
+                else _count(f"{where}.reasoning_tokens_low", entry["reasoning_tokens_low"])
+            ),
         )
+        price = prices[model_id]
+        low = assumptions.reasoning_tokens_low if price.reasoning_tokens_low is None else price.reasoning_tokens_low
+        high = assumptions.reasoning_tokens_high if price.reasoning_tokens_high is None else price.reasoning_tokens_high
+        if high < low:
+            raise PricingError(f"{where}: its reasoning_tokens_high ({high}) is below its reasoning_tokens_low ({low})")
     return PriceBook(assumptions=assumptions, prices=prices, sha256=sha256, path=path)
 
 

@@ -100,7 +100,7 @@ def test_caps_cover_every_model_and_exceed_the_dev_caps_of_the_same_arms():
 
 def test_the_same_arms_dry_run_on_dev_without_any_key(tmp_path, monkeypatch):
     """Section 17 item 38: the test config's arms run on dev (synthetic checkout, recording client)."""
-    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY"):
+    for name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     repo = h.make_repo(tmp_path)
     (repo / "configs" / "prices.toml").write_text((CONFIGS / "prices.toml").read_text(), encoding="utf-8")
@@ -131,7 +131,7 @@ def test_midtier_run_is_a_subsample_of_the_test_split_with_the_smoke_runs_mid_ti
     assert MIDTIER.split is Split.TEST and MIDTIER.repeats == prereg.REPEATS and MIDTIER.limit is None
     assert MIDTIER.sample == {"per_stratum": 15, "seed": 20261122}
     smoke = {m.label: m for m in load_config(CONFIGS / "dev_smoke.toml").models}
-    assert [m.label for m in MIDTIER.models] == ["openai-mid", "anthropic-mid", "google-mid"]
+    assert [m.label for m in MIDTIER.models] == ["openai-mid", "google-mid", "zai-mid"]  # PR 14: B, F, I
     assert all(m == smoke[m.label] for m in MIDTIER.models)
     assert MIDTIER.dataset == TEST_CONFIG.dataset and MIDTIER.scorers == TEST_CONFIG.scorers
     assert [a.label for a in MIDTIER.arms] == ["no_gate", "faithfulness_checker", "gated"]

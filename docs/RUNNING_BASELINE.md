@@ -4,16 +4,17 @@
 > gated runs and calibration, baselines and ablations, layer 3, the freeze, the
 > frozen test run, the audit and the report) is in [RUNNING.md](RUNNING.md),
 > in English and Hebrew. This file covers its first steps (dry run, smoke run,
-> dev baseline) and stays as written for PR 2; the secrets table below lists
-> only the PR 2 keys.
+> dev baseline) and stays as written for PR 2, except that the secrets table and
+> the model labels below were updated in PR 14 to the providers the study uses.
 >
-> **Superseded numbers (PR 13).** The study now has a hard total budget of USD 50
-> (`configs/budget.toml`): the smoke run covers one dev group for seven models,
-> the dev baseline runs four primary models with one repeat (1,455 calls per
-> model), and the caps and estimates quoted below (2.50 USD per model, 4,365
-> calls, 349 USD) are those of PR 2, kept as `configs/extended/`. Use the
-> numbers and tables in [RUNNING.md](RUNNING.md). / **מספרים שהוחלפו (PR 13):**
-> למחקר יש עכשיו תקציב כולל קשיח של 50 דולר; המספרים והטבלאות העדכניים נמצאים
+> **Superseded numbers (PR 13, PR 14).** The study now has a hard total budget of
+> USD 50 (`configs/budget.toml`): the smoke run covers one dev group for six
+> models, the dev baseline runs three primary models (OpenAI, Google, Z.ai) with
+> one repeat (1,455 calls per model), and the caps and estimates quoted below
+> (2.50 USD per model, 4,365 calls, 349 USD) are those of PR 2, kept as
+> `configs/extended/`. Use the numbers and tables in [RUNNING.md](RUNNING.md). /
+> **מספרים שהוחלפו (PR 13, PR 14):** למחקר יש עכשיו תקציב כולל קשיח של 50 דולר
+> ושלושה מודלים ראשיים (OpenAI, Google, Z.ai); המספרים והטבלאות העדכניים נמצאים
 > ב-[RUNNING.md](RUNNING.md), והמספרים בקובץ הזה הם של PR 2.
 
 The baseline is started from GitHub, by choosing a config file. Nothing is
@@ -30,12 +31,12 @@ GitHub → repository → **Settings → Secrets and variables → Actions → N
 | Secret name | For | Needed by |
 |---|---|---|
 | `OPENAI_API_KEY` | OpenAI | slots A, B |
-| `ANTHROPIC_API_KEY` | Anthropic | slots C, D |
 | `GEMINI_API_KEY` | Google Gemini | slots E, F |
-| `MOONSHOT_API_KEY` | Moonshot / Kimi | secondary judge (not used by PR 2 runs) |
+| `ZAI_API_KEY` | Z.ai (GLM) | slots H, I (PR 14) |
+| `MOONSHOT_API_KEY` | Moonshot / Kimi | secondary judge (not used by these runs) |
 
 A model whose secret is missing is **skipped with a warning**; the other models
-still run. If slots C and D cannot be run, PREREGISTRATION.md section 9 says how
+still run. If a provider's key is missing, PREREGISTRATION.md section 9 says how
 the study proceeds.
 
 ## 1. Where to click
@@ -96,8 +97,8 @@ The smoke numbers are not a result and are not reported as one.
 | I confirm that paid API calls may be made | checked |
 
 Each model runs as its own parallel job. To run or re-run a single model, enter
-its label instead of `all`: `openai-low`, `openai-mid`, `anthropic-low`,
-`anthropic-mid`, `google-low` or `google-mid`.
+its label instead of `all`: `openai-low`, `google-low` or `zai-low` (the smoke
+config also has `openai-mid`, `google-mid` and `zai-mid`).
 
 Results: each job uploads an artifact `runs-<model label>` (manifest, complete
 traces, per-model report). The final job **baseline report** prints the
@@ -149,7 +150,7 @@ python -m binding_gate.cli report    runs/<run_id>
 
 **שום דבר כאן עדיין לא הורץ מול API אמיתי.** הלקוחות נבדקו רק מול תשובות לדוגמה. ריצת ה-smoke (שלב ב) נועדה לבדוק בדולרים בודדים שה-API האמיתי מתנהג כמו בקוד.
 
-**הכנה חד-פעמית:** ב-GitHub ← הריפו ← Settings ← Secrets and variables ← Actions ← New repository secret, להוסיף: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` (ו-`MOONSHOT_API_KEY` לשופט המשני; לא נדרש לריצות של PR 2). מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים.
+**הכנה חד-פעמית:** ב-GitHub ← הריפו ← Settings ← Secrets and variables ← Actions ← New repository secret, להוסיף: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY` (ו-`MOONSHOT_API_KEY` לשופט המשני; לא נדרש לריצות האלה). מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים.
 
 **איפה לוחצים:** GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלית workflow בשם **baseline** ← כפתור **Run workflow** מימין ← למלא את השדות לפי הטבלה ← הכפתור הירוק **Run workflow**.
 
@@ -187,6 +188,6 @@ python -m binding_gate.cli report    runs/<run_id>
 | Dry run | לא מסומן |
 | I confirm that paid API calls may be made | מסומן |
 
-להרצת מודל בודד: במקום `all` לכתוב את התווית שלו — `openai-low`, `openai-mid`, `anthropic-low`, `anthropic-mid`, `google-low` או `google-mid`.
+להרצת מודל בודד: במקום `all` לכתוב את התווית שלו — `openai-low`, `google-low` או `zai-low` (בקונפיג ה-smoke יש גם `openai-mid`, `google-mid` ו-`zai-mid`).
 
 התוצאה: ה-job האחרון, **baseline report**, מדפיס בעמוד הסיכום את תוצאת כלל העצירה (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) לכל מודל ובסך הכול. תקרת התקציב הקשיחה לריצה המלאה: 349 דולר לכל היותר (סכום התקרות למודל); הערכת ה-dry run היא 59 עד 334 דולר.

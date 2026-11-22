@@ -18,8 +18,12 @@ paid plan into a hard USD 50 budget (`configs/budget.toml`; PREREGISTRATION.md
 section 9): pre-registered stratified subsamples (`sampling.py`, `[sample]`
 table), the `seeds/*` seed wildcard and seed-aware dry-run estimates, a web
 search quota (`[runner] max_searches`), per-model reasoning assumptions in the
-price file, and a DeepSeek client (`models/deepseek_chat.py`). "PR n" below
-names the PR that added a part. No model has been run yet; the pre-registration
+price file, and a DeepSeek client (`models/deepseek_chat.py`). PR 14 moved the
+study to the providers the owner funds: a Z.ai (GLM) client
+(`models/zai_chat.py`), model labels `zai-low` (slot H) and `zai-mid` (slot I),
+and a per-model low reasoning assumption in the price file; the Anthropic and
+DeepSeek clients stay registered but no config of the USD 50 plan uses them.
+"PR n" below names the PR that added a part. No model has been run yet; the pre-registration
 is still DRAFT.
 
 What is measured and how success is judged is defined in
@@ -215,12 +219,13 @@ rebase onto it.
 ### Reserved names (frozen so that parallel PRs agree)
 
 Registered components (`registry.available(kind)`) and the names the analysis
-reads, as of PR 11:
+reads, as of PR 11 (model clients and labels updated in PR 14):
 
 | What | Names |
 |---|---|
 | Datasets | `deceptive_grounding`, `grab_rag`, `sealqa` (`sealqa` declares `pin_method = "prepare"`: downloaded and converted by `cli dataset-prepare`; no `pin_method` means a git clone) |
-| Model clients | `openai_responses`, `anthropic_messages`, `google_gemini`, `moonshot_chat` |
+| Model clients | `openai_responses`, `anthropic_messages`, `google_gemini`, `moonshot_chat`, `deepseek_chat` (PR 13), `zai_chat` (PR 14); `anthropic_messages` and `deepseek_chat` are not used by the USD 50 study |
+| Model labels in the configs of the USD 50 study | primary `openai-low` (A), `google-low` (E), `zai-low` (H); mid-tier `openai-mid` (B), `google-mid` (F), `zai-mid` (I); `decomposer` (Dec, auxiliary); judge `judge-kimi-k3.1-pro` (J). The labels `anthropic-low` and `anthropic-mid` occur only under `configs/extended/`; `deepseek-low` (PR 13) is in no config since PR 14 |
 | Decomposers | `model_decomposer` |
 | Checks | `quote_verbatim`, `entity_in_window`, `qualifiers_in_window`, `no_closer_competitor`, `premise_present` |
 | Gates | `binding` |
@@ -478,4 +483,5 @@ beside a run (`scores.<scorer>.jsonl`, `snapshots/`, `frozen_run.jsonl`,
 `[runner]` key `seed_responses_from` are conventions, not data contracts. PR 13
 changed no contract either: the `[sample]` table, `[runner] max_searches`, the
 optional per-price `reasoning_tokens_high` and the `deepseek_chat` client are
-config and component additions.
+config and component additions. So are PR 14's `zai_chat` client, its provider
+family `zai` and the optional per-price `reasoning_tokens_low`.

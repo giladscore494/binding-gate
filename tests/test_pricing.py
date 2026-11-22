@@ -16,14 +16,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SLOTS = {
     "openai-low": ("openai_responses", "gpt-6-luna", (0.10, 0.50)),
     "openai-mid": ("openai_responses", "gpt-6.1-sol", (2.00, 10.00)),
-    "anthropic-low": ("anthropic_messages", "claude-haiku-5-5", (0.10, 0.50)),
-    "anthropic-mid": ("anthropic_messages", "claude-sonnet-5-5", (2.00, 10.00)),
     "google-low": ("google_gemini", "gemini-3.1-flash-lite", (0.25, 1.50)),
     "google-mid": ("google_gemini", "gemini-3.5-flash", (1.50, 9.00)),
-    "deepseek-low": ("deepseek_chat", "deepseek-flash", (0.30, 1.20)),  # PR 13, slot G (peak price)
+    "zai-low": ("zai_chat", "glm-5.3-flash", (0.15, 0.50)),  # PR 14, slot H
+    "zai-mid": ("zai_chat", "glm-5.3", (1.40, 4.40)),  # PR 14, slot I
 }
-PRIMARY = ("openai-low", "anthropic-low", "google-low", "deepseek-low")
-"""PR 13: the four primary low-cost models (A, C, E, G); the mid-tier B, D, F run on a test subsample."""
+PRIMARY = ("openai-low", "google-low", "zai-low")
+"""PR 14: the three primary low-cost models (A, E, H); the mid-tier B, F, I run on a test subsample."""
+DROPPED = ("claude-haiku-5-5", "claude-sonnet-5-5", "deepseek-flash")
+"""PR 14: slots C, D and G (Anthropic, DeepSeek) are not in the USD 50 study (providers the owner does not fund)."""
 BASE = {
     "prices_version": 1,
     "assumptions": {"chars_per_token": 4.0, "visible_output_tokens": 250, "reasoning_tokens_low": 0, "reasoning_tokens_high": 2000},
@@ -115,10 +116,8 @@ def test_every_model_under_test_runs_at_its_lowest_reasoning_setting():
             assert options["reasoning"] == {"effort": "none"}
         elif spec.name == "google_gemini":
             assert options["thinking_config"] == {"thinkingLevel": "minimal"}
-        elif spec.name == "anthropic_messages":
-            assert "thinking" not in options  # the Messages API thinks only when enabled
-        elif spec.name == "deepseek_chat":
-            assert options["thinking"] == {"type": "disabled"}
+        elif spec.name == "zai_chat":  # PR 14: GLM-5.3 models cannot disable thinking; "low" is the lowest effort
+            assert options["thinking"] == {"type": "enabled"} and options["reasoning_effort"] == "low"
         else:  # pragma: no cover
             raise AssertionError(spec.name)
 
@@ -131,6 +130,30 @@ def test_per_model_reasoning_assumption_overrides_the_file_wide_one():
     committed = load_prices(REPO_ROOT / "configs" / "prices.toml")
     assert committed.assumptions.reasoning_tokens_high == 500  # lowest reasoning setting (PR 13)
     assert committed.reasoning_high("kimi-k3.1-pro") == 2000  # the judge runs at its provider default
+    for glm in ("glm-5.3-flash", "glm-5.3"):  # PR 14: thinking stays on at the lowest setting
+        assert (committed.reasoning_low(glm), committed.reasoning_high(glm)) == (100, 2000)
+    assert committed.reasoning_low("gpt-6-luna") == 0
+
+
+def test_per_model_low_reasoning_assumption_overrides_the_file_wide_one():
+    """PR 14: a model that cannot switch thinking off carries its own low assumption."""
+    book = parse_prices({**BASE, "price": [{**BASE["price"][0], "reasoning_tokens_low": 100}, {**BASE["price"][0], "model_id": "n"}]})
+    assert book.reasoning_low("m") == 100 and book.reasoning_low("n") == 0 and book.reasoning_low(None) == 0
+    with pytest.raises(PricingError):
+        parse_prices({**BASE, "price": [{**BASE["price"][0], "reasoning_tokens_low": -1}]})
+    with pytest.raises(PricingError, match="below"):  # its own low above the (file-wide) high
+        parse_prices({**BASE, "price": [{**BASE["price"][0], "reasoning_tokens_low": 3000}]})
+
+
+def test_no_model_of_an_unfunded_provider_is_in_a_usd_50_config():
+    """PR 14: Anthropic and DeepSeek models only under configs/extended/; their clients stay registered."""
+    paths = [*(REPO_ROOT / "configs").glob("*.toml"), *(REPO_ROOT / "configs" / "rescore").glob("*.toml")]
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for model_id in DROPPED:
+            assert f'model_id = "{model_id}"' not in text, (path.name, model_id)
+        assert 'name = "anthropic_messages"' not in text and 'name = "deepseek_chat"' not in text, path.name
+    assert {"anthropic_messages", "deepseek_chat", "zai_chat"} <= set(registry.available("model"))
 
 
 def test_no_api_key_or_machine_path_is_committed_in_configs():
@@ -143,7 +166,7 @@ def test_preregistration_section_9_lists_the_same_ids_and_prices():
     prereg = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
     section = prereg.split("## 9. Models", 1)[1].split("## 10.", 1)[0]
     rows = [line for line in section.splitlines() if line.startswith("| ") and "model under test" in line]
-    assert len(rows) == 7
+    assert len(rows) == 6  # PR 14: A, E, H primary; B, F, I mid-tier
     for _component, model_id, (price_in, price_out) in SLOTS.values():
         (row,) = [line for line in rows if f"`{model_id}`" in line]
         assert f"{price_in:.2f} / {price_out:.2f}" in row
