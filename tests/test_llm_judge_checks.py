@@ -228,6 +228,22 @@ def test_judge_budget_is_shared_by_arm_instances_and_stops_further_calls(prices)
     assert budget is second._budget(second._choice[1]) and budget.spent_usd == pytest.approx(2 * per_call)
 
 
+def test_judge_budget_is_per_model_under_test(prices):
+    """PR 12: judge_max_usd applies per model label, like the runner's caps."""
+    per_call = (2000 * 2.0 + 300 * 10.0) / 1_000_000
+    first = make_arm(prices, cap=per_call * 0.5)
+    other_model = registry.create(
+        "arm", "llm_judge_checks", model=f.FamilyFake(label="m2", behaviour="target", provider="openai"),
+        judges=[judge()], judge_max_usd=per_call * 0.5, prices=prices,
+    )
+    first.run(f.dg_arm_input())  # model "m" has now reached its cap
+    with pytest.raises(judging.JudgeBudgetExceeded):
+        first.run(f.dg_arm_input())
+    other_model.run(f.dg_arm_input())  # model "m2" has its own budget
+    assert len(f.JUDGE_CALLS) == 2
+    assert first._budget(first._choice[1]) is not other_model._budget(other_model._choice[1])
+
+
 def test_required_options(prices):
     model = f.FamilyFake(label="m")
     with pytest.raises(ValueError, match="judges"):
@@ -256,6 +272,8 @@ def test_estimate_gives_an_upper_bound_from_real_prompts(tmp_path):
     (row,) = ljc.estimate_judge_cost(config_path, repo)
     assert row["max_judge_calls"] == 45 * 2 * 2  # items x repeats x models, every candidate assumed answered
     assert 0 < row["cost_low"] < row["cost_high"] and row["judge_max_usd"] == 9.0
+    assert row["max_judge_calls_per_model"] == 45 * 2 and row["models"] == 2  # PR 12: the cap is per model
+    assert row["cost_high_per_model"] == pytest.approx(row["cost_high"] / 2)
     assert ljc.main(["estimate", "--config", str(config_path), "--repo-root", str(repo)]) == 0
 
 

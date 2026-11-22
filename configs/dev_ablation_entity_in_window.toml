@@ -12,18 +12,23 @@
 #                               the full gate minus `entity_in_window`
 # Ablations are exploratory (PREREGISTRATION.md section 8).
 #
-# The `gated` arm is implemented by PR 4 (src/binding_gate/arms/gated.py), which
-# was written in parallel with this file. Only the reserved option `checks` is set
-# here; when PR 4 is merged, any further option its full gated config sets (for
-# example the decomposer) must be copied into BOTH gated arms of every ablation
-# file, so that each file stays identical to the full gated config except for the
-# removed check (tests/test_pr5_configs.py checks this when the files exist).
+# Both gated arms carry the options of the `gated` arm of configs/dev_gated.toml
+# (decomposer, gate parameters, presentation); each file is identical to the full
+# gated config except for the removed check (tests/test_pr5_configs.py checks this).
 #
 # Models, dataset, sampling, retries and the [runner] budget table are copied from
 # configs/dev_baseline.toml (PREREGISTRATION.md section 9); the stop rule of
 # section 10 decides which models continue, and models that stop must be removed
-# here before a paid run. Budget caps: PROPOSED, see the dry run; they do not yet
-# include the decomposer, whose calls the PR 2 runner does not price.
+# here before a paid run.
+#
+# Budget caps (PROPOSED, per model label): since PR 8 the runner prices the
+# decomposer's calls by the model id in the response and charges them to the cap of
+# the record's model, so the caps cover the answer calls AND the decomposer. Checked
+# in PR 12 with a dry run including the decomposer (2026-11-22): HIGH estimate per
+# model job = answer calls + at most 45 decompositions (0.06 USD) = 5.39 (openai-low,
+# anthropic-low), 106.69 (openai-mid, anthropic-mid), 15.84 (google-low), 94.76
+# (google-mid) USD. The caps 6 / 110 / 6 / 110 / 17 / 100 (sum 349) stay just above
+# these and are unchanged.
 # Nothing here is read from environment variables.
 
 config_version = 1

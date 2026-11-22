@@ -38,3 +38,7 @@ secrets.*
 
 # Local Python 3.11 test environment (PR 3)
 .venv311/
+
+# Seed runs (PR 12): earlier run directories downloaded to reuse their answers
+# ([runner] seed_responses_from). Like runs/, they hold benchmark text.
+seeds/

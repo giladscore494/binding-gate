@@ -41,9 +41,11 @@ a process-wide memo keyed by ``SHA-256(canonical JSON of {decomposer spec,
 question})``. The first record that needs a question's constraints makes the
 decomposer's calls; later records reuse the result and list the same calls with
 ``response.raw["cache_hit"] = true`` (charged nothing, like the runner's own
-cache). A failed decomposition is not memoised. The memo is not rebuilt on
-resume: questions decomposed before an interruption are decomposed again
-afterwards (recorded in the trace either way).
+cache). A failed decomposition is not memoised here (``model_decomposer``'s own
+cache keeps a parse failure). The memo itself starts empty in a resumed
+process, but the runner seeds the decomposer's process cache from the
+decompose calls already in the trace (PR 12), so a question decomposed before
+an interruption is not decomposed again and gets the same constraints.
 
 The decomposer is created lazily, when the first answered candidate needs it.
 Hence a dry run - whose recording client always returns an abstention - never

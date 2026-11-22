@@ -10,7 +10,14 @@
 5. ``PREREGISTRATION.md`` in that tree has the status line ``**Status:** FROZEN``;
 6. a non-empty ``purpose`` is given.
 
-Every call, granted or refused, appends one JSON line to
+:func:`check_unlock` evaluates the same six conditions read-only: it returns
+the reasons a call would be refused and writes nothing, so it is not an access
+and is not logged. It exists so that a caller (``frozen_run.py``) can stop
+before preflights and paid calls when the lock would not open; the access
+itself, and the log entry of a refusal, still go through
+:func:`load_test_split` only.
+
+Every call of :func:`load_test_split`, granted or refused, appends one JSON line to
 ``audit/test_access_log.jsonl``, a file that is committed to the repository.
 Each line stores the SHA-256 of the previous line, so removing or editing an
 earlier entry breaks the chain and is detected by :func:`verify_access_log`
@@ -30,6 +37,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -110,6 +118,30 @@ def _unlock_refusals(repo_root: Path, confirm_tag: str, purpose: str) -> tuple[l
     if status != "FROZEN":
         reasons.append(f"{PREREGISTRATION_FILE} status is {status!r}, not 'FROZEN'")
     return reasons, head
+
+
+@dataclass(frozen=True)
+class UnlockCheck:
+    """Outcome of :func:`check_unlock`: why the lock would refuse (empty: it would open)."""
+
+    reasons: tuple[str, ...]
+    head_commit: str | None
+
+    @property
+    def would_unlock(self) -> bool:
+        return not self.reasons
+
+
+def check_unlock(repo_root: str | Path, confirm_tag: str, purpose: str) -> UnlockCheck:
+    """Report, read-only, whether :func:`load_test_split` would grant access now.
+
+    Evaluates exactly the conditions of :func:`load_test_split` (the same
+    function computes them) but touches no item and appends nothing to the
+    access log. A positive answer is not an access: the items are still
+    obtained, and the access logged, only by :func:`load_test_split`.
+    """
+    reasons, head = _unlock_refusals(Path(repo_root), confirm_tag, purpose)
+    return UnlockCheck(reasons=tuple(reasons), head_commit=head)
 
 
 def _last_line_hash(log_path: Path) -> str:

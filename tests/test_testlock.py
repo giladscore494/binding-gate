@@ -16,6 +16,7 @@ from binding_gate.testlock import (
     EVENT_REFUSED,
     AccessLogError,
     TestSplitLocked,
+    check_unlock,
     load_test_split,
     preregistration_status,
     read_access_log,
@@ -167,3 +168,30 @@ def test_tampering_with_the_log_is_detected(repo, tamper):
 
 def test_missing_log_counts_as_empty(tmp_path):
     assert verify_access_log(tmp_path / "nope.jsonl") == 0
+
+
+# -- read-only check (PR 12, pre-registration section 17 item 33) ------------------ #
+
+
+def test_check_unlock_is_read_only_and_agrees_with_load_test_split(repo):
+    log_path = repo / ACCESS_LOG_RELPATH
+    granted = check_unlock(repo, TAG, "frozen test run")
+    assert granted.would_unlock and granted.reasons == ()
+    assert granted.head_commit == b.git(repo, "rev-parse", "HEAD")
+    refused = check_unlock(repo, "prereg-freeze-nope", "")
+    assert not refused.would_unlock
+    assert any("does not exist" in r for r in refused.reasons) and any("purpose" in r for r in refused.reasons)
+    assert not log_path.exists(), "check_unlock must never write the access log"
+    # The official function reports exactly the same reasons and logs them.
+    with pytest.raises(TestSplitLocked) as excinfo:
+        load_test_split(ITEMS, repo_root=repo, confirm_tag="prereg-freeze-nope", purpose="")
+    assert tuple(excinfo.value.reasons) == refused.reasons
+    assert [e["event"] for e in _log(repo)] == [EVENT_REFUSED]
+
+
+def test_check_unlock_reports_every_failed_condition_without_logging(tmp_path):
+    root = b.init_repo(tmp_path / "repo", prereg_status="DRAFT")
+    (root / "scratch.py").write_text("x = 1\n")
+    result = check_unlock(root, "prereg-freeze-missing", "")
+    assert len(result.reasons) == 4 and not result.would_unlock
+    assert not (root / ACCESS_LOG_RELPATH).exists()

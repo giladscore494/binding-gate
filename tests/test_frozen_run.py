@@ -70,6 +70,12 @@ class BlockingGate:
 # -- the committed layer-1 test config ------------------------------------------------- #
 
 
+def test_frozen_run_uses_the_public_read_only_lock_check():
+    """PR 12 (section 17 item 33): no private testlock function is used outside testlock."""
+    source = (REAL_REPO / "src" / "binding_gate" / "frozen_run.py").read_text(encoding="utf-8")
+    assert "testlock.check_unlock(" in source and "testlock._" not in source
+
+
 def test_layer1_test_config_has_the_preregistered_shape():
     config = load_config(REAL_REPO / "configs" / "test_layer1.toml")
     assert config.split is Split.TEST and config.repeats == prereg.REPEATS and config.limit is None
@@ -79,7 +85,7 @@ def test_layer1_test_config_has_the_preregistered_shape():
     gated = {arm.label: arm for arm in config.arms if arm.name == "gated"}
     assert gated["gated"].options["checks"] == RESERVED_CHECKS
     for check in RESERVED_CHECKS:
-        ablation = gated[f"gated-minus-{check}"]
+        ablation = gated[f"gated_minus_{check}"]  # the dev ablation labels (PR 12)
         assert ablation.options["checks"] == [c for c in RESERVED_CHECKS if c != check]
     # same models, dataset pin and scorer as the dev baseline (PREREGISTRATION.md section 9)
     baseline = load_config(REAL_REPO / "configs" / "dev_baseline.toml")

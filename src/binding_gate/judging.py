@@ -16,7 +16,9 @@ that the rule is written once:
 2. **A hard budget cap for judge calls.** The PR 2 runner charged only the
    models listed in ``[[models]]`` of a run config. Since PR 8 it also prices
    judge calls (by the model id in the response) and charges them to the cap of
-   the record's model; this separate cap is kept as a judge-specific limit. :class:`JudgeBudget`
+   the record's model; this separate cap is kept as a judge-specific limit
+   (the ``llm_judge_checks`` arm keeps one budget per model under test since
+   PR 12, like the runner's caps). :class:`JudgeBudget`
    charges every judge call from the token usage the provider reports (or a
    conservative estimate when none is reported) and refuses further calls once
    the cap is reached.

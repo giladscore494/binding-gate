@@ -47,16 +47,29 @@ model under test is known, otherwise at the first judge call.
 
 Budget
 ------
-The PR 2 runner did not charge judge calls (the judge is not in
-``[[models]]``); since PR 8 it prices them by the model id in the response and
-charges them to the cap of the record's model. This arm also enforces its own hard cap,
-``judge_max_usd``, over all judge calls of all its instances in one process,
-priced from ``prices`` (default ``configs/prices.toml``, relative to the
-working directory, i.e. the repository root when run through the CLI). When
-the cap is reached, the remaining items become error records; the cap starts
-again from zero in a resumed process. ``python -m
-binding_gate.arms.llm_judge_checks estimate --config ...`` prints an upper
-bound of the judge cost before a run.
+Two caps bound the judge calls:
+
+1. **The runner's cap of the record's model** (``[runner] max_usd`` /
+   ``max_usd_by_model``). Since PR 8 the runner prices every judge call by the
+   model id in the response and charges it to the model whose record it is in,
+   so a model's cap covers its answer calls AND the judge calls made for its
+   candidates. The runner rebuilds this spend from the trace on resume.
+2. **This arm's own cap, ``judge_max_usd``**, a judge-specific limit. Since
+   PR 12 it applies PER MODEL UNDER TEST (per model label) in one process,
+   like the runner's caps: all arm instances of one model label (one per
+   repeat) share one budget, and each model label has its own. A workflow job
+   runs one model, so this is the cap per model job; a local run of several
+   models gives each model ``judge_max_usd``. (Before PR 12 one budget was
+   shared by all models of a process, so a local all-model run and a
+   per-model workflow job had different limits.) Priced from ``prices``
+   (default ``configs/prices.toml``, relative to the working directory, i.e.
+   the repository root when run through the CLI). When the cap is reached,
+   the remaining items of that model become error records. It is not rebuilt
+   from the trace: it starts again from zero in a resumed process, where the
+   runner's cap (1), which is rebuilt, still bounds the model's total spend.
+
+``python -m binding_gate.arms.llm_judge_checks estimate --config ...`` prints
+an upper bound of the judge cost before a run, in total and per model job.
 
 Changing :data:`JUDGE_SYSTEM_PROMPT`, :data:`CHECK_DEFINITIONS` or the request
 layout changes the experiment: bump :data:`PROMPT_VERSION` (an amendment after
@@ -295,7 +308,7 @@ def verdict_from_checks(parsed: ParsedChecks, judge_label: str, judge_model: str
 @register("arm", "llm_judge_checks") if __name__ != "__main__" else (lambda component: component)
 class LlmJudgeChecksArm:
     """Options: ``judges`` (ordered list of ``{name, label, options}``, required);
-    ``judge_max_usd`` (hard cap in US dollars, required); ``checks`` (default all
+    ``judge_max_usd`` (hard cap in US dollars per model under test, required); ``checks`` (default all
     five reserved names); ``presentation``; ``prices`` (default ``configs/prices.toml``)."""
 
     name = "llm_judge_checks"
@@ -358,7 +371,9 @@ class LlmJudgeChecksArm:
                 chars_per_token=chars_per_token,
             )
 
-        return shared_budget((self.name, judge.name, model_id, self.judge_max_usd, self.prices), make)
+        # One budget per model under test (its label), like the runner's caps (PR 12).
+        under_test = str(getattr(self.model, "name", ""))
+        return shared_budget((self.name, under_test, judge.name, model_id, self.judge_max_usd, self.prices), make)
 
     def run(self, arm_input: ArmInput) -> ArmOutput:
         request = build_answer_request(arm_input, self.presentation)  # identical to no_gate -> cache hit
@@ -440,22 +455,34 @@ def estimate_judge_cost(config_path: str | Path, repo_root: str | Path = ".") ->
             sum(len(m.content) for m in build_check_request(i.question, i.documents, placeholder, checks).messages)
             for i in plan.items
         )
-        calls = len(plan.items) * config.repeats * len(config.models)
-        input_tokens = book.assumptions.input_tokens(chars) * config.repeats * len(config.models)
+        n_models = len(config.models)
+        calls_per_model = len(plan.items) * config.repeats
+        input_per_model = book.assumptions.input_tokens(chars) * config.repeats
         price = book.get(model_id)
         visible = book.assumptions.visible_output_tokens
         max_output = int(getattr(judge, "max_output_tokens", 0) or 0)
+
+        def costs(calls: int, tokens: int) -> dict[str, float]:
+            return {
+                "cost_low": price.cost(tokens, calls * (visible + book.assumptions.reasoning_tokens_low)),
+                "cost_high": price.cost(tokens, calls * (visible + book.assumptions.reasoning_tokens_high)),
+                "cost_ceiling": price.cost(tokens, calls * max_output),
+            }
+
+        per_model = costs(calls_per_model, input_per_model)
         out.append(
             {
                 "arm_label": spec.label,
                 "judge": judge_spec.label,
                 "judge_model_id": model_id,
-                "max_judge_calls": calls,
-                "input_tokens": input_tokens,
-                "cost_low": price.cost(input_tokens, calls * (visible + book.assumptions.reasoning_tokens_low)),
-                "cost_high": price.cost(input_tokens, calls * (visible + book.assumptions.reasoning_tokens_high)),
-                "cost_ceiling": price.cost(input_tokens, calls * max_output),
+                "max_judge_calls": calls_per_model * n_models,
+                "input_tokens": input_per_model * n_models,
+                **costs(calls_per_model * n_models, input_per_model * n_models),
+                "models": n_models,
+                "max_judge_calls_per_model": calls_per_model,
+                **{f"{key}_per_model": value for key, value in per_model.items()},
                 "judge_max_usd": spec.options.get("judge_max_usd"),
+                "judge_max_usd_applies_to": "each model under test (per model label and process)",
             }
         )
     return out
