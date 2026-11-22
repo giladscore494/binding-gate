@@ -232,3 +232,30 @@ def test_snapshot_cli_verifies_a_run(tmp_path, monkeypatch, capsys):
     blob.chmod(0o644)
     blob.write_text("tampered")
     assert snapshots.main(["verify", str(summary.run_dir)]) == 1
+
+
+def test_cli_analyze_uses_the_layer3_rule_for_sealqa_runs_and_refuses_a_mix(tmp_path, monkeypatch, capsys):
+    repo, config, _raw, web, serp = make(tmp_path, monkeypatch, repeats=1)
+    summary = runner.execute_run(config, repo_root=repo, runs_dir=tmp_path / "runs", confirm_spend=True, log=lambda m: None)
+    capsys.readouterr()
+    out = tmp_path / "analysis"
+    assert cli.main(["analyze", str(summary.run_dir), "--out", str(out), "--no-figures"]) == cli.EXIT_OK
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["outcome_rule"] == "sealqa_answer (layer 3)"
+    written = json.loads((out / "analysis.json").read_text(encoding="utf-8"))
+    assert written["parameters"]["correct_rule_is_placeholder"] is False  # not the provenance placeholder
+    direct = analyse_layer3([summary.run_dir])
+    assert written["models"] == json.loads(json.dumps(direct["models"]))  # same as the scorer's own command
+
+    # A layer-1 run directory in the same call is refused with a pointer to the layer-3 command.
+    repo1, config1, _raw1 = h.setup(tmp_path / "layer1")
+    layer1 = runner.execute_run(config1, repo_root=repo1, runs_dir=tmp_path / "runs1", confirm_spend=True, log=lambda m: None)
+    capsys.readouterr()
+    assert cli.main(["analyze", str(summary.run_dir), str(layer1.run_dir), "--no-figures"]) == cli.EXIT_FAILURE
+    err = capsys.readouterr().err
+    assert "analyse each dataset separately" in err and "binding_gate.scorers.sealqa_answer analyze" in err
+    assert not (summary.run_dir / "analysis").exists()
+
+    # A layer-1 run alone still uses the provenance rule.
+    assert cli.main(["analyze", str(layer1.run_dir), "--no-figures"]) == cli.EXIT_OK
+    assert json.loads(capsys.readouterr().out)["outcome_rule"] == "provenance"

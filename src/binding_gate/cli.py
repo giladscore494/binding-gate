@@ -20,6 +20,11 @@ Commands
 ``analyze RUN_DIR [RUN_DIR ...] [--out DIR] [--no-figures]``
     The PR 6 statistics (metrics, cluster-bootstrap intervals, H1-H4) from
     trace files only; writes ``analysis.json``, ``report.md`` and figures.
+    Outcomes come from the ``provenance`` score; for layer-3 (SealQA) run
+    directories, recognised from their manifests, from the ``sealqa_answer``
+    score instead (the same analysis as ``python -m
+    binding_gate.scorers.sealqa_answer analyze``). Layer-3 and other run
+    directories in one call are refused.
 ``frozen-test-run --config C --tag prereg-freeze-N --purpose TEXT --confirm-spend``
     The one-command frozen test run: refuses unless every test-lock condition
     holds (the refusal is logged), runs the config on the test split, then
@@ -212,13 +217,51 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+LAYER3_ANALYZE_HINT = "python -m binding_gate.scorers.sealqa_answer analyze RUN_DIR [RUN_DIR ...]"
+
+
+def _run_datasets(run_dirs: Sequence[str]) -> dict[str, str]:
+    """``run dir -> dataset name`` from each run manifest's config (unreadable manifests are left out;
+    the analysis itself then reports them)."""
+    from binding_gate.trace import TraceError, read_manifest
+
+    found: dict[str, str] = {}
+    for run_dir in run_dirs:
+        try:
+            dataset = read_manifest(run_dir).config.get("dataset", {})
+        except (TraceError, ValueError):
+            continue
+        name = dataset.get("name") if isinstance(dataset, dict) else None
+        if isinstance(name, str):
+            found[str(run_dir)] = name
+    return found
+
+
 def _cmd_analyze(args: argparse.Namespace) -> int:
     from binding_gate.stats.analysis import analyse_run_dirs, write_outputs
+    from binding_gate.stats.prereg import LAYER_BY_DATASET
 
-    analysis = analyse_run_dirs(args.run_dirs)
+    datasets = _run_datasets(args.run_dirs)
+    layer3 = sorted(d for d, name in datasets.items() if LAYER_BY_DATASET.get(name) == 3)
+    others = sorted(d for d, name in datasets.items() if LAYER_BY_DATASET.get(name) != 3)
+    if layer3 and others:
+        raise ValueError(
+            f"layer-3 (SealQA) run directories {layer3} were given together with run directories of "
+            f"another dataset {others}; analyse each dataset separately (layer 3: {LAYER3_ANALYZE_HINT})"
+        )
+    if layer3:
+        # Layer 3 is scored by sealqa_answer, not provenance (PREREGISTRATION.md section 7, layer 3).
+        from binding_gate.scorers.sealqa_answer import analyse_layer3
+
+        analysis = analyse_layer3(args.run_dirs)
+        outcome_rule = "sealqa_answer (layer 3)"
+    else:
+        analysis = analyse_run_dirs(args.run_dirs)
+        outcome_rule = "provenance"
     out = Path(args.out) if args.out else Path(args.run_dirs[0]) / frozen_run.ANALYSIS_DIRNAME
     written = write_outputs(analysis, out, figures=not args.no_figures)
-    print(json.dumps({"written": written, "summary": analysis["summary"]}, indent=2, sort_keys=True))
+    print(json.dumps({"written": written, "summary": analysis["summary"], "outcome_rule": outcome_rule},
+                     indent=2, sort_keys=True))
     return EXIT_OK
 
 

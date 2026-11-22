@@ -59,8 +59,8 @@ Written down before any experiment in [PREREGISTRATION.md](PREREGISTRATION.md):
   faithfulness checker (MiniCheck); **H4** with live web search and a re-search
   loop, net correct answers do not drop. Rules and thresholds: section 11.
 - **Layers:** (1) the Deceptive Grounding benchmark, confirmatory for H1-H3;
-  (2) GRAB-RAG, exploratory; (3) a live-web layer for H4 (being added in
-  parallel by PR 8).
+  (2) GRAB-RAG, exploratory; (3) a live-web layer on SealQA, confirmatory for
+  H4 (see "Live web" below).
 - **Scoring is deterministic:** every arm must return value + quote + source;
   the quote is matched against the shown documents to decide whose document it
   came from. An LLM judge is only a secondary cross-check.
@@ -70,6 +70,34 @@ Written down before any experiment in [PREREGISTRATION.md](PREREGISTRATION.md):
   (section 15).
 
 The code is organised as described in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Live web (layer 3)
+
+- **Questions:** SealQA's `seal_hard` subset (Hugging Face `vtllms/sealqa`,
+  pinned revision; Seal-0 questions are labelled so they can be reported
+  separately), downloaded and hash-checked by `python -m binding_gate.cli
+  dataset-prepare`. Correctness is decided by the deterministic scorer
+  `sealqa_answer` (the gold answer must occur in the answer's value).
+- **Search and pages:** the harness, not the model, chooses every query. It
+  searches the question with **SerpApi** (Google engine, `hl=en`, `gl=us`,
+  at most 10 results), fetches result pages in rank order until 5 were fetched
+  (robots.txt respected, HTML and plain text only) and shows the first 8,000
+  characters of each. `no_gate_live` stops there; `gated_research` applies the
+  decomposer and the gate to the same candidate and, on RESEARCH, issues one
+  targeted re-search (`"<entity>" <qualifiers> <attribute>`) and judges the new
+  answer. All these values are PROPOSED.
+- **Snapshots:** every search response, robots.txt and page is stored at fetch
+  time under `runs/<run_id>/snapshots/`, named by its SHA-256 and made
+  read-only; the gate and the scorer only ever see documents rebuilt from the
+  stored text, and `python -m binding_gate.research.snapshots verify
+  runs/<run_id>` re-checks every hash. Layer 3 is reproducible from snapshots,
+  not re-runnable (the web changes).
+- **Encryption of artifacts:** page text is third-party material, and traces
+  contain it (prompts are traced). The workflow therefore uploads a live-web
+  run directory only encrypted (GnuPG, AES-256, passphrase from the repository
+  secret `RUNS_ENCRYPTION_PASSPHRASE`; a paid live-web run refuses without it),
+  next to an unencrypted publish manifest of URLs, times, HTTP status and
+  hashes without any page text (PREREGISTRATION.md section 14).
 
 ## Running each step
 
@@ -86,9 +114,12 @@ Experiment settings are never read from environment variables; only API keys
 are (`src/binding_gate/secrets.py` is the single place). Benchmarks are cloned
 by you into `data/raw/` (git-ignored) at the pinned commits; nothing is
 redistributed. In GitHub, the manually started workflow **baseline**
-(`.github/workflows/baseline.yml`) runs the same commands with keys from
-repository secrets; step-by-step instructions are in
-[docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md).
+(`.github/workflows/baseline.yml`) runs the dev runs with keys from repository
+secrets. **The full operating sequence**, from adding the secrets to the
+frozen test run and the public report, with the exact run-dialog values for
+every workflow step and the exact command for every command-line-only step, is
+in [docs/RUNNING.md](docs/RUNNING.md) (English and Hebrew; the first steps also
+in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
 
 | Step | Command (all paid commands refuse without `--confirm-spend`) |
 |---|---|
@@ -104,8 +135,8 @@ repository secrets; step-by-step instructions are in
 | Per-check ablations | `run --config configs/dev_ablation_<check>.toml --confirm-spend` (one file per check) |
 | Secondary LLM judge on dev traces | `python -m binding_gate.scorers.llm_judge dry-run\|run\|agreement --config configs/rescore/dev_llm_judge.toml runs/<run_id>` |
 | GRAB-RAG (layer 2) | `configs/dev_grab_rag_smoke.toml`, `configs/dev_grab_rag_baseline.toml`; first export GRAB-RAG's misleading contexts once with its own code (`binding_gate.datasets.grab_rag.EXPORT_PROCEDURE`) and pin the file's SHA-256 in the config; until then these configs stop with an explanation |
-| Live web (layer 3) | added by PR 8 in parallel: a re-search loop for the `gated_research` arm, a search client with stored page snapshots, and the SealQA adapter; see its configs and documentation once merged |
-| Statistics: metrics, intervals, H1-H4 | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
+| Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
+| Statistics: metrics, intervals, H1-H4 (layer-3 runs are recognised and scored with `sealqa_answer`) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
 | Frozen test run (layer 1, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend` |
 | Human audit (section 13) | see below |
 | Public report (section 15) | see below |
@@ -149,11 +180,13 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   (`[runner] max_usd`); spend is computed during the run from the token usage
   the provider reports and the pinned price file `configs/prices.toml`, and a
   model stops when its cap is reached (the run is left resumable). The run
-  refuses to start if even the low estimate exceeds the cap. The runner's caps
-  cover the models under test only: the decomposer inside the gated arm (at most
-  one call per distinct question) is not capped by them, while the LLM-judge
-  arm, the judge re-scoring tool and the decomposer evaluation have caps of
-  their own in their configs.
+  refuses to start if even the low estimate exceeds the cap. Since PR 8 the
+  runner prices every call in a record by the model or provider id in the
+  response and charges it to the cap of the record's model, so the decomposer
+  inside the gated arms, the LLM-judge arm's judge calls and layer-3 searches
+  count against these caps too. The LLM-judge arm additionally has its own
+  judge cap; the judge re-scoring tool and the decomposer evaluation have caps
+  of their own in their configs.
 - **`--confirm-spend`.** Without it no paid call is made; the dry run shows the
   number of calls and a low / high / ceiling estimate first. The free preflight
   checks every model id before the first paid call.

@@ -1,11 +1,16 @@
 # Architecture
 
-This document describes the design of binding-gate across all ten planned pull
-requests. PR 1 delivered the skeleton, the frozen data contracts and the
-pre-registration. PR 2 delivered the Deceptive Grounding adapter, the model
-clients, the answer parser, the `no_gate` arm, the provenance scorer, the runner
-and the baseline report (section 8a). Everything marked "PR n" with n ≥ 3 does
-not exist yet.
+This document describes the design of binding-gate. All ten planned pull
+requests are merged: PR 1 (skeleton, frozen data contracts, pre-registration),
+PR 2 (Deceptive Grounding adapter, model clients, parser, `no_gate`, provenance
+scorer, runner, baseline report; section 8a), PR 3 (decomposer and its separate
+measurement), PR 4 (checks, verdict, `gated` arm, calibration), PR 5 (comparison
+arms, LLM-judge scorer, ablation configs), PR 6 (statistics, plots, frozen test
+run), PR 7 (GRAB-RAG, layer 2), PR 8 (SealQA live-web layer, re-search loop,
+snapshots), PR 9 (MCP server) and PR 10 (public report, human-audit tool).
+PR 11 refreshed the documentation, added the operating guide `docs/RUNNING.md`
+and let `cli analyze` handle layer-3 runs. "PR n" below names the PR that added
+a part. No model has been run yet; the pre-registration is still DRAFT.
 
 What is measured and how success is judged is defined in
 [PREREGISTRATION.md](PREREGISTRATION.md). This file is about how the code is
@@ -37,7 +42,7 @@ coding agents) can work in parallel without inventing incompatible formats.
                 └──────────────────────────────────────► ArmOutput (final_answer)
                                                               │
                      Item (with gold) + final_answer ──► Scorer ──► ScoreResult
-                                                              │       (PR 2, 5)
+                                                              │       (PR 2, 7, 8)
                                                               ▼
                                    TraceRecord ──► TraceWriter ──► runs/<run_id>/traces.jsonl
                                                                    runs/<run_id>/manifest.json
@@ -59,15 +64,22 @@ One run = one config file. For every item × arm × model × repeat the runner
 | Answer parser (B) | no | pure function of the raw text |
 | Binding checks (C), premise matching (D) | no | pure functions; same input, same output on any machine |
 | Verdict (E) | no | pure function of the check results |
-| Primary scorer | no | string matching with `textnorm.normalize_text` |
+| Web search and page fetch (layer 3) | no (external service) | every search response, robots.txt and page stored as a snapshot; the gate and the scorer read only stored snapshots |
+| Primary scorers (`provenance`, `grab_rag_answer`, `sealqa_answer`) | no | string matching with `textnorm.normalize_text` |
 | Secondary scorer (LLM judge) | yes | cross-check only; never decides a hypothesis |
+| Statistics, report, audit analysis | no | read trace and analysis files only |
 
 ## 2. Repository layout and ownership
 
 ```
-ARCHITECTURE.md, PREREGISTRATION.md, README.md, LICENSE, pyproject.toml
-audit/test_access_log.jsonl      committed log of every test-split access attempt
-configs/                         versioned run configs (one TOML file per run)
+ARCHITECTURE.md, PREREGISTRATION.md, README.md, LICENSE, NOTICE, pyproject.toml
+audit/test_access_log.jsonl      committed log of every test-split access attempt (empty today)
+configs/                         versioned run configs, one TOML file per run (dev_*, test_layer1)
+configs/prices.toml              pinned price file used by every cost estimate and budget cap  PR 2
+configs/decomposer_eval_dev.toml config of the decomposer measurement (not a run config)      PR 3
+configs/rescore/                 re-scoring configs of existing traces (LLM judge)            PR 5
+configs/mcp/                     example configuration of the MCP server                      PR 9
+docs/                            RUNNING.md (full operating guide), RUNNING_BASELINE.md, MCP.md PR 2, 9, 11
 src/binding_gate/
   contracts.py   schema_lock.py  frozen data contracts + their fingerprint      PR 1
   interfaces.py                  Protocols for all component kinds              PR 1
@@ -78,34 +90,45 @@ src/binding_gate/
   textnorm.py                    the one normalisation for "verbatim"           PR 1
   canonical.py   gitinfo.py      canonical JSON / hashing, git helpers          PR 1
   secrets.py                     the only place environment variables are read  PR 1
+  parsing.py     answering.py    answer format + parser; shared answer step     PR 2
+  runner.py      cli.py          the run loop, budget caps, dry run; commands   PR 2
+  pricing.py     baseline_report.py  cost model; section 10 stop-rule report    PR 2
+  judging.py                     judge-family rule and judge plumbing           PR 5
+  frozen_run.py                  the one-command frozen test run                PR 6
   datasets/      one module per dataset adapter                                 PR 2, 7, 8
-  models/        one module per model client                                    PR 2
-  decomposers/   gate function (A)                                              PR 3
+  models/        one module per model client (plain HTTPS)                      PR 2
+  decomposers/   gate function (A), its cache, the layer-1 reference            PR 3
+  evaluation/    separate measurement of the decomposer                         PR 3
   checks/        gate functions (C) and (D), one module per check               PR 4
-  gates/         gate function (E)                                              PR 4
+  gates/         gate function (E) (`binding`), dev-only calibration            PR 4
   arms/          one module per experimental arm                                PR 2, 4, 5, 8
-  scorers/       one module per scorer                                          PR 2, 5
+  scorers/       one module per scorer                                          PR 2, 5, 7, 8
+  stats/         metrics, cluster bootstrap, H1-H4, analysis                    PR 6
+  plots/         figures (optional extra `plots`)                               PR 6
+  research/      layer 3: search client, fetcher, robots, snapshots, re-search  PR 8
+  mcp/           the gate as an MCP server (optional extra `mcp`)               PR 9
+  report/        public report generator (section 15)                           PR 10
+  audit_tool/    human audit: sample, label, analyse (section 13)               PR 10
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
-.github/workflows/baseline.yml   manually started dry run / smoke run / dev baseline   PR 2
+.github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run) PR 2, 8
 ```
 
-Ownership of later work. Each PR adds new files in the places listed and does
-not modify files owned by another PR of the same wave.
+Ownership as delivered. Each PR added files in the places listed and did not
+modify files owned by another PR of the same wave (waves: [1] → [2] →
+[3, 4, 5, 6, 7] → [8, 9, 10]).
 
-| PR | Wave | Adds |
+| PR | Wave | Added |
 |---|---|---|
-| 2 | B | `datasets/deceptive_grounding.py`, `models/*`, `arms/no_gate.py`, `scorers/provenance.py`, `parsing.py` (answer format + parser), `runner.py`, `cli.py`, `configs/dev_baseline*.toml`; as delivered also `answering.py`, `pricing.py`, `baseline_report.py`, `configs/dev_smoke.toml`, `configs/prices.toml`, `.github/workflows/baseline.yml`, `docs/RUNNING_BASELINE.md`, `NOTICE` |
-| 3 | C | `decomposers/*`, `evaluation/decomposer.py`, its configs |
-| 4 | C | `checks/*`, `gates/*`, `arms/gated.py` |
-| 5 | C | `arms/prompt_entity_check.py`, `arms/faithfulness_checker.py`, `arms/llm_judge_checks.py`, `scorers/llm_judge.py`, ablation configs |
-| 6 | C | `stats/*`, `plots/*`, `configs/test_*.toml`, the one-command frozen test run |
-| 7 | C | `datasets/grab_rag.py`, its configs |
-| 8 | D | `research/*` (re-search loop, search client, snapshot store), `datasets/sealqa.py`, `arms/gated_research.py` |
-| 9 | D | `mcp/*` (server packaging) |
+| 2 | B | `datasets/deceptive_grounding.py`, `models/*`, `arms/no_gate.py`, `scorers/provenance.py`, `parsing.py`, `answering.py`, `runner.py`, `cli.py`, `pricing.py`, `baseline_report.py`, `configs/dev_baseline.toml`, `configs/dev_smoke.toml`, `configs/prices.toml`, `.github/workflows/baseline.yml`, `docs/RUNNING_BASELINE.md`, `NOTICE` |
+| 3 | C | `decomposers/*` (`model_decomposer`, cache, prompt format, layer-1 reference), `evaluation/decomposer.py`, `configs/decomposer_eval_dev.toml` |
+| 4 | C | `checks/*`, `gates/binding.py`, `gates/calibration.py`, `arms/gated.py`, `configs/dev_gated.toml` |
+| 5 | C | `arms/prompt_entity_check.py`, `arms/faithfulness_checker.py`, `arms/llm_judge_checks.py`, `scorers/llm_judge.py`, `judging.py`, `configs/dev_baselines.toml`, `configs/dev_ablation_*.toml`, `configs/rescore/dev_llm_judge.toml` |
+| 6 | C | `stats/*`, `plots/*`, `frozen_run.py`, `configs/test_layer1.toml` (still a draft, section 17 of the pre-registration) |
+| 7 | C | `datasets/grab_rag.py`, `scorers/grab_rag_answer.py`, `configs/dev_grab_rag_*.toml` |
+| 8 | D | `research/*`, `datasets/sealqa.py`, `arms/gated_research.py` (arms `gated_research` and `no_gate_live`), `scorers/sealqa_answer.py`, `configs/dev_live*.toml`, auxiliary-call pricing in `runner.py` |
+| 9 | D | `mcp/*`, `configs/mcp/server.example.toml`, `docs/MCP.md` |
 | 10 | D | `report/*`, `audit_tool/*` |
-
-Waves: [1] → [2] → [3, 4, 5, 6, 7 in parallel] → [8, 9, 10 in parallel].
 
 **Shared files.** There is no registry file that every PR edits. The only files
 more than one PR may touch are: `pyproject.toml` (append one line under
@@ -181,15 +204,25 @@ rebase onto it.
 
 ### Reserved names (frozen so that parallel PRs agree)
 
+Registered components (`registry.available(kind)`) and the names the analysis
+reads, as of PR 11:
+
 | What | Names |
 |---|---|
-| Datasets | `deceptive_grounding`, `grab_rag`, `sealqa` |
-| Arms | `no_gate`, `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research` |
+| Datasets | `deceptive_grounding`, `grab_rag`, `sealqa` (`sealqa` declares `pin_method = "prepare"`: downloaded and converted by `cli dataset-prepare`; no `pin_method` means a git clone) |
+| Model clients | `openai_responses`, `anthropic_messages`, `google_gemini`, `moonshot_chat` |
+| Decomposers | `model_decomposer` |
 | Checks | `quote_verbatim`, `entity_in_window`, `qualifiers_in_window`, `no_closer_competitor`, `premise_present` |
-| Scorers | `provenance` (deterministic, primary), `llm_judge` (secondary) |
-| `provenance` labels | `target_only`, `competitor_only`, `both`, `neither` |
-| `ModelCall.purpose` | `answer`, `decompose`, `judge`, `check` |
-| Gold key read by `provenance` | `gold["document_roles"]`: map of document id → `"target"`, `"competitor"` or `"other"` |
+| Gates | `binding` |
+| Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research` |
+| Scorers | `provenance` (deterministic, primary, layers 1-2), `grab_rag_answer` (deterministic, layer 2), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
+| Search clients (not a registry kind) | `serpapi_google` (`research/search.py`, `SEARCH_CLIENTS`) |
+| Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs (`configs/test_layer1.toml` still writes `gated-minus-<check>`; pre-registration section 17) |
+| `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable` |
+| `grab_rag_answer` labels | `correct`, `misled`, `ambiguous`, `other_wrong`, `abstained`, `unparseable` |
+| `sealqa_answer` labels | `correct`, `incorrect`, `abstained`, `unparseable` |
+| `ModelCall.purpose` | `answer`, `decompose`, `check` (LLM-judge arm), `judge` (secondary scorer), `search`, `fetch` (layer 3) |
+| Gold keys | `gold["document_roles"]` (map of document id → `"target"`, `"competitor"` or `"other"`; `provenance`, `grab_rag_answer`), `gold["answers"]` (`grab_rag_answer`, `sealqa_answer`), `gold["planted_answer"]` (`grab_rag_answer`) |
 
 Conventions that go with them:
 
@@ -203,8 +236,9 @@ Conventions that go with them:
 - **Gold never reaches an arm.** Adapters put anything that reveals the answer,
   including which document is about which entity, in `Item.gold`, not in
   `Document.metadata`. How the gate finds candidate competing entities for
-  `no_closer_competitor` is PR 4's design decision; it must be deterministic and
-  must use only the question, the constraints and the document text.
+  `no_closer_competitor` was PR 4's design decision (the lead term of each shown
+  document, pre-registration section 5.1); it is deterministic and uses only the
+  question, the constraints and the document text.
 - **Dataset field names are not part of any contract.** The PR 2, 7 and 8
   adapters map whatever the real files contain onto `Item`.
 
@@ -241,10 +275,13 @@ Registering the same name twice raises an error.
 - **No experiment setting is read from an environment variable.** Environment
   variables are for secrets only, and `secrets.py` is the single place where
   they are listed and read. Secrets never appear in configs, traces or logs.
-- Recommended for PR 2 and PR 6: a manually triggered GitHub Actions workflow
-  whose inputs are the config path (and, for test runs, the freeze tag), with
-  API keys taken from repository secrets, so that a run is started by choosing a
-  file rather than by editing settings.
+- Dev runs are started from the manually triggered GitHub Actions workflow
+  `.github/workflows/baseline.yml`, whose inputs are the config path, a model
+  label, a dry-run box and a spend confirmation, with API keys taken from
+  repository secrets, so that a run is started by choosing a file rather than by
+  editing settings (operating guide: `docs/RUNNING.md`). The frozen test run,
+  the decomposer measurement, calibration, re-scoring, analysis, audit and
+  report are command-line tools only.
 
 ## 6. Split and test-set lock
 
@@ -273,7 +310,11 @@ Registering the same name twice raises an error.
   continued with `TraceWriter.resume` under the same config hash and commit.
 - Re-scoring writes `scores.<scorer>.jsonl` beside the trace and never edits it.
 - `runs/` is git-ignored. Result sets that back a published number are added
-  deliberately (location decided in PR 6) together with their manifests.
+  deliberately together with their manifests; the location
+  (`results/layer1/<run_id>/` is proposed) is still open (pre-registration
+  section 17).
+- Live-web runs also hold `runs/<run_id>/snapshots/` (pre-registration
+  section 14); the workflow uploads such run directories only encrypted.
 
 ## 8. Requirements on the PR 2 runner
 
@@ -299,8 +340,8 @@ These are fixed here because every later PR relies on them.
   Identical requests are what makes the runner's cache hand `gated`,
   `faithfulness_checker` and `llm_judge_checks` the candidate that `no_gate`
   produced. A *presentation* (selected by name in the arm options) is the
-  benchmark-specific prompt layout; PR 7 and PR 8 add theirs to
-  `answering.PRESENTATIONS`.
+  benchmark-specific prompt layout; PR 7 and PR 8 added theirs
+  (`grab_rag_context`, `sealqa_live_web`) to `answering.PRESENTATIONS`.
 - **Retries** happen only in `call_model`, under the client's `retry` policy
   (from `[models.options]`); every attempt is a `ModelCall`. When all attempts
   fail it raises `ModelCallFailed`, which carries the logged calls; an arm lets
@@ -330,8 +371,8 @@ These are fixed here because every later PR relies on them.
   `details["outcome"]` is the outcome category of PREREGISTRATION.md 6.3. The
   minimum quote length is applied by the scorer.
 - **Test split.** The runner reaches test items only by calling
-  `testlock.load_test_split` (`--test-unlock-tag`, `--purpose`); PR 6 builds the
-  one-command frozen test run on top of that.
+  `testlock.load_test_split` (`--test-unlock-tag`, `--purpose`); PR 6 built the
+  one-command frozen test run on top of that (`frozen_run.py`).
 - **Split unit for Deceptive Grounding.** `Item.group_id` is the normalised
   (X, C) pair (`datasets.deceptive_grounding.pair_group_id`), not the triple;
   the triple id is in `gold["triple_id"]`. Statistics (PR 6) must cluster on
@@ -367,3 +408,9 @@ These are fixed here because every later PR relies on them.
 PR 2 (2026-11-22) changed no contract; the schema version and fingerprint are
 unchanged. It added one optional run-config table, `[runner]` (see section 8a),
 which is not a data contract; configs without it keep their hash.
+
+PRs 3-11 (2026-11-22) changed no contract: `contracts.py` and `schema_lock.py`
+are as in PR 1, `SCHEMA_VERSION` is 1 and the fingerprint is unchanged. New
+names (arms, scorers, purposes, gold keys; section 3) and new files written
+beside a run (`scores.<scorer>.jsonl`, `snapshots/`, `frozen_run.jsonl`,
+`analysis/`) are conventions, not data contracts.
