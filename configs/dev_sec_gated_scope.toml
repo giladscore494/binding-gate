@@ -45,7 +45,7 @@ build_config = "configs/datasets/sec_financials_v1.toml"
 # The content hash of the generated dataset manifest. "UNPINNED" until the first `cli dataset-prepare`
 # in GitHub Actions; then the orchestrator commits the printed content_sha256 here (and in every
 # sec config: tests/test_sec_configs.py checks they agree). Every load refuses while UNPINNED.
-data_sha256 = "UNPINNED"
+data_sha256 = "1310f020dd2c47ad1a0d7950cc13564bd3bda16bc7dd048e8f32bf656ec21e2c"   # pinned from dev-pipeline run 45057280785 (2026-11-22): 891 items, 297 companies
 
 [[models]]                               # slot A
 name = "openai_responses"
