@@ -258,6 +258,125 @@ structured answer of section 6.2.
   secondary scorer) comes from a different model family than the model under
   test in that comparison.
 
+### 5.1 Gate checks and verdict (PR 4)
+
+Implemented in `src/binding_gate/checks/` (one module per check, shared text
+machinery in `checks/_evidence.py`), `src/binding_gate/gates/binding.py` (the
+verdict) and `src/binding_gate/arms/gated.py` (the arm). Every check is a pure
+function of the constraints (from the decomposer, A), the answered candidate and
+the documents shown to the arm. No check calls a model, uses randomness or the
+clock, or reads document ids, document metadata or gold labels, so the gate can
+be run unchanged on live web pages.
+
+**Text units.** All texts are first normalised as in section 6.1. A *token* is
+a maximal run of Unicode word characters (`\w+`) in the normalised text. A name
+(entity name or alias, qualifier text or alias, key term, competitor term) is
+*mentioned* where its token sequence occurs as a contiguous token sequence of
+the document: whole words only, punctuation between words ignored, case folded,
+diacritics kept. A name without any word character can never match.
+
+**Quote location.** The quote is looked up only in the document named by
+`source_id`. Every place where the normalised quote is a substring of the
+normalised document is an *occurrence*; its token span is the set of tokens
+overlapping it. The *distance* between two token spans is the number of tokens
+strictly between them (0 if they touch or overlap). The *window* is
+`window_tokens` tokens on each side: a mention is within the window if its
+distance to the quote is at most `window_tokens`. If the quote occurs more than
+once, all window checks use the same *anchor* occurrence: the one closest to a
+mention of the question's entity, ties broken by the earliest position.
+
+**The checks** (reserved names; each returns pass, fail or not_applicable with
+machine-readable details: positions, distances, the matched alias):
+
+1. `quote_verbatim` — pass if `source_id` is a shown document, the quote has at
+   least `min_quote_tokens` whitespace-separated tokens after normalisation
+   (the section 6.3 rule), and it occurs in the cited document. Otherwise fail,
+   with the first failing condition as the reason (`source_not_provided`,
+   `quote_too_short`, `quote_not_found`). Never not_applicable.
+2. `entity_in_window` — pass if the nearest mention of the entity name or an
+   alias is within the window of the anchor (inside the quote counts as 0).
+   Fail if there is none in the window (`entity_not_in_document` or
+   `entity_outside_window`). Not_applicable if the quote cannot be located (that
+   failure belongs to check 1, so the ablation without check 1 measures binding
+   alone).
+3. `qualifiers_in_window` — pass if every qualifier (its text or an alias) is
+   mentioned within the window; fail otherwise, listing the missing ones.
+   Not_applicable without qualifiers or if the quote cannot be located.
+4. `no_closer_competitor` — fail if a competing entity is mentioned within the
+   window and its distance to the anchor is smaller than that of the nearest
+   entity mention, or equal to it when `competitor_tie = "fail"` (an entity not
+   mentioned in the document is infinitely far); pass otherwise.
+   Not_applicable if the quote cannot be located or there is no competing
+   entity candidate.
+5. `premise_present` (D) — pass if every key term of every presupposition is
+   mentioned in the evidence, which is the whole cited document when
+   `premise_scope = "document"` or the window when it is `"window"`; fail
+   otherwise, listing the missing terms. Not_applicable if no presupposition
+   has a key term or the cited document is not shown.
+
+**Competing entity.** Without a model or a lexicon the gate cannot tell which
+names are "entities of the same kind", so a competing entity is defined as the
+*subject of a shown document* that is not the question's entity. For each shown
+document (all of them, not only the cited one): take its lead segment (the text
+before the first comma, semicolon, colon, bracket, `!`, `?`, double quote, or
+full stop followed by a space or the end); take tokens from its start up to the
+first word of a fixed list of English function words (`STOP_WORDS` in
+`checks/_evidence.py`, frozen with the gate); if that run is empty or longer
+than `lead_max_tokens`, the document has no lead term; otherwise its *lead term*
+is the longest prefix of the run that occurs at least `lead_min_repeats` times
+in the document and contains a letter. A lead term is excluded if it equals,
+contains or is contained in the entity name or an alias, occurs in the question
+text, or relates in the same way to a qualifier. The remaining lead terms are
+the competitor candidates; their mentions in the cited document that overlap an
+entity mention are ignored.
+
+Dev-only structural check of this definition (PR 4, no model output involved;
+gold fields used only to measure, never by the gate), with a decomposition that
+takes X as the entity and C as the only qualifier: the recorded competitor
+(`Y`, or `Y_synthetic` in `synthetic_y`) is among the candidates in 216/291
+(`context_adjacent`), 225/291 (`null_control`), 255/291 (`prior_completing`)
+and 270/291 (`synthetic_y`) dev items; in `class_proximate`, whose competing
+drug is not recorded, the competing document yields a candidate in 276/291. The
+other candidates found are almost all drug names; a few are generic words
+("moderate", "chronic"), which can cause false blocks. Known misses: documents
+that start with the disease or a generic phrase, and drugs mentioned only once.
+
+**Verdict (E).** With F the set of failed checks (not_applicable never blocks):
+
+| Rule | Condition | Verdict |
+|---|---|---|
+| 1 | F contains `quote_verbatim` or `premise_present` (or any check name not listed in rule 2) | ABSTAIN |
+| 2 | otherwise F is not empty, i.e. only `entity_in_window`, `qualifiers_in_window`, `no_closer_competitor` failed | RESEARCH |
+| 3 | F is empty | ACCEPT |
+
+A quote missing from its source, or evidence lacking what the question
+presupposes, is not repaired by searching for another source for the same
+answer, so the gate abstains; evidence about another entity or other conditions
+is what a targeted re-search can fix. Each failed check gives one reason
+`"<check>: <reason code>"`. A RESEARCH verdict carries a research request: the
+canonical JSON of the entity, its aliases, the attribute, the qualifier texts,
+the failed checks, and a query string (entity, attribute and qualifier texts
+joined by spaces). In layers 1 and 2 RESEARCH is final and the arm's final
+answer is an abstention (section 5).
+
+**Arm.** `gated` obtains its candidate with the same answer request as
+`no_gate`, so within a run the runner's cache returns no_gate's candidate and no
+second answer call is made. Abstained and unparseable candidates pass through
+unchanged, without decomposition or verdict. For an answered candidate it gets
+the constraints from the decomposer named in the config; one decomposition per
+question is shared by all gated arms, models and repeats of a process, so that
+ablations differ only in their checks. Ablations are configs that remove a name
+from `options.checks`.
+
+**Parameters.** **PROPOSED — requires owner approval before freeze.**
+`window_tokens = 40` (about two sentences of the benchmark's prose; chosen a
+priori, not tuned), `min_quote_tokens = 5` (same as section 6.3),
+`lead_max_tokens = 4`, `lead_min_repeats = 2`, `premise_scope = "document"`,
+`competitor_tie = "fail"`. They may be changed on dev only, before the freeze,
+using `python -m binding_gate.gates.calibration`, which re-evaluates recorded
+dev traces under other parameter values without calling any model and refuses
+any run or record that is not from the dev split.
+
 ## 6. Scoring
 
 ### 6.1 Text normalisation for "verbatim"
