@@ -1,0 +1,149 @@
+# PR 7 dev baseline on GRAB-RAG: no_gate on the dev split, 3 repeats, 6 models.
+#
+# Layer 2 (PREREGISTRATION.md section 3): GRAB-RAG's misleading condition (one
+# gold passage edited to carry a wrong answer, among four retrieved hard
+# negatives) and, as the paired control, its supportive condition (gold passages
+# only) for the same questions. Arm no_gate with GRAB-RAG's prompt layout
+# (presentation grab_rag_context); dev split only; grouped by question.
+#
+# Models and sampling: identical to configs/dev_baseline.toml (PREREGISTRATION.md
+# section 9, slots A-F; see the header there for temperature and reasoning).
+#
+# The GRAB-RAG checkout is cloned at the pinned commit into data/raw/ (git-ignored;
+# the workflow's dataset-pin step does this). Nothing in this file is read from
+# environment variables; only API keys are (src/binding_gate/secrets.py).
+#
+# Size: 394 dev questions (191 NQ + 203 HotpotQA). Only questions for which
+# GRAB-RAG could build a misleading context get items; the paper reports 532 of
+# 1,000 such questions, so about 210 dev questions x 2 conditions x 3 repeats,
+# roughly 1,300 calls per model (UNVERIFIED until the export exists; at most
+# 394 x 2 x 3 = 2,364).
+
+config_version = 1
+name = "dev-grab-rag-baseline"
+description = "PR 7 layer-2 baseline: no_gate on GRAB-RAG misleading + paired supportive, dev split, 3 repeats, 6 models."
+split = "dev"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/prices.toml"
+# Hard budget cap in US dollars PER MODEL. PROVISIONAL: set about 25% above the
+# HIGH dry-run estimate for ~1,300 calls (extrapolated from a supportive-only dry
+# run on the real eval files: 394 calls, high estimate 9.62 / 9.62 / 8.54 / 1.42
+# USD for openai-mid / anthropic-mid / google-mid / google-low, under 0.50 USD for
+# the others). Re-check with the dry run once the export is pinned.
+max_usd = 3.0
+[runner.max_usd_by_model]
+openai-mid = 40.0
+anthropic-mid = 40.0
+google-low = 6.0
+google-mid = 35.0
+
+[dataset]
+name = "grab_rag"
+[dataset.options]
+root = "data/raw/grab-rag"
+repository = "https://github.com/andre44s/grab-rag"
+commit = "2006561476b39a6cd1ebc0ab5df1b09af01dbcab"
+data_sha256 = "d11d48acb7d30cd7033db39b909d8d2d5c0af1c925191ae9e7bc25c7549d14b0"
+conditions = ["misleading", "supportive"]
+source_datasets = ["natural_questions", "hotpotqa"]
+supportive_questions = "with_misleading"
+seed = 42
+# The misleading contexts are NOT shipped by GRAB-RAG. This file must be exported
+# once with GRAB-RAG's own code (binding_gate.datasets.grab_rag.EXPORT_PROCEDURE;
+# PREREGISTRATION.md section 3, layer 2) and its SHA-256 pinned below. Until then
+# every command on this config stops with an explanation; nothing is run.
+contexts = "data/raw/grab-rag-contexts/qc_contexts.jsonl"
+contexts_sha256 = "UNPINNED"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+[arms.options]
+presentation = "grab_rag_context"
+
+# provenance: quote location by document role (edited passage = competitor,
+# hard negatives = other, supportive gold passages = target).
+# grab_rag_answer: whether the value carries a gold answer or the planted answer.
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
+
+[[scorers]]
+name = "grab_rag_answer"
+[scorers.options]
+min_quote_tokens = 5

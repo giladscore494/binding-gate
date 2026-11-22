@@ -17,6 +17,11 @@ prompt of a run is fixed by its config file.
     The Deceptive Grounding benchmark's own ``doc_injection`` prompt followed by
     :data:`binding_gate.parsing.ANSWER_FORMAT_INSTRUCTIONS`.
 
+``grab_rag_context``
+    GRAB-RAG's system message and context/question layout (PR 7,
+    ``binding_gate.datasets.grab_rag.context_messages``) followed by the same
+    instruction.
+
 Retries
 -------
 :func:`call_model` is the only place where a model call is retried. Each attempt
@@ -54,8 +59,15 @@ def _deceptive_grounding(question: str, documents: Sequence[Document]) -> tuple[
     return doc_injection_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
 
 
+def _grab_rag(question: str, documents: Sequence[Document]) -> tuple[Message, ...]:
+    from binding_gate.datasets.grab_rag import context_messages
+
+    return context_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
+
+
 PRESENTATIONS: dict[str, Callable[[str, Sequence[Document]], tuple[Message, ...]]] = {
     "deceptive_grounding_doc_injection": _deceptive_grounding,
+    "grab_rag_context": _grab_rag,
 }
 
 
