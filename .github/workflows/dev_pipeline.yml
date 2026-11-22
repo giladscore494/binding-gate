@@ -1,0 +1,657 @@
+name: dev pipeline
+
+# PR 15: the whole DEV phase of docs/RUNNING.md from GitHub Actions, with no edit to any file.
+# The owner adds the repository secrets once (docs/OWNER_SETUP.md); the orchestrator (an AI that can
+# start workflows and read their artifacts through the GitHub API but never sees a secret value)
+# starts the stages below and reads every result from predictably named artifacts.
+#
+# Stages (input "stage"; the configs of each stage: binding_gate.pipeline.STAGES):
+#   check-secrets  free: which secrets exist (names only), every free preflight (model ids, the Z.ai
+#                  list-models fallback, the SerpApi account) and the budget left (ledger).
+#   smoke          configs/dev_smoke.toml for every model whose key exists, then a CHECK of the
+#                  measured output/reasoning/input tokens per call against configs/prices.toml: it
+#                  FAILS if the measured usage would take any run of configs/budget.toml over its cap.
+#   dev-baseline   configs/dev_baseline.toml, then the section 10 stop rule: CONTINUE / STOP /
+#                  IN-BETWEEN / MEASUREMENT-CHECK in the job summary and in the artifact
+#                  dev-baseline--decision (decision.json). Succeeds whatever the decision.
+#   dev-rest       refused unless the newest dev-baseline decision is CONTINUE (or a continue note is
+#                  committed as results/dev_baseline_continue.json); then, in order: the decomposer
+#                  measurement, dev_repeats, dev_gated, the five ablations, dev_baselines (with the
+#                  MiniCheck prepare/verify step), dev_llm_judge_checks, the judge re-scoring of the
+#                  dev-baseline runs, GRAB-RAG supportive (its dataset prepared), then the gate
+#                  calibration (dev traces only) and `cli analyze` of every dev run. The seed runs are
+#                  the dev-baseline run directories (artifacts dev-baseline--dev_baseline--runs-*).
+#   layer3-dev     SealQA prepared, dev_live_smoke then dev_live within the SerpApi monthly allowance
+#                  ([runner] max_searches); run directories uploaded only encrypted, next to an
+#                  unencrypted layer-3 summary (costs, outcomes, URLs, hashes; no page text).
+#   all-dev        smoke -> dev-baseline -> (stops unless CONTINUE) -> dev-rest -> layer3-dev.
+#
+# Every paid stage needs "confirm_spend". Every paid step is preceded by the budget ledger
+# (.github/actions/ledger-check): it reads the artifacts of every earlier hand-started run and refuses
+# when the spend so far plus the caps about to run could exceed USD 50 (configs/budget.toml). The plan
+# job checks the whole stage first; each config is checked again right before it runs.
+#
+# Artifact names: <stage>--<config stem>--<kind>-<model label>[-attempt<N>], e.g.
+# dev-baseline--dev_baseline--runs-openai-low, dev-rest--dev_gated--baseline-report,
+# layer3-dev--dev_live--layer3-summary-all-models; ledgers end in --ledger. The workflow run id is the
+# artifact's workflow_run.id in the API (GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts).
+# Each config runs as the reusable workflow baseline.yml (one job per model; 350-minute job limit,
+# under GitHub's 6 hours); jobs exchange run directories only through artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage of the dev pipeline (docs/OWNER_SETUP.md)"
+        required: true
+        default: "check-secrets"
+        type: choice
+        options:
+          - check-secrets
+          - smoke
+          - dev-baseline
+          - dev-rest
+          - layer3-dev
+          - all-dev
+      confirm_spend:
+        description: "I confirm that paid API calls may be made (needed for every stage except check-secrets)"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read   # list and download artifacts: budget ledger, seed runs, the dev-baseline decision
+
+concurrency:
+  group: dev-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  STAGE: ${{ inputs.stage }}
+  ATTEMPT_SUFFIX: ${{ github.run_attempt != '1' && format('-attempt{0}', github.run_attempt) || '' }}
+
+jobs:
+  plan:
+    name: plan (stage ${{ inputs.stage }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Refuse a paid stage that was not confirmed
+        if: ${{ inputs.stage != 'check-secrets' && !inputs.confirm_spend }}
+        run: |
+          echo "::error::Stage $STAGE makes paid API calls; check confirm_spend. Nothing was run."
+          exit 1
+      - name: Configs of this stage
+        run: |
+          {
+            echo "## Stage $STAGE"
+            echo
+            python -m binding_gate.pipeline stage-configs --stage "$STAGE" | sed 's/^/- /'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Budget ledger - refuse the stage if the caps of all its configs could exceed the hard limit
+        if: ${{ inputs.stage != 'check-secrets' }}
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          stage: ${{ env.STAGE }}
+          artifact-name: pipeline--${{ inputs.stage }}--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+
+  # ------------------------------------------------------------------------------------------- #
+  # check-secrets (free)
+  # ------------------------------------------------------------------------------------------- #
+  check-secrets:
+    name: check secrets and preflights (free)
+    needs: plan
+    if: ${{ inputs.stage == 'check-secrets' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Secrets (names only, never values) and every free preflight
+        id: preflights
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          mkdir -p check-secrets
+          set +e
+          python -m binding_gate.pipeline check-secrets --json check-secrets/report.json --markdown check-secrets/report.md
+          CODE=$?
+          set -e
+          cat check-secrets/report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+      - name: Upload the secrets and preflight report
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-secrets--report${{ env.ATTEMPT_SUFFIX }}
+          path: check-secrets/
+          retention-days: 90
+      - name: Budget left (ledger, report only)
+        continue-on-error: true   # a ledger problem is reported here; the preflight verdict below still applies
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: report
+          artifact-name: check-secrets--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+      - name: Fail if a preflight failed (a missing secret is a skip, not a failure)
+        if: ${{ steps.preflights.outputs.code != '0' }}
+        run: |
+          echo "::error::At least one free preflight FAILED; see the job summary and check-secrets--report."
+          exit 1
+
+  # ------------------------------------------------------------------------------------------- #
+  # smoke
+  # ------------------------------------------------------------------------------------------- #
+  smoke:
+    name: smoke
+    needs: plan
+    if: ${{ inputs.stage == 'smoke' || inputs.stage == 'all-dev' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_smoke.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: smoke--dev_smoke--
+    secrets: inherit
+
+  smoke-check:
+    name: smoke usage check (measured tokens vs the caps)
+    needs: smoke
+    if: ${{ !cancelled() && needs.smoke.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the smoke run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: smoke--dev_smoke--runs-*
+          path: smoke-runs
+          merge-multiple: true
+      - name: Compare the measured usage with the budget's assumptions; fail if a planned run could exceed its cap
+        id: check
+        run: |
+          mkdir -p usage-check
+          mapfile -t RUN_DIRS < <(find smoke-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No smoke run directory was found (every model skipped or failed)."
+            exit 1
+          fi
+          set +e
+          python -m binding_gate.pipeline smoke-check "${RUN_DIRS[@]}" --json usage-check/smoke_usage_check.json --markdown usage-check/smoke_usage_check.md
+          CODE=$?
+          set -e
+          cat usage-check/smoke_usage_check.md >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+      - name: Upload the usage check
+        if: ${{ always() && hashFiles('usage-check/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke--dev_smoke--usage-check${{ env.ATTEMPT_SUFFIX }}
+          path: usage-check/
+          retention-days: 90
+      - name: Fail if the measured usage would make a planned run exceed its cap
+        if: ${{ steps.check.outputs.code != '0' }}
+        run: |
+          echo "::error::The smoke usage check failed: re-derive the caps (configs/budget.toml and the configs) in a pull request before continuing."
+          exit 1
+
+  # ------------------------------------------------------------------------------------------- #
+  # dev-baseline
+  # ------------------------------------------------------------------------------------------- #
+  dev-baseline:
+    name: dev baseline
+    needs: [plan, smoke, smoke-check]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (inputs.stage == 'dev-baseline' || (inputs.stage == 'all-dev' && needs.smoke.result == 'success' && needs.smoke-check.result == 'success')) }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_baseline.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: dev-baseline--dev_baseline--
+    secrets: inherit
+
+  dev-baseline-decision:
+    name: stop rule (section 10) decision
+    needs: dev-baseline
+    if: ${{ !cancelled() && needs.dev-baseline.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      decision: ${{ steps.decision.outputs.decision }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the stop-rule report of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--dev_baseline--baseline-report*
+          path: report
+          merge-multiple: true
+      - name: Decision (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) to the summary and an artifact
+        id: decision
+        run: |
+          mkdir -p decision
+          python -m binding_gate.pipeline decision --report report/baseline_report.json --workflow-run-id "$GITHUB_RUN_ID" \
+            --json decision/decision.json --markdown decision/decision.md | tee decision.txt
+          cat decision/decision.md >> "$GITHUB_STEP_SUMMARY"
+          grep '^decision=' decision.txt >> "$GITHUB_OUTPUT"
+      - name: Upload the decision (the dev-rest stage reads it)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-baseline--decision${{ env.ATTEMPT_SUFFIX }}
+          path: decision/
+          retention-days: 90
+
+  # ------------------------------------------------------------------------------------------- #
+  # dev-rest
+  # ------------------------------------------------------------------------------------------- #
+  dev-rest-gate:
+    name: dev-rest gate (stop rule must say CONTINUE)
+    needs: [plan, dev-baseline-decision]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (inputs.stage == 'dev-rest' || (inputs.stage == 'all-dev' && needs.dev-baseline-decision.result == 'success')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      seed_run_id: ${{ steps.gate.outputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: The dev-baseline decision of this workflow run (all-dev)
+        if: ${{ inputs.stage == 'all-dev' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--decision*
+          path: decision
+          merge-multiple: true
+      - name: The newest dev-baseline decision of the repository (dev-rest)
+        if: ${{ inputs.stage == 'dev-rest' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m binding_gate.pipeline find-decision --out decision
+      - name: Refuse dev-rest unless the stop rule says CONTINUE (or a committed continue note)
+        id: gate
+        run: |
+          python -m binding_gate.pipeline dev-rest-gate --decision decision/decision.json --notes-dir results | tee gate.txt
+          grep '^seed_run_id=' gate.txt >> "$GITHUB_OUTPUT"
+          cat gate.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Budget ledger - refuse dev-rest if the caps of all its configs could exceed the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          stage: dev-rest
+          artifact-name: dev-rest--gate--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+
+  decomposer-eval:
+    name: decomposer measurement
+    needs: dev-rest-gate
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Budget ledger - refuse if the measurement's cap could take the total above the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: configs/decomposer_eval_dev.toml
+          artifact-name: dev-rest--decomposer_eval_dev--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+      - name: Get the benchmark at its pinned version (the same pin as the dev configs)
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Dry run (free)
+        run: python -m binding_gate.evaluation.decomposer dry-run --config configs/decomposer_eval_dev.toml
+      - name: Paid measurement
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python -m binding_gate.evaluation.decomposer run --config configs/decomposer_eval_dev.toml --confirm-spend --runs-dir runs
+      - name: Report against the thresholds of section 7
+        if: ${{ always() && hashFiles('runs/*/decompositions.jsonl') != '' }}
+        run: |
+          for RUN_DIR in runs/*/; do
+            python -m binding_gate.evaluation.decomposer report "$RUN_DIR" --json "${RUN_DIR}decomposer_report.json" | tee -a decomposer_report.txt
+          done
+          { echo '```'; cat decomposer_report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the measurement
+        if: ${{ always() && hashFiles('runs/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-rest--decomposer_eval_dev--decomposer-eval${{ env.ATTEMPT_SUFFIX }}
+          path: runs/
+          retention-days: 90
+
+  dev-repeats:
+    name: dev_repeats
+    needs: [dev-rest-gate, decomposer-eval]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_repeats.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_repeats--
+    secrets: inherit
+
+  dev-gated:
+    name: dev_gated
+    needs: [dev-rest-gate, dev-repeats]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_gated.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_gated--
+    secrets: inherit
+
+  ablation-quote-verbatim:
+    name: dev_ablation_quote_verbatim
+    needs: [dev-rest-gate, dev-gated]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_ablation_quote_verbatim.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_ablation_quote_verbatim--
+    secrets: inherit
+
+  ablation-entity-in-window:
+    name: dev_ablation_entity_in_window
+    needs: [dev-rest-gate, ablation-quote-verbatim]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_ablation_entity_in_window.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_ablation_entity_in_window--
+    secrets: inherit
+
+  ablation-qualifiers-in-window:
+    name: dev_ablation_qualifiers_in_window
+    needs: [dev-rest-gate, ablation-entity-in-window]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_ablation_qualifiers_in_window.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_ablation_qualifiers_in_window--
+    secrets: inherit
+
+  ablation-no-closer-competitor:
+    name: dev_ablation_no_closer_competitor
+    needs: [dev-rest-gate, ablation-qualifiers-in-window]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_ablation_no_closer_competitor.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_ablation_no_closer_competitor--
+    secrets: inherit
+
+  ablation-premise-present:
+    name: dev_ablation_premise_present
+    needs: [dev-rest-gate, ablation-no-closer-competitor]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_ablation_premise_present.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_ablation_premise_present--
+    secrets: inherit
+
+  dev-baselines:
+    name: dev_baselines (MiniCheck prepared and verified inside)
+    needs: [dev-rest-gate, ablation-premise-present]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_baselines.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_baselines--
+    secrets: inherit
+
+  dev-llm-judge-checks:
+    name: dev_llm_judge_checks
+    needs: [dev-rest-gate, dev-baselines]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_llm_judge_checks.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+      seed_pattern: dev-baseline--dev_baseline--runs-*
+      artifact_prefix: dev-rest--dev_llm_judge_checks--
+    secrets: inherit
+
+  rescore:
+    name: judge re-scoring of the dev-baseline runs
+    needs: [dev-rest-gate, dev-llm-judge-checks]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      SEED_RUN_ID: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Budget ledger - refuse if the judge's cap could take the total above the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: configs/rescore/dev_llm_judge.toml
+          artifact-name: dev-rest--dev_llm_judge--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+      - name: Get the benchmark at its pinned version
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Download the dev-baseline run directories
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--dev_baseline--runs-*
+          path: baseline-runs
+          merge-multiple: true
+          run-id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Judge dry run, paid re-scoring, agreement
+        env:
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: |
+          mapfile -t RUN_DIRS < <(find baseline-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No dev-baseline run directory was found in workflow run $SEED_RUN_ID."
+            exit 1
+          fi
+          mkdir -p rescore
+          python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml "${RUN_DIRS[@]}"
+          python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml "${RUN_DIRS[@]}"
+          python -m binding_gate.scorers.llm_judge agreement "${RUN_DIRS[@]}" --json rescore/judge_agreement.json | tee rescore/judge_agreement.txt
+          { echo '```'; cat rescore/judge_agreement.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect the judge scores (manifest and scores.llm_judge.jsonl of each run directory)
+        if: ${{ always() }}
+        run: |
+          mkdir -p rescore
+          for SCORES in baseline-runs/*/scores.llm_judge.jsonl; do
+            [ -f "$SCORES" ] || continue
+            RUN_DIR="$(dirname "$SCORES")"
+            mkdir -p "rescore/$(basename "$RUN_DIR")"
+            cp "$RUN_DIR/manifest.json" "$SCORES" "rescore/$(basename "$RUN_DIR")/"
+          done
+      - name: Upload the judge scores
+        if: ${{ always() && hashFiles('rescore/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-rest--dev_llm_judge--rescore${{ env.ATTEMPT_SUFFIX }}
+          path: rescore/
+          retention-days: 90
+
+  dev-grab-rag:
+    name: dev_grab_rag_supportive (dataset prepared)
+    needs: [dev-rest-gate, rescore]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_grab_rag_supportive.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: dev-rest--dev_grab_rag_supportive--
+    secrets: inherit
+
+  dev-analysis:
+    name: gate calibration and analysis of every dev run (no model call)
+    needs: [dev-rest-gate, dev-grab-rag]
+    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Get the benchmark at its pinned version (the calibration re-reads the dev items)
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Download the dev-rest run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-rest--*--runs-*
+          path: dev-runs/dev-rest
+      - name: Download the dev-baseline run directories
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--dev_baseline--runs-*
+          path: dev-runs/dev-baseline
+          run-id: ${{ needs.dev-rest-gate.outputs.seed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Calibration (dev-gated traces) and cli analyze per config
+        id: analysis
+        run: |
+          set +e
+          python -m binding_gate.pipeline analyze-dev dev-runs --out analysis
+          CODE=$?
+          set -e
+          { echo '```'; cat analysis/index.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+      - name: Upload the calibration and the analyses
+        if: ${{ always() && hashFiles('analysis/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-rest--analysis${{ env.ATTEMPT_SUFFIX }}
+          path: analysis/
+          retention-days: 90
+      - name: Fail if an analysis or the calibration failed
+        if: ${{ steps.analysis.outputs.code != '0' }}
+        run: |
+          echo "::error::An analysis or the calibration failed; see analysis/index.json and the *.log files in dev-rest--analysis."
+          exit 1
+
+  # ------------------------------------------------------------------------------------------- #
+  # layer3-dev
+  # ------------------------------------------------------------------------------------------- #
+  layer3-smoke:
+    name: dev_live_smoke
+    needs: [plan, dev-rest-gate, dev-analysis]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (inputs.stage == 'layer3-dev' || (inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success')) }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_live_smoke.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: layer3-dev--dev_live_smoke--
+    secrets: inherit
+
+  layer3-dev:
+    name: dev_live
+    needs: [plan, layer3-smoke]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer3-smoke.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_live.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: layer3-dev--dev_live--
+    secrets: inherit

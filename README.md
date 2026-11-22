@@ -13,6 +13,12 @@ test it.
 > against recorded-shape example responses; model ids and prices in the configs
 > are not yet confirmed against the live APIs.
 
+> **Owner: the only setup you do is in [docs/OWNER_SETUP.md](docs/OWNER_SETUP.md)** (Hebrew and
+> English): add six repository secrets and set a spending limit at each provider. Everything else
+> in the dev phase runs from the GitHub Actions workflow **dev pipeline**
+> (`.github/workflows/dev_pipeline.yml`, PR 15), guarded by a global budget ledger that refuses any
+> paid run that could take the study's actual spend above USD 50.
+
 ## The failure studied
 
 An agent finds a real, on-topic source and quotes a detail that really is in
@@ -120,6 +126,11 @@ frozen test run and the public report, with the exact run-dialog values for
 every workflow step and the exact command for every command-line-only step, is
 in [docs/RUNNING.md](docs/RUNNING.md) (English and Hebrew; the first steps also
 in [docs/RUNNING_BASELINE.md](docs/RUNNING_BASELINE.md)).
+Since PR 15 the whole dev phase also runs, stage by stage and with no file
+edited, from the workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`;
+stages `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `layer3-dev`,
+`all-dev`), which calls `baseline.yml` once per config and checks every paid
+step against the global budget ledger (`python -m binding_gate.ledger`).
 
 | Step | Command (all paid commands refuse without `--confirm-spend`) |
 |---|---|
@@ -233,6 +244,14 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   `RUNS_ENCRYPTION_PASSPHRASE`. `ANTHROPIC_API_KEY` and `DEEPSEEK_API_KEY` are
   not used by the USD 50 study (their clients remain, for `configs/extended/`).
   Every id and price is unverified until the free preflight and the smoke run.
+- **Global budget ledger (PR 15).** Before every paid run in GitHub Actions,
+  `python -m binding_gate.ledger` downloads the artifacts of every earlier
+  hand-started workflow run, computes the ACTUAL spend from their run records
+  (priced exactly as the runner prices them; layer-3 runs through their
+  unencrypted summaries) and refuses the run if the spend so far plus its caps
+  could exceed the USD 50 hard limit, if any spend is unknown (an expired
+  artifact not covered by the committed snapshot `results/ledger.json`), or if
+  another hand-started run is still active.
 - **Provider-side limits.** Set a monthly spending limit in each provider's
   dashboard as the outer safety net (docs/RUNNING.md, "Provider spending
   limits").

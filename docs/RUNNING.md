@@ -3,6 +3,12 @@
 This guide lists every step from connecting the API keys to the public report,
 in order. Hebrew version: [below](#הוראות-הפעלה-בעברית-הרצף-המלא).
 
+**Owner: your one-time setup is [OWNER_SETUP.md](OWNER_SETUP.md)** (secrets and
+provider limits). Since PR 15 every dev step below (steps 3 to 8) also runs from
+the workflow **dev pipeline** without any edit; see "The dev pipeline and the
+budget ledger" below. The single-config workflow **baseline** keeps working as
+described in the steps.
+
 **Nothing here has been run against a live API yet.** The model clients, the web
 search client and the page fetcher were tested against recorded-shape fixtures
 only. The smoke runs (steps 3 and 7) exist to find out cheaply whether the live
@@ -77,6 +83,88 @@ whole study at that provider, rounded up; together 42 USD, under the 50):
 With a prepaid balance the top-up itself is the hard limit. The runner's caps
 remain the primary control; these limits only catch what the runner cannot
 (a bug, a wrong price in `configs/prices.toml`).
+
+## The dev pipeline and the budget ledger (PR 15)
+
+**Workflow `dev pipeline`** (`.github/workflows/dev_pipeline.yml`; started by
+hand or by the orchestrator through the API). Two inputs: `stage` and
+`confirm_spend` (every stage except `check-secrets` refuses without it). The
+dialog values of every stage are in [OWNER_SETUP.md](OWNER_SETUP.md). The
+configs of each stage are defined once in `binding_gate.pipeline.STAGES`
+(`python -m binding_gate.pipeline stage-configs --stage <stage>`).
+
+| Stage | What runs (each config as the reusable workflow `baseline.yml`, one job per model) | Gate |
+|---|---|---|
+| `check-secrets` | which secrets are set (names only), the free preflight of every model id, the decomposer, the judge and the SerpApi account (a Z.ai list-models HTTP 404 is reported with its fallback `preflight_list_models = false`), the budget left | free; red only if a preflight FAILED |
+| `smoke` | `configs/dev_smoke.toml`, then `python -m binding_gate.pipeline smoke-check`: measured output (visible + reasoning) and input tokens per answer call against `configs/prices.toml`; every run of `configs/budget.toml` is projected with the measured ratio | FAILS if a projected HIGH exceeds that run's cap, or if a smoke record ended in an error: re-derive the caps (or fix the setting) in a pull request first |
+| `dev-baseline` | `configs/dev_baseline.toml`, then the section 10 decision (job summary; artifact `dev-baseline--decision`, `decision.json`) | succeeds whatever the decision |
+| `dev-rest` | decomposer measurement, `dev_repeats`, `dev_gated`, five ablations, `dev_baselines` (MiniCheck prepare/verify inside), `dev_llm_judge_checks`, the judge re-scoring of the dev-baseline runs, `dev_grab_rag_supportive`, then the gate calibration of the `dev-gated` traces and `cli analyze` per config (artifact `dev-rest--analysis`) | refused unless the newest `dev-baseline--decision` is CONTINUE (final), or `results/dev_baseline_continue.json` is committed for that workflow run (IN-BETWEEN or MEASUREMENT-CHECK continued by the owner, with the amendment named) |
+| `layer3-dev` | `configs/dev_live_smoke.toml`, then `configs/dev_live.toml` (SealQA prepared; at most 10 + 240 searches) | `dev_live` only after a successful smoke |
+| `all-dev` | smoke → dev-baseline → dev-rest (only after CONTINUE) → layer3-dev | as above |
+
+Seed runs are found without any input: `dev-rest` takes the workflow run of the
+newest `dev-baseline--decision` and downloads its
+`dev-baseline--dev_baseline--runs-*` artifacts into `seeds/`.
+
+**Artifact names** (found by the orchestrator through
+`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts` or
+`GET /repos/{owner}/{repo}/actions/artifacts`):
+`<stage>--<config stem>--<kind>-<model label>`, plus `-attempt<N>` on a re-run
+attempt. Kinds: `runs-<model>` (run directories), `baseline-report`,
+`runs-encrypted-all-models` and `layer3-summary-all-models` (layer 3),
+`snapshot-manifest-all-models`, `ledger`; and `dev-baseline--decision`,
+`smoke--dev_smoke--usage-check`, `dev-rest--decomposer_eval_dev--decomposer-eval`,
+`dev-rest--dev_llm_judge--rescore`, `dev-rest--analysis`, `check-secrets--report`,
+`pipeline--<stage>--ledger`. Started by hand, `baseline.yml` keeps its old names
+(`runs-<model>`, `baseline-report`, ...; ledger: `ledger`).
+
+**Budget ledger** (`python -m binding_gate.ledger`; composite action
+`.github/actions/ledger-check`). Before every paid step (the whole stage in the
+pipeline's plan job, then each config again; and the plan job of every paid
+`baseline.yml` run) it:
+
+1. lists every artifact of the repository through the REST API with the
+   workflow's `GITHUB_TOKEN` (`actions: read`) and keeps those of runs started by
+   hand (`workflow_dispatch`) in this repository;
+2. downloads the run directories (`runs-*`), the decomposer measurement, the
+   judge scores and the layer-3 summaries, and the earlier ledger results (whose
+   entries are carried forward, so artifacts they already read are not
+   downloaded again);
+3. computes the ACTUAL spend: every logged call priced with
+   `configs/prices.toml` exactly as the runner prices it (or the spend the
+   runner recorded, if larger); one entry per run, so copies count once;
+4. REFUSES the paid step when spend so far + the caps about to run exceed
+   `hard_limit_usd` (50) of `configs/budget.toml`, when any spend is unknown
+   (an encrypted run without its summary, an artifact that cannot be read, a
+   call that cannot be priced, an EXPIRED spend artifact not covered by an
+   earlier ledger or by `results/ledger.json`), or when another hand-started
+   workflow run is in progress;
+5. writes `ledger.json` and `ledger.md` to the job summary and to the artifact
+   `...--ledger`.
+
+Residual risk: artifacts are kept 90 days (`retention-days: 90` on every
+upload, GitHub's maximum for public repositories; a lower repository setting
+wins). Spend older than that is carried by the chain of ledger artifacts only if
+a ledger runs at least once every 90 days; otherwise the orchestrator commits the
+newest `ledger.json` as `results/ledger.json` (same format; the ledger always
+reads it). Spend that never reached an artifact (a job killed before its upload
+step, a run on a computer such as the frozen test runs) is invisible unless it is
+entered in `results/ledger.json` as a `manual:<id>` entry
+(`{"usd": ..., "kind": "manual", "source": "..."}`). The provider spending
+limits stay the outer safety net. Offline, the same computation:
+`python -m binding_gate.ledger compute runs/ seeds/ --json ledger.json`.
+
+**Layer-3 summary.** A live-web run directory holds third-party page text and is
+uploaded only encrypted. Before encryption, in the same job, `python -m
+binding_gate.layer3_summary` writes `layer3_summary.json` (artifact
+`...layer3-summary-all-models`): per run the cost (the ledger's entry), metrics,
+searches and snapshot counts; per record the item, arm, model, outcome label,
+the answer value cut to 100 characters, the quote only as SHA-256 and length,
+the attempts with evidence ids, hashes and URLs, gate decisions with check
+names, statuses and reason codes, and cost per call purpose; per page the URL,
+time, status and hashes. Never page text, titles, snippets, queries, quotes,
+prompts, raw outputs or error messages (the exact list is in the module
+docstring and is tested).
 
 Two kinds of step:
 
@@ -694,6 +782,23 @@ supplied is listed as absent.
 | SerpApi (חיפוש) | 0 דולר | להישאר בתוכנית Free (250 חיפושים בחודש); לא להזין אמצעי תשלום |
 
 ביתרה משולמת מראש, ההטענה עצמה היא הגבול הקשיח. התקרות של ה-runner נשארות הבקרה הראשית; המגבלות האלה רק תופסות מה שה-runner לא יכול (באג, מחיר שגוי ב-`configs/prices.toml`).
+
+### ה-dev pipeline וה-ledger של התקציב (PR 15)
+
+ה-workflow **dev pipeline** (`.github/workflows/dev_pipeline.yml`) מריץ את כל שלבי ה-dev (שלבים 3 עד 8) בלי לערוך אף קובץ. שני שדות: `stage` ו-`confirm_spend` (כל שלב חוץ מ-`check-secrets` מסרב בלעדיו). ערכי הדיאלוג של כל שלב: [OWNER_SETUP.md](OWNER_SETUP.md).
+
+| שלב | מה רץ | תנאי |
+|---|---|---|
+| `check-secrets` | אילו secrets קיימים (רק שמות), כל בדיקות ה-preflight החינמיות (כולל ה-fallback של Z.ai), התקציב שנשאר | חינם |
+| `smoke` | `configs/dev_smoke.toml`, ואז בדיקה של הטוקנים שנמדדו מול ההנחות ב-`configs/prices.toml` | נכשל אם ריצה מתוכננת הייתה עוברת את התקרה שלה: מחשבים תקרות מחדש ב-pull request |
+| `dev-baseline` | `configs/dev_baseline.toml` והחלטת כלל העצירה (artifact `dev-baseline--decision`) | מצליח בכל החלטה |
+| `dev-rest` | מדידת ה-decomposer, `dev_repeats`, `dev_gated`, חמשת ה-ablations, `dev_baselines`, `dev_llm_judge_checks`, השופט המשני, `dev_grab_rag_supportive`, כיול ה-gate וניתוח | רק אחרי CONTINUE, או עם הערה `results/dev_baseline_continue.json` לאותה ריצה |
+| `layer3-dev` | `configs/dev_live_smoke.toml` ואז `configs/dev_live.toml` | `dev_live` רק אחרי smoke מוצלח |
+| `all-dev` | הכול ברצף; עוצר אם אין CONTINUE | כמו למעלה |
+
+**ה-ledger** (`python -m binding_gate.ledger`): לפני כל צעד בתשלום הוא מוריד דרך ה-API של GitHub את ה-artifacts של כל הריצות הקודמות שהופעלו ידנית, מחשב את ההוצאה **בפועל** (כל קריאה מתומחרת לפי `configs/prices.toml` בדיוק כמו ב-runner), ומסרב אם ההוצאה עד עכשיו ועוד התקרות שעומדות לרוץ עוברות 50 דולר, אם יש הוצאה לא ידועה (artifact שפג תוקפו ולא מכוסה ב-`results/ledger.json`, ריצה מוצפנת בלי סיכום), או אם ריצה ידנית אחרת עדיין פעילה. סיכון שנשאר: artifacts נשמרים 90 יום; ה-orchestrator מעדכן את `results/ledger.json` לפחות פעם ב-90 יום, ומוסיף שם ידנית הוצאה שנעשתה מחוץ ל-GitHub Actions (למשל ריצות ה-test על המחשב).
+
+**סיכום שכבה 3:** לפני ההצפנה, באותו job, נכתב `layer3_summary.json` לא מוצפן: עלויות, מדדים ותוצאה לכל שאלה, כתובות ו-hash — בלי טקסט של דפים ובלי ציטוטים. ה-ledger קורא ממנו את העלות.
 
 שני סוגי שלבים:
 

@@ -104,7 +104,11 @@ def test_optional_extras_are_installed_from_the_config_through_an_environment_va
 
 
 def test_dataset_is_cloned_or_prepared_by_its_pin_method():
-    step = RUN_STEPS["Get the dataset at its pinned version (into data/raw/, git-ignored)"]
+    # PR 15: the step is the composite action shared with dev_pipeline.yml; the config reaches it as a variable
+    uses = RUN_STEPS["Get the dataset at its pinned version (into data/raw/, git-ignored)"]
+    assert "uses: ./.github/actions/get-dataset" in uses and "config: ${{ env.CONFIG }}" in uses
+    step = (REPO_ROOT / ".github" / "actions" / "get-dataset" / "action.yml").read_text(encoding="utf-8")
+    assert "CONFIG: ${{ inputs.config }}" in step
     assert "method=" in step and '"$METHOD" = "prepare"' in step
     assert 'binding_gate.cli dataset-prepare --config "$CONFIG"' in step and 'git -C "$ROOT" fetch -q --depth 1' in step
     assert step.index("dataset-pin") < step.index("dataset-prepare")

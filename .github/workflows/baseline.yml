@@ -30,6 +30,21 @@ name: baseline
 # ZAI_API_KEY (Z.ai GLM, slots H and I) and MOONSHOT_API_KEY (the judge). ANTHROPIC_API_KEY and
 # DEEPSEEK_API_KEY are still passed (optional; no config of the USD 50 study uses them);
 # as for every key, a model whose key is missing is SKIPPED, not failed.
+#
+# PR 15 additions:
+# - the workflow is also REUSABLE (`workflow_call`): .github/workflows/dev_pipeline.yml calls it once
+#   per config of a stage. The caller passes `artifact_prefix` ("<stage>--<config stem>--"), so that
+#   every artifact of one pipeline run has a predictable, unique name, and `seed_pattern` (the
+#   artifact names of the seed runs). Started by hand, both are empty / "runs-*" and the artifact
+#   names are unchanged (runs-<model>, baseline-report, ...). A re-run attempt adds "-attempt<N>".
+# - before a paid run the plan job runs the global budget ledger (.github/actions/ledger-check):
+#   it downloads the artifacts of every earlier hand-started run, computes the ACTUAL spend so far
+#   and refuses the run if spend + the caps of this config could exceed the USD 50 hard limit of
+#   configs/budget.toml, if the ledger is incomplete, or if another hand-started run is active.
+# - the dataset is fetched by the shared composite action .github/actions/get-dataset.
+# - a live-web run gets, before its run directory is encrypted, an UNENCRYPTED summary artifact
+#   layer3-summary-<...> (python -m binding_gate.layer3_summary: costs, metrics, per-question
+#   outcomes, URLs and hashes; never page text or quotes), from which the ledger reads its spend.
 
 on:
   workflow_dispatch:
@@ -59,19 +74,49 @@ on:
         required: false
         default: ""
         type: string
+  workflow_call:  # PR 15: called by .github/workflows/dev_pipeline.yml (secrets: inherit)
+    inputs:
+      config:
+        required: true
+        type: string
+      model:
+        required: false
+        default: "all"
+        type: string
+      dry_run:
+        required: false
+        default: true
+        type: boolean
+      confirm_spend:
+        required: false
+        default: false
+        type: boolean
+      seed_run_id:
+        required: false
+        default: ""
+        type: string
+      artifact_prefix:
+        required: false
+        default: ""
+        type: string
+      seed_pattern:
+        required: false
+        default: "runs-*"
+        type: string
 
 permissions:
   contents: read
-  actions: read   # download the runs-* artifacts of an earlier workflow run (seed runs, PR 12)
+  actions: read   # download the runs-* artifacts of an earlier workflow run (seed runs, PR 12); the ledger (PR 15)
 
 concurrency:
-  group: baseline-${{ github.ref }}-${{ inputs.config }}-${{ inputs.model }}-${{ inputs.dry_run }}
+  group: baseline-${{ github.ref }}-${{ inputs.config }}-${{ inputs.model }}-${{ inputs.dry_run }}-${{ inputs.artifact_prefix }}
   cancel-in-progress: false
 
 env:
   CONFIG: ${{ inputs.config }}
   MODEL: ${{ inputs.model }}
   SEED_RUN_ID: ${{ inputs.seed_run_id }}
+  ATTEMPT_SUFFIX: ${{ github.run_attempt != '1' && format('-attempt{0}', github.run_attempt) || '' }}
 
 jobs:
   plan:
@@ -131,6 +176,16 @@ jobs:
           done
           echo "Seed runs: ${SEED_RUNS:-none}"
 
+      - name: Budget ledger - refuse a paid run that could take the total spend above the hard limit
+        if: ${{ !inputs.dry_run && inputs.confirm_spend }}
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: ${{ env.CONFIG }}
+          model: ${{ env.MODEL }}
+          artifact-name: ${{ inputs.artifact_prefix }}ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+
       - name: Select models
         id: models
         env:
@@ -178,31 +233,15 @@ jobs:
           fi
 
       - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
-        run: |
-          python -m binding_gate.cli dataset-pin --config "$CONFIG" > dataset-pin.txt
-          cat dataset-pin.txt
-          REPOSITORY="$(sed -n 's/^repository=//p' dataset-pin.txt)"
-          COMMIT="$(sed -n 's/^commit=//p' dataset-pin.txt)"
-          ROOT="$(sed -n 's/^root=//p' dataset-pin.txt)"
-          METHOD="$(sed -n 's/^method=//p' dataset-pin.txt)"
-          case "$ROOT" in data/raw/*) ;; *) echo "::error::dataset root must be under data/raw/"; exit 1 ;; esac
-          if [ "$METHOD" = "prepare" ]; then
-            python -m binding_gate.cli dataset-prepare --config "$CONFIG"
-          else
-            mkdir -p "$ROOT"
-            git -C "$ROOT" init -q
-            git -C "$ROOT" remote add origin "$REPOSITORY"
-            git -C "$ROOT" fetch -q --depth 1 origin "$COMMIT"
-            git -C "$ROOT" -c advice.detachedHead=false checkout -q FETCH_HEAD
-            test "$(git -C "$ROOT" rev-parse HEAD)" = "$COMMIT"
-          fi
-          rm -f dataset-pin.txt
+        uses: ./.github/actions/get-dataset   # PR 15: shared with dev_pipeline.yml
+        with:
+          config: ${{ env.CONFIG }}
 
       - name: Download the seed runs named in the config (runs-* artifacts of the workflow run seed_run_id)
         if: ${{ needs.plan.outputs.seed_runs != '' }}
         uses: actions/download-artifact@v4
         with:
-          pattern: runs-*
+          pattern: ${{ inputs.seed_pattern || 'runs-*' }}
           path: seeds
           merge-multiple: true
           run-id: ${{ inputs.seed_run_id }}
@@ -326,8 +365,38 @@ jobs:
         if: ${{ always() && needs.plan.outputs.private_outputs != 'true' && hashFiles('runs/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: runs-${{ matrix.model }}
+          name: ${{ inputs.artifact_prefix }}runs-${{ matrix.model }}${{ env.ATTEMPT_SUFFIX }}
           path: runs/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Layer-3 summary inside the job (costs, metrics, outcomes; no page text, no quotes)
+        if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('runs/*/traces.jsonl') != '' }}
+        env:
+          RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+        run: |
+          # The run directory is still in clear in this job (it is encrypted only for the upload below), so
+          # the summary is computed here, where the passphrase is available; the orchestrator never needs it.
+          if [ -z "$RUNS_ENCRYPTION_PASSPHRASE" ]; then
+            echo "::warning::RUNS_ENCRYPTION_PASSPHRASE is not set; the run directory cannot be uploaded encrypted."
+          fi
+          RUN_DIRS=(runs/*/)
+          python -m binding_gate.layer3_summary "${RUN_DIRS[@]}" --out layer3-summary
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          s = json.load(open("layer3-summary/layer3_summary.json"))
+          print("## Layer-3 summary (unencrypted artifact; no page text)")
+          for run in s["runs"]:
+              spend = (run.get("spend") or {}).get("usd")
+              print(f"- run {run['run_id']}: {run['trace_count']} records, {run['searches']} searches, spend ${spend}")
+          PY
+
+      - name: Upload the layer-3 summary (the budget ledger reads its costs)
+        if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('layer3-summary/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}layer3-summary-${{ matrix.model == 'all' && 'all-models' || matrix.model }}${{ env.ATTEMPT_SUFFIX }}
+          path: layer3-summary/
           if-no-files-found: ignore
           retention-days: 90
 
@@ -349,7 +418,7 @@ jobs:
         if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('private/runs.tar.gz.gpg') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: runs-encrypted-${{ matrix.model == 'all' && 'all-models' || matrix.model }}
+          name: ${{ inputs.artifact_prefix }}runs-encrypted-${{ matrix.model == 'all' && 'all-models' || matrix.model }}${{ env.ATTEMPT_SUFFIX }}
           path: private/runs.tar.gz.gpg
           if-no-files-found: ignore
           retention-days: 90
@@ -358,7 +427,7 @@ jobs:
         if: ${{ always() && needs.plan.outputs.private_outputs == 'true' && hashFiles('public/**') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: snapshot-manifest-${{ matrix.model == 'all' && 'all-models' || matrix.model }}
+          name: ${{ inputs.artifact_prefix }}snapshot-manifest-${{ matrix.model == 'all' && 'all-models' || matrix.model }}${{ env.ATTEMPT_SUFFIX }}
           path: public/
           if-no-files-found: ignore
           retention-days: 90
@@ -378,7 +447,7 @@ jobs:
         run: python -m pip install -e .
       - uses: actions/download-artifact@v4
         with:
-          pattern: runs-*
+          pattern: ${{ inputs.artifact_prefix }}runs-*
           path: artifacts
       - name: Stop-rule report over every model that ran
         run: |
@@ -397,6 +466,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ hashFiles('combined/**') != '' }}
         with:
-          name: baseline-report
+          name: ${{ inputs.artifact_prefix }}baseline-report${{ env.ATTEMPT_SUFFIX }}
           path: combined/
           retention-days: 90

@@ -1,0 +1,92 @@
+name: Budget ledger (actual spend so far) and the USD 50 check
+description: >-
+  PR 15. Downloads, through the GitHub REST API and the workflow's token, the artifacts of every
+  earlier hand-started workflow run of this repository (python -m binding_gate.ledger fetch),
+  computes the ACTUAL spend of the study from their run records (priced with configs/prices.toml as
+  the runner prices them), and - in mode "check" - REFUSES (fails the job) when the ledger is
+  incomplete, another hand-started run is active, or the spend so far plus the cap of what is about
+  to run would exceed hard_limit_usd of configs/budget.toml. The result goes to the job summary and
+  to an artifact (ledger.json, the same format as the committed snapshot results/ledger.json).
+  Needs the repository checked out, the package installed and the job permission "actions: read".
+
+inputs:
+  mode:
+    description: '"check" (refuse when over the limit) or "report" (only report the spend)'
+    required: true
+  config:
+    description: "Config about to run (check mode; or use stage)"
+    required: false
+    default: ""
+  model:
+    description: 'Model label of that config, or "all"'
+    required: false
+    default: "all"
+  stage:
+    description: "Dev pipeline stage about to run (check mode; sums the caps of its configs)"
+    required: false
+    default: ""
+  artifact-name:
+    description: "Name of the ledger artifact (must end in --ledger or be ledger; see binding_gate.ledger)"
+    required: true
+  github-token:
+    description: "The workflow's token (github.token), used to list and download artifacts"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download the artifacts of every earlier hand-started run (GitHub REST API)
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: python -m binding_gate.ledger fetch --out ledger-inputs
+
+    - name: Compute the actual spend so far
+      shell: bash
+      run: |
+        mkdir -p ledger
+        python -m binding_gate.ledger compute --inputs ledger-inputs --json ledger/ledger.json --markdown ledger/ledger.md
+
+    - name: Check the spend so far plus the cap against the hard limit
+      id: check
+      if: ${{ inputs.mode == 'check' }}
+      shell: bash
+      env:
+        CHECK_CONFIG: ${{ inputs.config }}
+        CHECK_MODEL: ${{ inputs.model }}
+        CHECK_STAGE: ${{ inputs.stage }}
+      run: |
+        if [ -n "$CHECK_STAGE" ]; then
+          ARGS=(--stage "$CHECK_STAGE")
+        elif [ -n "$CHECK_CONFIG" ]; then
+          ARGS=(--config "$CHECK_CONFIG" --model "$CHECK_MODEL")
+        else
+          echo "::error::ledger-check in mode check needs a config or a stage"
+          exit 1
+        fi
+        set +e
+        python -m binding_gate.ledger check --ledger ledger/ledger.json "${ARGS[@]}" --markdown ledger/ledger.md
+        CODE=$?
+        set -e
+        echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+    - name: Ledger to the job summary
+      shell: bash
+      run: cat ledger/ledger.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the ledger result (ledger.json, ledger.md)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ledger/
+        if-no-files-found: error
+        retention-days: 90
+
+    - name: Refuse when the ledger says so (exit 5 = refused by the budget ledger)
+      if: ${{ inputs.mode == 'check' && steps.check.outputs.code != '0' }}
+      shell: bash
+      env:
+        CODE: ${{ steps.check.outputs.code }}
+      run: |
+        echo "::error::The budget ledger refused this paid run (exit $CODE); see the job summary. Nothing was run."
+        exit 1
