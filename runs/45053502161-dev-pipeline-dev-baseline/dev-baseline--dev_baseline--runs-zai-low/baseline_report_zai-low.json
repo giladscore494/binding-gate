@@ -1,0 +1,124 @@
+{
+  "arm": "no_gate",
+  "models": [
+    {
+      "R": 0.01632302405498282,
+      "by_condition": {
+        "absent/class_proximate": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "absent/context_adjacent": {
+          "n": 97,
+          "wrong_entity": 4
+        },
+        "absent/null_control": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "absent/prior_completing": {
+          "n": 97,
+          "wrong_entity": 6
+        },
+        "absent/synthetic_y": {
+          "n": 97,
+          "wrong_entity": 9
+        },
+        "complete/class_proximate": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "complete/context_adjacent": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "complete/null_control": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "complete/prior_completing": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "complete/synthetic_y": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "partial/class_proximate": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "partial/context_adjacent": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "partial/null_control": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "partial/prior_completing": {
+          "n": 97,
+          "wrong_entity": 0
+        },
+        "partial/synthetic_y": {
+          "n": 97,
+          "wrong_entity": 0
+        }
+      },
+      "calls_reporting_reasoning": 1455,
+      "complete": true,
+      "decision": "STOP",
+      "failed_calls": 0,
+      "input_tokens": 1134533,
+      "measurement_check": false,
+      "model": "zai-low",
+      "n_groups": 45,
+      "n_items": 1455,
+      "n_records": 1455,
+      "n_relevant": 1164,
+      "outcomes_all": {
+        "abstention": 470,
+        "ambiguous": 0,
+        "error": 0,
+        "target_grounded": 962,
+        "ungrounded": 3,
+        "unparseable": 1,
+        "wrong_entity": 19
+      },
+      "outcomes_relevant": {
+        "abstention": 372,
+        "ambiguous": 0,
+        "error": 0,
+        "target_grounded": 769,
+        "ungrounded": 3,
+        "unparseable": 1,
+        "wrong_entity": 19
+      },
+      "output_tokens": 146097,
+      "paid_calls": 1455,
+      "reasoning_tokens": 36196,
+      "repeats": [
+        0
+      ],
+      "served_models": [
+        "glm-5.3-flash"
+      ],
+      "source_id_mismatches": 0,
+      "top_errors": [],
+      "truncated_calls": 0,
+      "ungrounded_or_unparseable_share": 0.0027491408934707906,
+      "wrong_entity_relevant": 19
+    }
+  ],
+  "overall": "STOP",
+  "provisional": false,
+  "run_dirs": [
+    "runs/20261122T181114Z-9a35bd87-2a51"
+  ],
+  "thresholds_percent": {
+    "carry": 5,
+    "continue": 10,
+    "measurement_check": 20
+  },
+  "unfinished_runs": []
+}

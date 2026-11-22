@@ -1,0 +1,29 @@
+{
+  "decision": "STOP",
+  "decision_version": 1,
+  "models": {
+    "google-low": {
+      "R": 0.024054982817869417,
+      "decision": "STOP",
+      "measurement_check": false,
+      "n_records": 1455
+    },
+    "openai-low": {
+      "R": 0.019759450171821305,
+      "decision": "STOP",
+      "measurement_check": false,
+      "n_records": 1455
+    },
+    "zai-low": {
+      "R": 0.01632302405498282,
+      "decision": "STOP",
+      "measurement_check": false,
+      "n_records": 1455
+    }
+  },
+  "provisional": false,
+  "rule": "PREREGISTRATION.md section 10 (binding_gate.baseline_report)",
+  "seed_artifact_pattern": "dev-baseline--dev_baseline--runs-*",
+  "unfinished_runs": [],
+  "workflow_run_id": 45053502161
+}

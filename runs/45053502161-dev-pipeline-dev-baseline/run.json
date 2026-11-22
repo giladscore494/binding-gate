@@ -1,0 +1,151 @@
+{
+  "artifacts": [
+    "dev-baseline--decision",
+    "dev-baseline--dev_baseline--baseline-report",
+    "dev-baseline--dev_baseline--ledger",
+    "dev-baseline--dev_baseline--runs-google-low",
+    "dev-baseline--dev_baseline--runs-openai-low",
+    "dev-baseline--dev_baseline--runs-zai-low",
+    "ledger-after-run",
+    "pipeline--dev-baseline--ledger"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T18:19:10+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45053502161-dev-pipeline-dev-baseline",
+  "head_branch": "main",
+  "head_sha": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "kept": [
+    {
+      "bytes": 718,
+      "path": "dev-baseline--decision/decision.json",
+      "sha256": "1502076ce38e8688c378272158532dc5f8afce4fc7015e44600719ff9162ba04"
+    },
+    {
+      "bytes": 271,
+      "path": "dev-baseline--decision/decision.md",
+      "sha256": "3313ad60aca78317839f5ad7b45ea2c846cf2e4cf2dd0e3225b047dbffe3c0cc"
+    },
+    {
+      "bytes": 8259,
+      "path": "dev-baseline--dev_baseline--baseline-report/baseline_report.json",
+      "sha256": "13d7a39231ccad329a0e5c2acbc133d1a20f61312369732bc1c363b410b9d54b"
+    },
+    {
+      "bytes": 5311,
+      "path": "dev-baseline--dev_baseline--baseline-report/baseline_report.txt",
+      "sha256": "b2e9e0e1a5a5940411b01a71d051726476602cd85ac02a4676ead3263b04cbf8"
+    },
+    {
+      "bytes": 34463,
+      "path": "dev-baseline--dev_baseline--ledger/ledger.json",
+      "sha256": "d35423d5c4c52db415460d2cb7f79bfe6cfd9db43484bcda6e1a9e06a0577570"
+    },
+    {
+      "bytes": 9208,
+      "path": "dev-baseline--dev_baseline--ledger/ledger.md",
+      "sha256": "d58b599f957a2e00c23a399ec91392db654b5d8390f684580d82d0efa229fe98"
+    },
+    {
+      "bytes": 924,
+      "path": "dev-baseline--dev_baseline--runs-google-low/20261122T181107Z-9a35bd87-e07f/invocations.jsonl",
+      "sha256": "a7f71c26df46d9a0b5e0b66d1f8caa6b4971d22c5a9e0e1f5e6817b25635eef3"
+    },
+    {
+      "bytes": 3107,
+      "path": "dev-baseline--dev_baseline--runs-google-low/20261122T181107Z-9a35bd87-e07f/manifest.json",
+      "sha256": "d8d8d8c00504a42c6deeef582f34357aab2305289be189f80bb3cf18a3aa57d3"
+    },
+    {
+      "bytes": 2849,
+      "path": "dev-baseline--dev_baseline--runs-google-low/baseline_report_google-low.json",
+      "sha256": "3b0582e84e36cb703256883cdac04be176e153e4c7644055a7df1d462d1e4424"
+    },
+    {
+      "bytes": 1995,
+      "path": "dev-baseline--dev_baseline--runs-google-low/baseline_report_google-low.txt",
+      "sha256": "5aafdc5fe1f77a3f1b14b6b907b540adeba76be18861472af15bff43b62751a1"
+    },
+    {
+      "bytes": 925,
+      "path": "dev-baseline--dev_baseline--runs-openai-low/20261122T181107Z-9a35bd87-b841/invocations.jsonl",
+      "sha256": "9695bb07c5ddabb435ad0abffe21f08176f1732b97f385aa7ed102ededee0b96"
+    },
+    {
+      "bytes": 3107,
+      "path": "dev-baseline--dev_baseline--runs-openai-low/20261122T181107Z-9a35bd87-b841/manifest.json",
+      "sha256": "4c2c4eb53737cf91087f9938f39979d22f5892d39d5d183362763a937500155f"
+    },
+    {
+      "bytes": 2857,
+      "path": "dev-baseline--dev_baseline--runs-openai-low/baseline_report_openai-low.json",
+      "sha256": "4bc819a99669e77d696d4134a171a58fa87d2e61ffc672659cda1ed75a8a0918"
+    },
+    {
+      "bytes": 1987,
+      "path": "dev-baseline--dev_baseline--runs-openai-low/baseline_report_openai-low.txt",
+      "sha256": "f5f217c344863f222cd3943dcf4899350d0b8d5b0e1f1fbebf5a3e3d47fafc93"
+    },
+    {
+      "bytes": 916,
+      "path": "dev-baseline--dev_baseline--runs-zai-low/20261122T181114Z-9a35bd87-2a51/invocations.jsonl",
+      "sha256": "1c26e99b05563d8d9fa055dcd5a8513c81aa0904d5a02ed4fe348b557ebafd98"
+    },
+    {
+      "bytes": 3107,
+      "path": "dev-baseline--dev_baseline--runs-zai-low/20261122T181114Z-9a35bd87-2a51/manifest.json",
+      "sha256": "ff411d2a9f4c3a6f109cb136465ae4d83f603166361b27faedfe62cb96810b01"
+    },
+    {
+      "bytes": 2861,
+      "path": "dev-baseline--dev_baseline--runs-zai-low/baseline_report_zai-low.json",
+      "sha256": "f81adcb39620d60468e0c92d2840616c45d80217f4e3f3498ce6c150ecab9431"
+    },
+    {
+      "bytes": 1989,
+      "path": "dev-baseline--dev_baseline--runs-zai-low/baseline_report_zai-low.txt",
+      "sha256": "e8c0c9875549218a99a63ceebd1ebcd05f07a9bfc73bab581abd068a6f9f081f"
+    },
+    {
+      "bytes": 39043,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "3c0d2e22dbefbfea2cdee22ac847b7e947c4701906a24143c7a9f410158962c8"
+    },
+    {
+      "bytes": 10245,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "67715c1a3f0778dd9e507b4929d49adb7d4e54f87246a67d8139beb792de0f18"
+    },
+    {
+      "bytes": 33567,
+      "path": "pipeline--dev-baseline--ledger/ledger.json",
+      "sha256": "616b0e7d7e74c8d8209925b2cb238aa618501c0fcca12df4162a005a3299f4da"
+    },
+    {
+      "bytes": 8609,
+      "path": "pipeline--dev-baseline--ledger/ledger.md",
+      "sha256": "3363c8e980f8f576124819cd29301bae60625e71a4db06c03a9fe7a537110809"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "dev-baseline--dev_baseline--runs-google-low/20261122T181107Z-9a35bd87-e07f/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "dev-baseline--dev_baseline--runs-openai-low/20261122T181107Z-9a35bd87-b841/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "dev-baseline--dev_baseline--runs-zai-low/20261122T181114Z-9a35bd87-2a51/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45053502161,
+  "stage": "dev-pipeline-dev-baseline",
+  "title": "dev pipeline: dev-baseline",
+  "workflow": "dev pipeline: dev-baseline"
+}

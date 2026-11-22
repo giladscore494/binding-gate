@@ -1,0 +1,27 @@
+BASELINE REPORT (PREREGISTRATION.md section 10) - dev split, arm 'no_gate', deterministic provenance scoring
+run directories: runs/20261122T181114Z-9a35bd87-2a51
+Thresholds (PROPOSED, need owner approval): continue at R >= 10%, carry models at R >= 5%, measurement check above 20% ungrounded-or-unparseable.
+
+== model zai-low  (served as: glm-5.3-flash)
+   realised counts : 45 groups, 1455 items, repeats [0], 1455 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 19 / 1164 = 1.6%
+   outcomes, 12 non-null_control conditions: target_grounded 769, wrong_entity 19, ambiguous 0, ungrounded 3, abstention 372, unparseable 1, error 0
+   outcomes, all 15 conditions            : target_grounded 962, wrong_entity 19, ambiguous 0, ungrounded 3, abstention 470, unparseable 1, error 0
+   unparseable share (all records)        : 0.1%
+   ungrounded share (all records)         : 0.2%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 4 / 1455 = 0.3% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 1455 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 1,134,533, output 146,097 (of which reasoning 36,196, itemised by 1455 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/97          0/97          0/97   
+      context_adjacent           4/97          0/97          0/97   
+      null_control               0/97          0/97          0/97   
+      prior_completing           6/97          0/97          0/97   
+      synthetic_y                9/97          0/97          0/97   
+   STOP-RULE OUTCOME for zai-low: STOP
+
+OVERALL STOP-RULE OUTCOME: STOP
+Meaning: every model has R < 5%. The baseline is the project's finding; PRs 3-10 are not started.

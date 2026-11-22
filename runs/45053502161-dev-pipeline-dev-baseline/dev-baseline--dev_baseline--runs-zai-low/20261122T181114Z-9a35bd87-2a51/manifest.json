@@ -1,0 +1,110 @@
+{
+  "config": {
+    "arms": [
+      {
+        "label": "no_gate",
+        "name": "no_gate",
+        "options": {
+          "presentation": "deceptive_grounding_doc_injection"
+        }
+      }
+    ],
+    "config_version": 1,
+    "dataset": {
+      "label": "deceptive_grounding",
+      "name": "deceptive_grounding",
+      "options": {
+        "commit": "61b0281d8d3897f53bef3f7402727c905614c1e4",
+        "data_sha256": "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123",
+        "repository": "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark",
+        "root": "data/raw/deceptive-grounding-benchmark"
+      }
+    },
+    "description": "PR 13 baseline wrong-entity rate: no_gate on the dev split, 1 repeat, the three primary low-cost models (A, E, H).",
+    "limit": null,
+    "models": [
+      {
+        "label": "openai-low",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6-luna",
+          "reasoning": {
+            "effort": "none"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-low",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.1-flash-lite",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "zai-low",
+        "name": "zai_chat",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "glm-5.3-flash",
+          "reasoning_effort": "low",
+          "temperature": 0.0,
+          "thinking": {
+            "type": "enabled"
+          },
+          "timeout_seconds": 180
+        }
+      }
+    ],
+    "name": "dev-baseline",
+    "repeats": 1,
+    "runner": {
+      "concurrency": 8,
+      "max_usd": 0.75,
+      "max_usd_by_model": {
+        "google-low": 2.1,
+        "zai-low": 1.95
+      },
+      "prices": "configs/prices.toml"
+    },
+    "scorers": [
+      {
+        "label": "provenance",
+        "name": "provenance",
+        "options": {
+          "min_quote_tokens": 5
+        }
+      }
+    ],
+    "split": "dev"
+  },
+  "config_hash": "9a35bd872f6fb7a5ff3b36dfe62108e44a79363c4f7d2534a99975fa193bdc84",
+  "config_path": "configs/dev_baseline.toml",
+  "ended_at": "2026-11-22T18:17:54+00:00",
+  "git_commit": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "git_dirty": false,
+  "package_version": "0.1.0",
+  "python_version": "3.13.18",
+  "run_id": "20261122T181114Z-9a35bd87-2a51",
+  "schema_version": 1,
+  "started_at": "2026-11-22T18:11:14+00:00",
+  "test_unlock_tag": null,
+  "trace_count": 1455,
+  "traces_sha256": "b61ab689be61ecf950f3d8ddc31fc3b9db45886afc9715d510bc2092c18e33a3"
+}

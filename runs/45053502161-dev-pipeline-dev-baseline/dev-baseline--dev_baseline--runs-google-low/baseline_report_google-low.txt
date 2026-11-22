@@ -1,0 +1,27 @@
+BASELINE REPORT (PREREGISTRATION.md section 10) - dev split, arm 'no_gate', deterministic provenance scoring
+run directories: runs/20261122T181107Z-9a35bd87-e07f
+Thresholds (PROPOSED, need owner approval): continue at R >= 10%, carry models at R >= 5%, measurement check above 20% ungrounded-or-unparseable.
+
+== model google-low  (served as: gemini-3.1-flash-lite)
+   realised counts : 45 groups, 1455 items, repeats [0], 1455 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 28 / 1164 = 2.4%
+   outcomes, 12 non-null_control conditions: target_grounded 772, wrong_entity 28, ambiguous 0, ungrounded 0, abstention 364, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 965, wrong_entity 28, ambiguous 0, ungrounded 0, abstention 462, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 1455 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 1455 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 1,110,134, output 120,104 (of which reasoning 0, itemised by 0 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/97          0/97          0/97   
+      context_adjacent          10/97          0/97          0/97   
+      null_control               0/97          0/97          0/97   
+      prior_completing           9/97          0/97          0/97   
+      synthetic_y                9/97          0/97          0/97   
+   STOP-RULE OUTCOME for google-low: STOP
+
+OVERALL STOP-RULE OUTCOME: STOP
+Meaning: every model has R < 5%. The baseline is the project's finding; PRs 3-10 are not started.
