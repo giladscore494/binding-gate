@@ -132,3 +132,33 @@ def test_the_stop_rule_report_runs_only_where_it_applies():
     assert "baseline_report == 'true'" in RUN_STEPS["Baseline report for this model"]
     report = _job("report")
     assert "needs: [plan, run]" in report and "baseline_report == 'true'" in report
+
+
+# --------------------------------------------------------------------------- #
+# PR 11: the full operating guide docs/RUNNING.md
+# --------------------------------------------------------------------------- #
+
+RUNNING = (REPO_ROOT / "docs" / "RUNNING.md").read_text(encoding="utf-8")
+
+
+def test_running_guide_uses_the_exact_dialog_labels_of_every_workflow_input():
+    inputs = WORKFLOW.split("    inputs:\n", 1)[1].split("\npermissions:", 1)[0]
+    descriptions = re.findall(r"^        description: (?:\"(.*)\"|'(.*)')$", inputs, re.MULTILINE)
+    labels = [double or single for double, single in descriptions]
+    assert len(labels) == 4
+    for label in labels:
+        assert f"| {label} |" in RUNNING, label
+    assert "| Use workflow from (Branch) | `main` |" in RUNNING
+
+
+def test_running_guide_names_only_existing_configs_and_modules_and_every_secret():
+    import importlib.util
+
+    configs = set(re.findall(r"configs/[\w/]+\.toml", RUNNING))
+    assert configs and all((REPO_ROOT / path).is_file() for path in configs), sorted(
+        p for p in configs if not (REPO_ROOT / p).is_file()
+    )
+    modules = set(re.findall(r"python -m (binding_gate[\w.]*)", RUNNING))
+    assert modules and all(importlib.util.find_spec(m) is not None for m in modules), sorted(modules)
+    for secret in set(re.findall(r"secrets\.([A-Z_]+)", WORKFLOW)):
+        assert f"`{secret}`" in RUNNING

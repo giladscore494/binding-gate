@@ -2,7 +2,13 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.2 (2026-11-22, PR 2)
+**Document version:** 0.3 (2026-11-22, PR 11)
+
+**Changelog.** 0.3 (2026-11-22, PR 11): open items consolidated into one
+checklist (section 17); split-unit wording of section 4 per layer; layer-3
+cluster unit in section 8 corrected to the question; state paragraph updated. No
+PROPOSED value and no rule changed. 0.2 (2026-11-22, PR 2): layer-1 facts from
+the real files; working model selection.
 
 This document fixes, before any model is run, what will be measured, how, and
 what counts as success or failure. While the status is DRAFT everything in it
@@ -11,17 +17,18 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project at version 0.2 (PR 2):** no model has been called and no
-result of any kind exists. The Deceptive Grounding benchmark has been cloned at
-a pinned commit and its files inspected for structure (section 3); the
-structural statistics quoted there were computed over all 264 triple files,
-because the split is applied by code that reads every file, but passages were
-read by a person or coding agent only for dev triples, and no test-split item
-has been shown to a model. The model clients written in PR 2 have been tested
-against recorded-shape fixtures only; their behaviour against the live APIs is
-**unverified** until the smoke run. Statements about the other datasets still
-come from their public descriptions; where a detail has not been checked against
-the real files it is marked **unverified**.
+**State of the project at version 0.3 (PR 11):** all ten planned pull requests
+are merged; no model has been called and no result of any kind exists. The
+Deceptive Grounding benchmark has been cloned at a pinned commit and its files
+inspected for structure (section 3); the structural statistics quoted there were
+computed over all 264 triple files, because the split is applied by code that
+reads every file, but passages were read by a person or coding agent only for
+dev triples, and no test-split item has been shown to a model. GRAB-RAG's files
+were inspected in PR 7 and SealQA's metadata (not its rows) in PR 8 (section 3).
+The model clients, the web search client and the page fetcher have been tested
+against recorded-shape fixtures only; their behaviour against the live services
+is **unverified** until the smoke runs. Where a detail has not been checked
+against the real files or services it is marked **unverified**.
 
 Every number marked **PROPOSED** is a starting proposal that
 **requires owner approval before freeze**.
@@ -466,10 +473,12 @@ split  = test if bucket < TEST_BUCKETS else dev
   the normalisation of section 6.1 (`pair_group_id` in
   `src/binding_gate/datasets/deceptive_grounding.py`); the triple id is kept in
   the item's gold metadata. Decided on 2026-11-22, before any model output was
-  scored (section 17, item 10). The salt, the buckets and the rule above are
-  unchanged. For
-  GRAB-RAG it is the question (all four context conditions together). For SealQA
-  it is the row.
+  scored (section 17, closed items). The salt, the buckets and the rule above
+  are unchanged. For GRAB-RAG it is the question, group id
+  `<source dataset>/<question id>`, so both conditions used (misleading and
+  supportive) of one question are always in the same split. For SealQA it is
+  the question (group id derived from the normalised question text; SealQA has
+  no row id, section 3, layer 3, item 5).
 - The salt was fixed on 2026-11-22, before any data was opened, and is not
   tuned. `tests/test_preregistration.py` fails if this section and the code
   disagree.
@@ -1092,8 +1101,8 @@ tuned. `VALIDITY_MAX_FAILED_RATE` is the 5% of section 6.4 item 6.
   arithmetic, and every threshold of section 11 is compared exactly, so a value
   at a boundary is decided by the rule as written, not by rounding.
 - **Confidence intervals.** Cluster bootstrap. The cluster is the split unit
-  `group_id`: the (X, C) pair for layer 1, the question for layer 2, the row for
-  layer 3. Resampling groups respects the dependence between the conditions of
+  `group_id`: the (X, C) pair for layer 1, the question for layer 2, the question
+  for layer 3. Resampling groups respects the dependence between the conditions of
   one triple and between the triples of one (X, C) pair. For one model with *G*
   clusters (sorted by `group_id`), each of `BOOTSTRAP_RESAMPLES` resamples draws
   *G* clusters with replacement with Python's
@@ -1354,9 +1363,9 @@ H4_MIN_NET_DIFFERENCE     = 0
 - This is an audit trail, not a security boundary: a person who wants to look at
   test data can bypass it. The commitment is that the supported path leaves a
   record and that the record is published.
-- Planned test-split uses: one frozen run per layer (PR 6 for layer 1; PRs 7
-  and 8 for layers 2 and 3). Any additional use is listed in the amendment log
-  with its reason.
+- Planned test-split uses: one frozen run per layer (layer 1: `cli
+  frozen-test-run`, PR 6; layers 2 and 3: not implemented yet, section 17,
+  item 39). Any additional use is listed in the amendment log with its reason.
 - While the status is DRAFT the log must contain no successful access;
   `tests/test_preregistration.py` enforces this.
 
@@ -1441,7 +1450,7 @@ existed, and is not tuned.
   errors traced to the decomposer = gate errors whose recorded decomposition
   category is a decomposer fault / gate errors with an assessed category, with
   its Clopper-Pearson interval.
-- **Auditor(s): owner decision, still open (section 17, item 9).** With a single
+- **Auditor(s): owner decision, still open (section 17, item 19).** With a single
   auditor there is no inter-rater check; the report states this limitation.
   With more than one, the first label file named is the primary auditor and
   Cohen's kappa against each further auditor is reported.
@@ -1611,42 +1620,175 @@ section in the generator.
 
 ## 17. Open items that must be closed before the status becomes FROZEN
 
-1. Owner approval of every PROPOSED value (sections 4, 6.3, 6.4, 8, 9, 10, 11, 13).
-2. The model list of section 9 (needed already before PR 2). *PR 2: filled in
-   as a working selection; needs owner confirmation, and every id must pass the
-   live preflight (slots B and F are explicitly unverified).*
-3. Layer 1 facts marked unverified in section 3, from inspection of the real
-   files (PR 2). *PR 2: resolved; see section 3, facts 1-11.*
-4. Whether "correct" for layer 1 can be tightened from target-grounded to
-   target-grounded with a matching gold value (section 6.3). *PR 2: resolved, it
-   cannot; the files contain no gold answer values.*
-5. The faithfulness checker and its pinned version (PR 5).
-6. The decomposer reference procedure (PR 3).
-7. GRAB-RAG licence, format and document roles (PR 7); SealQA subset, fields and
-   correctness rule (PR 8).
-8. Whether H4 gets a non-inferiority margin instead of "point estimate ≥ 0".
-9. Who performs the human audit.
-10. (PR 2) Whether the split and bootstrap unit for layer 1 stays the triple or
-    becomes the (X, C) pair, given that with the triple as the unit 46 pairs
-    would have triples on both sides of the split. *Closed: the unit is the
-    (X, C) pair (sections 3, 4 and 8). 2026-11-22: decided by the orchestrator
-    under the owner's delegation, before any model output was scored.*
-11. (PR 2) Live confirmation of the model clients and settings by the smoke
-    run: model ids, whether each API accepts `temperature = 0`, reported usage
-    including reasoning tokens. Any change is recorded in section 9.
-12. (PR 2) Confirmation of the prices in `configs/prices.toml` against the
-    providers' official pricing pages or invoices.
-13. (PR 2) Whether the provisional parser and answer-format instruction of
-    section 6.2 are kept as they are after the dev baseline.
+One checklist (consolidated in version 0.3). Each item names the section it
+refers to and who or what closes it. An item is closed by recording the
+decision or the verified fact in the section named, with the date, and marking
+the item *Closed* here. Before the freeze these are ordinary edits (section 18).
+
+**(A) Owner approval of PROPOSED values.** Closed by the owner's explicit
+approval (or a changed value) recorded in the section named. Values may still be
+changed on dev data before the freeze.
+
+1. Dev/test ratio 40% / 60% (section 4).
+2. Minimum quote length of 5 tokens for scoring and for the gate's
+   `min_quote_tokens` (sections 6.3 and 5.1).
+3. Validity guard: unparseable-plus-error rate at most 5% (sections 6.4 item 6
+   and 8).
+4. Statistics parameters: bootstrap seed 20261122, 10,000 resamples, 95%
+   level, 3 repeats (section 8).
+5. PR 2 stop rule: continue at R ≥ 10%, carry models at ≥ 5%, stop below 5%,
+   default stop in between, measurement check above 20% (section 10).
+6. Success thresholds H1-H4 and their rules (section 11).
+7. Gate parameters: `window_tokens = 40`, `lead_max_tokens = 4`,
+   `lead_min_repeats = 2`, `premise_scope = "document"`; `competitor_tie` is
+   item 16 (section 5.1).
+8. Decomposer measurement: sample 45, seed 20261122, 3 repeats, the thresholds
+   table and the revision rule of at most three revisions (section 7).
+9. Human-audit parameters: seed 20261122, 50 blocked + 50 accepted,
+   disagreement share 1/2, 95% Clopper-Pearson intervals, and the rules of
+   section 13.
+10. Layer-3 protocol values: `max_attempts = 2`, 10 results, 5 pages, 8,000
+    characters per page, fetch limits (2,000,000 bytes, 20 s, 5 redirects, 1 s
+    per host), one search per 18 s (section 3, layer 3, item 7); the layer-3
+    correctness rule `sealqa_answer` version 1 (section 7); the layer-2
+    answer rule `grab_rag_answer` (section 3, layer 2, item 10).
+11. Secondary-judge settings: temperature 0.0, at most 12,288 output tokens,
+    re-scoring cap 100 USD per judge model and invocation (section 6.5).
+12. The model selection rule (section 9).
+13. Budget caps of every paid config (section 9; section 3, layer 3, item 8;
+    section 7; `configs/*.toml`, `configs/rescore/dev_llm_judge.toml`), to be
+    lowered after the smoke run has measured real usage. Since PR 8 the runner
+    charges decomposer and LLM-judge calls to the cap of the record's model;
+    the headers of `configs/dev_baselines.toml` and `configs/dev_ablation_*.toml`
+    still say these calls are not counted. In `configs/dev_baselines.toml` the
+    judge calls (up to one per item and repeat) therefore count against each
+    model's cap in addition to the arm's own `judge_max_usd`, and its caps must
+    be re-derived from a dry run. The caps in `configs/test_layer1.toml` are
+    placeholders.
+
+**(B) Owner decisions.** Closed by the owner's decision recorded in the section
+named.
+
+14. The model list (section 9): confirm the working selection, including
+    whether to add a flagship model. Whether an Anthropic API key is available;
+    if slots C and D cannot be run, the study proceeds with A, B, E and F,
+    recorded as an amendment.
+15. Whether H4 gets a non-inferiority margin instead of "point estimate ≥ 0"
+    (section 11).
+16. Whether ties in `no_closer_competitor` fail (`competitor_tie = "fail"`,
+    the current value) or pass (section 5.1).
+17. Layer 2 interpretation (section 3, layer 2). GRAB-RAG's "misleading"
+    condition is answer-span substitution, not entity mismatch, and its
+    misleading contexts are not shipped (an export with GRAB-RAG's own code,
+    which needs a GPU, is required). Recommendation recorded by the
+    orchestrator: treat layer 2 as a scope boundary plus a cost-side (M2)
+    measurement on supportive items. Owner decision pending. Note: the adapter
+    can build supportive items without the export (dataset option
+    `conditions = ["supportive"]`), but no config does this and no layer-2
+    config contains a gated arm yet.
+18. One test-split access for all models together, or one access per model
+    (a GitHub-hosted job is limited to 6 hours; each `frozen-test-run`
+    invocation is one logged access) (sections 8 and 12).
+19. Who performs the human audit, and whether layer-3 gate decisions are pooled
+    with layer-1 decisions in one audit sample (section 13; the tool currently
+    pools all audited layers).
+20. Whether the faithfulness checker chosen by PR 5 (MiniCheck-Flan-T5-Large)
+    is confirmed for H3 (section 5).
+21. Whether the parser and answer-format instruction of section 6.2 are kept
+    as they are after the dev baseline (section 6.2).
+
+**(C) Facts to verify once data and keys exist.** Closed by the run or source
+named, with the result entered in the section named.
+
+22. Model ids `gpt-6.1-sol` (slot B) and `gemini-3.5-flash` (slot F) exist:
+    free preflight (`python -m binding_gate.cli preflight`, also part of every
+    workflow dry run) (section 9). The other ids are checked the same way.
+23. Prices of slots C and D (Claude) and J (Kimi) from the providers' official
+    pricing pages; every price in `configs/prices.toml` against official pages
+    or invoices (section 9).
+24. Whether each provider accepts the temperature setting sent (0 for
+    Anthropic, Google and Moonshot; none for OpenAI), and the reported usage
+    including reasoning tokens: smoke run (sections 9 and 6.5).
+25. SealQA row counts and values after `python -m binding_gate.cli
+    dataset-prepare` (`data/raw/sealqa/conversion.json`), entered from dev-split
+    counts only (section 3, layer 3, items 3 and 5).
+26. The Natural Questions data licence from a primary source (section 3,
+    layer 2, item 1).
+27. MiniCheck on Python 3.13, CPU only: run time on a GitHub-hosted runner
+    (`python -m binding_gate.arms.faithfulness_checker verify`, then the smoke
+    run) (section 5).
+28. Dev baseline and stop-rule outcome per model (section 10).
+29. Decomposer accuracy on dev against the thresholds (`python -m
+    binding_gate.evaluation.decomposer`) (section 7).
+30. Gate calibration on dev traces, the first analysis after the keys are
+    connected (`python -m binding_gate.gates.calibration`) (section 5.1).
+    Open risk for H2: in the orchestrator's integration run (scripted fake
+    models on the real dev data), a model that always quotes the target
+    document had 29.5% of its correct answers blocked by the gate, mostly by
+    `qualifiers_in_window` and `premise_present` (the disease name C not near
+    the quote, or not in the cited document). Real models may quote
+    differently, so this is not an estimate of M2; it is the reason the window
+    and the qualifier and premise checks are calibrated on dev traces before
+    the freeze.
+
+**(D) Engineering items.** Closed by a pull request (or, for item 41, by the
+owner in the repository settings).
+
+31. Decomposer cache preload on resume: a resumed run may decompose a question
+    again (`DecompositionCache.preload` exists; the runner does not call it)
+    (section 7).
+32. Seeding a new run's response cache from an earlier trace, so that the
+    `no_gate` answers are not paid again in `dev_gated`, the ablations and the
+    comparison baselines (section 5; ARCHITECTURE.md section 8a).
+33. A public, read-only lock check in `testlock` instead of the private
+    `_unlock_refusals` used by `frozen_run.py` (section 12).
+34. `cli analyze` for layer 3. *Closed in version 0.3 (PR 11): `cli analyze`
+    recognises SealQA run directories from their manifests and applies the
+    `sealqa_answer` rule; mixed layers are refused.*
+35. The layer-3 secondary LLM judge is not implemented (section 7, layer 3).
+36. The decomposer is not measured on layers 2 and 3: define a reference
+    procedure or state that it is not measured there (section 7).
+37. Location of published result sets: `results/layer1/<run_id>/` (proposed;
+    ARCHITECTURE.md section 7; section 15, R10).
+38. `configs/test_layer1.toml`: complete the arm options (decomposer, judges,
+    checker and gate parameters as in the dev configs; TODO markers), make the
+    ablation labels agree with the dev configs (`gated_minus_<check>` there,
+    `gated-minus-<check>` here), and dry-run the same arms on dev (sections 8
+    and 12).
+39. No frozen test configuration or frozen analysis path exists for layers 2
+    and 3: `frozen_run.py` analyses with the layer-1 rule (section 12 plans one
+    frozen run per layer).
+40. The workflow installs the `faithfulness` extra but does not run
+    `python -m binding_gate.arms.faithfulness_checker prepare`, so a config with
+    the `faithfulness_checker` arm stops in the workflow before its first paid
+    call; add a prepare step or run it locally (section 5; docs/RUNNING.md).
+41. Repository secrets created by the owner: `OPENAI_API_KEY`,
+    `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` (optional, item 14),
+    `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`
+    (docs/RUNNING.md, step 1).
+42. `PARAMETERS_STATUS` of the MCP server (`src/binding_gate/mcp/core.py`)
+    updated at the freeze (section 5.1).
+
+*Closed earlier, kept for the record:* layer-1 facts from the real files
+(PR 2; section 3, facts 1-11); "correct" for layer 1 cannot be tightened to a
+gold value (PR 2; section 6.3); the split and bootstrap unit for layer 1 is the
+(X, C) pair (decided 2026-11-22 by the orchestrator under the owner's
+delegation, before any model output was scored; sections 3, 4 and 8); the
+faithfulness checker and its pinned version (PR 5; owner confirmation is
+item 20); the layer-1 decomposer reference procedure (PR 3; section 7);
+GRAB-RAG licence, format and document roles (PR 7; NQ primary source is
+item 26); SealQA subset, fields and correctness rule (PR 8; counts are item 25,
+approval of the rule is item 10).
 
 2026-11-22: owner directed that all PRs follow this document and delegated
-model selection; PROPOSED values are adopted as working values for PR 2 and
-still require explicit confirmation at freeze.
+model selection; PROPOSED values are adopted as working values and still
+require explicit confirmation at freeze.
 
-Items 3-7 are resolved on dev data only. The freeze happens after they are
-closed and before any test-split access; layers may be frozen in stages
-(`prereg-freeze-1` for layer 1, later tags for layers 2 and 3) provided each
-stage is frozen before its own test split is used.
+The freeze happens after these items are closed and before any test-split
+access. Layers may be frozen in stages (`prereg-freeze-1` for layer 1, later
+tags for layers 2 and 3) provided each stage is frozen before its own test split
+is used; items that concern only a later layer may then stay open for the
+earlier tag, and the stage frozen says which.
 
 ## 18. Amendment log
 

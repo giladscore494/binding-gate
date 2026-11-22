@@ -1,5 +1,12 @@
 # Running the PR 2 baseline
 
+> **The full operating sequence** (all secrets, the decomposer evaluation, the
+> gated runs and calibration, baselines and ablations, layer 3, the freeze, the
+> frozen test run, the audit and the report) is in [RUNNING.md](RUNNING.md),
+> in English and Hebrew. This file covers its first steps (dry run, smoke run,
+> dev baseline) and stays as written for PR 2; the secrets table below lists
+> only the PR 2 keys.
+
 The baseline is started from GitHub, by choosing a config file. Nothing is
 configured through environment variables; API keys are repository secrets.
 
@@ -128,6 +135,8 @@ python -m binding_gate.cli report    runs/<run_id>
 ---
 
 ## הוראות הפעלה בעברית
+
+**הרצף המלא** (כל ה-secrets, כל השלבים עד ההקפאה, ריצת ה-test, ה-audit והדוח) נמצא ב-[RUNNING.md](RUNNING.md). הקובץ הזה מכסה רק את השלבים הראשונים.
 
 **שום דבר כאן עדיין לא הורץ מול API אמיתי.** הלקוחות נבדקו רק מול תשובות לדוגמה. ריצת ה-smoke (שלב ב) נועדה לבדוק בדולרים בודדים שה-API האמיתי מתנהג כמו בקוד.
 
