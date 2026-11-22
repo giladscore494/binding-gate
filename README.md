@@ -166,10 +166,27 @@ of PREREGISTRATION.md section 15 to the section that meets it.
   models, caps summing to 349 USD (PREREGISTRATION.md section 9; an estimate,
   not a measurement).
 
-## MCP server (PR 9)
+## Use the gate as a tool (MCP server)
 
-*Placeholder: this section is filled in by the orchestrator when PR 9 (MCP
-server packaging) is merged.*
+Any MCP-capable agent can call the gate as a tool. It runs exactly the same
+checks and verdict as the research runs (the server calls the same registered
+gate; a test compares outputs byte for byte).
+
+```bash
+pip install -e '.[mcp]'
+python -m binding_gate.mcp.server --config configs/mcp/server.example.toml
+```
+
+- `verify_answer`: question, answer, verbatim quote, source id and the
+  documents the agent read; returns ACCEPT / RESEARCH / ABSTAIN with the
+  per-check results. Deterministic and offline when the constraints (entity,
+  qualifiers, presuppositions) are passed in.
+- `decompose_question`: optional and model-based; available only when a
+  decomposer model is configured.
+
+The gate checks *binding* (is the evidence about the asked entity and
+conditions?), not truth. Its parameters are PROPOSED pre-registration values,
+and the study's results are pending. See [docs/MCP.md](docs/MCP.md).
 
 ## Honest limits
 
