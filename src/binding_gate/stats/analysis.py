@@ -65,6 +65,8 @@ ANALYSIS_JSON = "analysis.json"
 REPORT_MD = "report.md"
 FIGURES_DIR = "figures"
 CONDITION_STATS = ("wrong_all", "m1", "m2", "correct_all", "failed_all")
+EXPLORATORY_ARMS = frozenset({"free_form"})
+"""PR 22: arm names whose runs the confirmatory analysis refuses (scored by the LLM judge only)."""
 
 
 # --------------------------------------------------------------------------- #
@@ -101,6 +103,17 @@ def load_trace_set(run_dirs: Sequence[str | Path]) -> TraceSet:
             records.extend(read_traces(run_dir))
         except (TraceError, OSError) as exc:
             raise StatsError(f"cannot read run directory {run_dir}: {exc}") from exc
+        exploratory = sorted(
+            str(arm.get("label") or arm.get("name"))
+            for arm in manifest.config.get("arms", [])
+            if isinstance(arm, dict) and arm.get("name") in EXPLORATORY_ARMS
+        )
+        if exploratory:
+            raise StatsError(
+                f"{run_dir}: arm(s) {exploratory} are exploratory free-form answers (PREREGISTRATION.md section 18, "
+                "amendment 1); they are analysed only by `python -m binding_gate.validation`, never with the "
+                "statistics of H1-H4"
+            )
         manifests.append(manifest)
     return TraceSet(records, [Path(d).as_posix() for d in run_dirs], manifests, unfinished)
 

@@ -45,7 +45,9 @@ keep their hash.
 The ``[sample]`` table (PR 13) selects a deterministic, stratified subsample of
 the split's items (``binding_gate.sampling``). Unlike ``limit`` it is allowed on
 the test split: it is a pre-registered item set, not a partial run. It cannot be
-combined with ``limit``. Like ``[runner]`` it is hashed only when present.
+combined with ``limit``. Like ``[runner]`` it is hashed only when present. PR 22: an
+optional ``exclude_strata`` list leaves whole strata out before the selection
+(hashed only when present).
 
 The config hash is the SHA-256 of the canonical JSON of the *parsed and
 normalised* config (defaults filled in), so comments, key order and whitespace do
@@ -81,6 +83,7 @@ _TOP_LEVEL_KEYS = {
     "sample",
 }
 _SAMPLE_KEYS = {"per_stratum", "seed"}
+_SAMPLE_OPTIONAL_KEYS = {"exclude_strata"}  # PR 22: strata left out before the selection (binding_gate.sampling)
 _COMPONENT_KEYS = {"name", "label", "options"}
 
 
@@ -119,7 +122,7 @@ class RunConfig:
     limit: int | None = None
     description: str = ""
     runner: dict[str, Any] = field(default_factory=dict)
-    sample: dict[str, int] | None = None
+    sample: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The normalised config; this exact structure is what gets hashed."""
@@ -203,18 +206,32 @@ def _runner_table(raw: Any) -> dict[str, Any]:
     return json.loads(canonical_json(raw))
 
 
-def _sample_table(raw: Any) -> dict[str, int] | None:
+def _sample_table(raw: Any) -> dict[str, Any] | None:
     if raw is None:
         return None
     if not isinstance(raw, Mapping):
         raise ConfigError("sample must be a table ([sample])")
-    if set(raw) != _SAMPLE_KEYS:
-        raise ConfigError(f"[sample] must have exactly the keys {sorted(_SAMPLE_KEYS)}")
+    if not _SAMPLE_KEYS <= set(raw) <= _SAMPLE_KEYS | _SAMPLE_OPTIONAL_KEYS:
+        raise ConfigError(
+            f"[sample] must have the keys {sorted(_SAMPLE_KEYS)} and optionally {sorted(_SAMPLE_OPTIONAL_KEYS)}"
+        )
     per_stratum = _positive_int("sample.per_stratum", raw["per_stratum"])
     seed = raw["seed"]
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise ConfigError("sample.seed must be an integer >= 0")
-    return {"per_stratum": per_stratum, "seed": seed}
+    table: dict[str, Any] = {"per_stratum": per_stratum, "seed": seed}
+    if "exclude_strata" in raw:  # PR 22; hashed only when present, so older configs keep their hash
+        excluded = raw["exclude_strata"]
+        if (
+            isinstance(excluded, str)
+            or not isinstance(excluded, (list, tuple))
+            or not excluded
+            or not all(isinstance(s, str) and s for s in excluded)
+            or len(set(excluded)) != len(excluded)
+        ):
+            raise ConfigError("sample.exclude_strata must be a non-empty list of distinct stratum names")
+        table["exclude_strata"] = list(excluded)
+    return table
 
 
 def _positive_int(where: str, value: Any) -> int:

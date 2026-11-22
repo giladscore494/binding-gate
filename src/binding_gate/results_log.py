@@ -28,7 +28,8 @@ Only files on an ALLOW-LIST of report names (:data:`ALLOWED_NAMES`,
 :data:`ALLOWED_PATTERNS`): the check-secrets report, the smoke usage checks, the
 stop-rule decision, budget-ledger results, calibration reports, analyses
 (``analysis.json``, ``report.md``, ``index.json``, ``*.log``), baseline
-reports, the decomposer report, the judge agreement, layer-3 summaries (built
+reports, the decomposer report, the judge agreement, the layer-1 STOP validation
+report (PR 22; labels, counts, rates and intervals only), layer-3 summaries (built
 page-text free by ``binding_gate.layer3_summary``), run manifests and
 ``invocations.jsonl`` (config, hashes, caps, spend), the SEC dataset's
 ``manifest.json``, ``selection.json`` and the printed ``content_sha256``
@@ -126,6 +127,8 @@ ALLOWED_NAMES: dict[str, str] = {
     "decomposer_report.json": "decomposer measurement against section 7",
     "judge_agreement.json": "judge agreement (section 6.5)",
     "judge_agreement.txt": "judge agreement (text)",
+    "validation_report.json": "layer-1 STOP validation, V1/V2 (PR 22): judge labels, rates, intervals; no text",
+    "validation_report.md": "layer-1 STOP validation (markdown)",
     "layer3_summary.json": "layer-3 summary (costs, outcomes, URLs, hashes; no page text)",
     "prepare.json": "SEC dataset: the printed output of dataset-prepare (content_sha256)",
     "prepare.md": "SEC dataset: summary (markdown)",

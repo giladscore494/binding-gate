@@ -55,7 +55,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 
 #### Workflow ‏**dev pipeline** (שלב ה-DEV)
 
-הסדר: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepare` (ואז ה-orchestrator נועץ את ה-hash ב-pull request), `layer2-dev`, `layer3-dev` (או `all-dev`, שמריץ את כל השלבים בתשלום ברצף).
+הסדר: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepare` (ואז ה-orchestrator נועץ את ה-hash ב-pull request), `layer2-dev`, `layer3-dev` (או `all-dev`, שמריץ את כל השלבים בתשלום ברצף). אחרי STOP בשכבה 1: `validate-layer1` (תיקון 1); `dev-rest` ו-`all-dev` מסורבים.
 
 **check-secrets** (חינם: אילו secrets קיימים (רק שמות), בדיקות preflight חינמיות, והתקציב שנשאר)
 
@@ -97,7 +97,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `sec-dataset-prepare` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | לא מסומן |
 
-**layer2-dev** (תקרות 2.60 דולר ביחד; שכבה 2 (דוחות SEC): smoke, בדיקת שימוש, baseline, gated, מועמדי binding scope; מסרב כל עוד המאגר לא נעוץ (UNPINNED))
+**layer2-dev** (תקרות 2.60 דולר ביחד; שכבה 2 (דוחות SEC): smoke, בדיקת שימוש, baseline, כלל העצירה של שכבה 2 (PR 22), ואז gated ומועמדי binding scope רק אחרי CONTINUE; מסרב כל עוד המאגר לא נעוץ (UNPINNED))
 
 | שדה | ערך |
 |---|---|
@@ -111,6 +111,14 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 |---|---|
 | Use workflow from (Branch) | `main` |
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer3-dev` |
+| I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
+
+**validate-layer1** (תקרות 23.65 דולר ביחד; תיקון 1 מ-22.11.2026, ניסיוני: בדיקה של החלטת ה-STOP של שכבה 1. רץ רק אם ההחלטה האחרונה של dev-baseline היא STOP סופי; לא דורש CONTINUE. שופט LLM על 144 פריטי dev לכל מודל מתשובות ה-baseline, תשובות חופשיות (free_form) לאותם פריטים, שופט עליהן, ודוח השוואה)
+
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Stage of the dev pipeline (docs/OWNER_SETUP.md) | `validate-layer1` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
 
 **all-dev** (הכול ברצף: smoke ← dev-baseline ← עוצר אם לא CONTINUE ← dev-rest ← layer2-dev ← layer3-dev; תקרות 19.80 דולר ביחד)
@@ -244,7 +252,7 @@ GitHub → repository → **Actions** tab → the workflow's name in the left co
 
 #### Workflow **dev pipeline** (the DEV phase)
 
-Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepare` (then the orchestrator pins the hash in a pull request), `layer2-dev`, `layer3-dev` (or `all-dev`, which runs every paid stage in sequence).
+Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepare` (then the orchestrator pins the hash in a pull request), `layer2-dev`, `layer3-dev` (or `all-dev`, which runs every paid stage in sequence). After the layer-1 STOP: `validate-layer1` (amendment 1); `dev-rest` and `all-dev` are refused.
 
 **check-secrets** (free: which secrets exist (names only), the free preflights, and the budget left)
 
@@ -286,7 +294,7 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `sec-dataset-prepare` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | unchecked |
 
-**layer2-dev** (caps 2.60 USD together; layer 2 (SEC filings): smoke, usage check, baseline, gated, binding-scope candidates; refused while the dataset is UNPINNED)
+**layer2-dev** (caps 2.60 USD together; layer 2 (SEC filings): smoke, usage check, baseline, the layer-2 stop rule (PR 22), then gated and binding-scope candidates only after CONTINUE; refused while the dataset is UNPINNED)
 
 | Field | Value |
 |---|---|
@@ -300,6 +308,14 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 |---|---|
 | Use workflow from (Branch) | `main` |
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer3-dev` |
+| I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
+
+**validate-layer1** (caps 23.65 USD together; amendment 1 of 2026-11-22, exploratory: checks the layer-1 STOP decision. Runs only if the newest dev-baseline decision is a final STOP; never needs CONTINUE. LLM judge on 144 dev items per model of the baseline answers, free-form (free_form) answers to the same items, the judge on those, and a comparison report)
+
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Stage of the dev pipeline (docs/OWNER_SETUP.md) | `validate-layer1` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
 
 **all-dev** (everything in sequence: smoke → dev-baseline → stops unless CONTINUE → dev-rest → layer2-dev → layer3-dev; caps 19.80 USD together)

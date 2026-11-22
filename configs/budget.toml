@@ -52,6 +52,21 @@ hard_limit_usd = 50.0
 planned_high_max_usd = 45.0
 reserve_usd = 5.0
 
+# PR 22 (PREREGISTRATION.md section 18, amendment 1; owner's decision of 2026-11-22, taken AFTER the layer-1 dev
+# baseline - workflow run 45053502161, R = 2.0% / 2.4% / 1.6%, every model < 5% - gave STOP under section 10):
+#   - the 13 layer-1 runs that the STOP ends (dev_repeats, dev_gated, dev_gated_scope, the five ablations,
+#     dev_baselines, dev_llm_judge_checks, rescore_dev_llm_judge, test_layer1, test_layer1_midtier) are kept with
+#     status = "stopped" and stopped_by (the reason). A stopped run is still checked against its config (its cap is
+#     what the config enforces) but is NOT part of the planned totals, and the budget ledger REFUSES to run its
+#     config (binding_gate.ledger: `check --config` / `--stage`). Only a new amendment that sets the status back
+#     can start one; its cap must then fit the totals again. Stopped: low 9.91, HIGH 30.26, caps 33.80 USD.
+#   - three exploratory validation runs were added (stage validate-layer1): validate_layer1_judge_structured (V1),
+#     validate_layer1_freeform and validate_layer1_judge_freeform (V2): low 4.87, HIGH 22.43, caps 23.65 USD.
+#   - totals of the ACTIVE runs: low 9.21, HIGH 34.95, caps 38.20 USD (all entries including the stopped ones:
+#     19.12 / 65.21 / 72.00, which no rule bounds because the stopped ones cannot run). Spent so far (ledger,
+#     2026-11-22): 1.14 USD. No layer-2 or layer-3 entry changed.
+# The rules above apply to the runs WITHOUT status = "stopped" (tests/test_budget_plan.py).
+#
 # PR 18 added two dev runs of the binding-scope candidates (dev_gated_scope, dev_sec_gated_scope; decomposer only,
 # 0.00 / 0.21 / 0.60): totals low 14.25, HIGH 42.78, caps 48.35 USD. No other entry changed.
 # Totals of the runs below before PR 18 (PR 17): low 14.25, HIGH 42.57, caps 47.75 USD (PR 14: 13.16 / 39.21 / 43.70;
@@ -110,6 +125,8 @@ low_usd = 0.17
 high_usd = 0.46
 cap_usd = 0.55
 note = "nondeterminism check (section 8)"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_gated"
@@ -123,6 +140,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only; re-runs after calibration come out of the reserve"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_gated_scope"
@@ -136,6 +155,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "PR 18; paid: decomposer only (one decomposition per question shared by the four arms; dev dry run = dev_gated's); section 5.1 scope selection"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_ablation_quote_verbatim"
@@ -149,6 +170,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_ablation_entity_in_window"
@@ -162,6 +185,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_ablation_qualifiers_in_window"
@@ -175,6 +200,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_ablation_no_closer_competitor"
@@ -188,6 +215,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_ablation_premise_present"
@@ -201,6 +230,8 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_baselines"
@@ -214,6 +245,8 @@ low_usd = 0.37
 high_usd = 0.95
 cap_usd = 1.10
 note = "paid: prompt_entity_check; MiniCheck runs on the CPU for free"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_llm_judge_checks"
@@ -227,6 +260,8 @@ low_usd = 0.00
 high_usd = 1.51
 cap_usd = 1.60
 note = "paid: the judge (kimi-k3.1-pro at its default reasoning)"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "rescore_dev_llm_judge"
@@ -240,6 +275,8 @@ low_usd = 0.92
 high_usd = 4.52
 cap_usd = 4.75
 note = "one invocation over the three dev-baseline run directories (at most 180 judge calls); estimate = 3/4 of the PR 13 estimate of 240 calls from the real prompts"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "dev_live_smoke"
@@ -279,6 +316,8 @@ low_usd = 5.98
 high_usd = 15.85
 cap_usd = 16.75
 note = "CONFIRMATORY (H1-H3); estimate = dev dry run of the same arms x 2,505 / 1,455"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "test_layer1_midtier"
@@ -292,6 +331,8 @@ low_usd = 2.47
 high_usd = 6.55
 cap_usd = 6.95
 note = "exploratory capability check; estimate = dev dry run of the same subsample definition"
+status = "stopped"
+stopped_by = "section 10 STOP of the layer-1 dev baseline, workflow run 45053502161; amendment 1 (2026-11-22)"
 
 [[run]]
 id = "test_live"
@@ -370,3 +411,46 @@ low_usd = 0.78
 high_usd = 2.55
 cap_usd = 2.75
 note = "CONFIRMATORY for H1-H2 on layer 2 (PR 17); caps A 0.50 + E 1.20 + H 1.05; prompt_entity_check left out (it would push the sum of caps above 50 USD)"
+
+# PR 22 (PREREGISTRATION.md section 18, amendment 1): EXPLORATORY validation of the layer-1 STOP, dev split only,
+# stage validate-layer1 of the dev pipeline. One subsample for all three: seed 20261122, 12 items per condition,
+# null_control excluded = 144 dev items per model (A, E, H).
+
+[[run]]
+id = "validate_layer1_judge_structured"
+config = "configs/rescore/validation_judge_structured.toml"
+kind = "rescore"
+invocations = 1
+models = "judge J on A, E, H"
+items = "dev subsample, 12 per non-null_control condition: 144 items x 3 models (dev-baseline traces)"
+arms = "secondary scorer on no_gate answers (V1)"
+low_usd = 2.23
+high_usd = 10.87
+cap_usd = 11.45
+note = "amendment 1, V1: judge EAF/substitution rate on the structured answers and agreement with provenance; estimate from the real judge prompts with 800-character answers (at most 432 calls)"
+
+[[run]]
+id = "validate_layer1_freeform"
+config = "configs/dev_validation_freeform.toml"
+kind = "run"
+invocations = 1
+models = "A, E, H"
+items = "dev subsample, 12 per non-null_control condition: 144 items"
+arms = "free_form (V2; exploratory)"
+low_usd = 0.15
+high_usd = 0.43
+cap_usd = 0.50
+note = "amendment 1, V2: free-form answers (benchmark prompt, no JSON); dev dry run; caps A 0.10 + E 0.20 + H 0.20"
+
+[[run]]
+id = "validate_layer1_judge_freeform"
+config = "configs/rescore/validation_judge_freeform.toml"
+kind = "rescore"
+invocations = 1
+models = "judge J on A, E, H"
+items = "the same 144 items x 3 models (free_form traces)"
+arms = "secondary scorer on free_form answers (V2)"
+low_usd = 2.49
+high_usd = 11.13
+cap_usd = 11.70
+note = "amendment 1, V2: judge rate on the free-form answers, paired with V1 on the same items; estimate from the real judge prompts with 2,000-character answers (at most 432 calls)"

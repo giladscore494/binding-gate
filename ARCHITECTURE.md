@@ -35,8 +35,14 @@ gate options `entity_scope`, `qualifier_scope`, `table_binding`, shorthand
 `tests/test_gate_scope_identity.py`), the dev runs of the candidates
 (`configs/dev_gated_scope.toml`, `configs/dev_sec_gated_scope.toml`) and the
 pre-registered selection rule in `gates/calibration.py` (`--select-scope`).
-"PR n" below names the PR that added a part. No model has been run yet; the pre-registration
-is still DRAFT.
+PR 22 (PREREGISTRATION.md section 18, amendment 1) followed the layer-1 STOP of the dev baseline
+(workflow run 45053502161): an exploratory arm `free_form` (`arms/free_form.py`; free text carried
+through the frozen contracts with sentinel quote and source id, `answering.is_free_form`), the
+`provenance` label `not_applicable`, an optional `[sample] exclude_strata`, the validation report
+(`validation.py`), the layer-2 stop rule (`layer2_stop.py`), the dev-pipeline stage `validate-layer1`,
+and `status = "stopped"` budget entries that the ledger refuses.
+"PR n" below names the PR that added a part. The smoke run and the layer-1 dev baseline have run
+(dev split only); the pre-registration is still DRAFT.
 
 What is measured and how success is judged is defined in
 [PREREGISTRATION.md](PREREGISTRATION.md). This file is about how the code is
@@ -126,6 +132,8 @@ src/binding_gate/
   judging.py                     judge-family rule and judge plumbing           PR 5
   ledger.py      ghapi.py        global budget ledger; GitHub REST client       PR 15
   pipeline.py                    dev pipeline stages and gates                  PR 15
+  validation.py                  layer-1 STOP validation report (V1, V2; exploratory)  PR 22
+  layer2_stop.py                 the layer-2 stop rule (section 10, layer 2)   PR 22
   layer3_summary.py              unencrypted layer-3 summary (no page text)     PR 15
   frozen_run.py                  the one-command frozen test run, one layer each PR 6, 16
   datasets/      one module per dataset adapter                                 PR 2, 7, 8, 17
@@ -179,6 +187,7 @@ modify files owned by another PR of the same wave (waves: [1] → [2] →
 | 10 | D | `report/*`, `audit_tool/*` |
 | 16 | - | `stats/layers.py`, `report/publish.py`, `configs/test_live.toml`, `configs/test_grab_rag_supportive.toml` (frozen runs of layers 2 and 3; results location) |
 | 17 | - | `datasets/sec_build.py`, `datasets/sec_edgar.py`, `datasets/sec_financials.py`, `scorers/sec_answer.py`, presentation `sec_filings`, `configs/datasets/sec_financials_v1.toml`, `configs/dev_sec_*.toml`, `configs/test_sec.toml`; GRAB-RAG configs moved to `configs/extended/`; layer 2 of `stats/prereg.py` and `stats/layers.py`; `results_log.py`, `frozen_ci.py`, `.github/workflows/frozen_test.yml`, `.github/workflows/results_log.yml`, stages `sec-dataset-prepare` and `layer2-dev` of the dev pipeline |
+| 22 | - | `arms/free_form.py`, `validation.py`, `layer2_stop.py`, `configs/dev_validation_freeform.toml`, `configs/rescore/validation_judge_structured.toml`, `configs/rescore/validation_judge_freeform.toml`, stage `validate-layer1` and the layer-2 decision job of the dev pipeline; `status = "stopped"` in `configs/budget.toml` (PREREGISTRATION.md section 18, amendment 1) |
 
 **Shared files.** There is no registry file that every PR edits. The only files
 more than one PR may touch are: `pyproject.toml` (append one line under
@@ -265,11 +274,12 @@ reads, as of PR 11 (model clients and labels updated in PR 14):
 | Decomposers | `model_decomposer` |
 | Checks | `quote_verbatim`, `entity_in_window`, `qualifiers_in_window`, `no_closer_competitor`, `premise_present` |
 | Gates | `binding` |
-| Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research` |
+| Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research`, `free_form` (PR 22, exploratory: the benchmark's own prompt, free text; never in a confirmatory analysis) |
 | Scorers | `provenance` (deterministic, primary, layer 1; its logic is reused inside `sec_answer`), `grab_rag_answer` (deterministic, GRAB-RAG, extended design), `sec_answer` (deterministic, primary, layer 2, PR 17), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
 | Search clients (not a registry kind) | `serpapi_google` (`research/search.py`, `SEARCH_CLIENTS`) |
 | Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs and in `configs/test_layer1.toml` (one scheme since PR 12) |
-| `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable` |
+| `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable`; PR 22: `not_applicable` (outcome `not_applicable`, a free-form answer; refused by `baseline_report.record_outcome` and the statistics) |
+| Free-form sentinels (PR 22) | `answering.FREE_FORM_QUOTE` = `[free_form: no verbatim quote was requested]`, `answering.FREE_FORM_SOURCE_ID` = `[free_form: no source id was requested]` (quote and source id of an `answered` free-form candidate; never a document's text or id) |
 | `grab_rag_answer` labels | `correct`, `misled`, `ambiguous`, `other_wrong`, `abstained`, `unparseable` |
 | `sealqa_answer` labels | `correct`, `incorrect`, `abstained`, `unparseable` |
 | `sec_answer` labels (PR 17) | `correct`, `value_unsupported`, `wrong_entity`, `wrong_period_or_scale`, `other_wrong`, `abstained`, `unparseable` |
@@ -600,3 +610,13 @@ no contract either: the dataset `sec_financials`, the scorer `sec_answer`, the
 presentation `sec_filings`, the secret `SEC_CONTACT_EMAIL` (appended to
 `secrets.KNOWN_SECRETS`) and the layer-2 entries of `stats/prereg.py` are
 component, config and convention additions.
+
+PR 22 changed no contract: `contracts.py` and `schema_lock.py` are untouched, `SCHEMA_VERSION` is 1
+and the fingerprint is unchanged. A free-form answer of the exploratory arm `free_form` is an
+`answered` `AnswerCandidate` (value = the reply, `raw` = the unmodified reply) whose `quote` and
+`source_id` are fixed sentinels, so every invariant holds (an answered candidate has all three
+fields; no verdict; the final answer is the single attempt's candidate); the deterministic scorers
+recognise the sentinels (`answering.is_free_form`) and return `not_applicable`. The optional
+`[sample] exclude_strata`, the `provenance` label `not_applicable`, the budget-plan keys `status`
+and `stopped_by`, and the ledger's judge-entry key suffix (the scoring session) are config and
+convention additions.

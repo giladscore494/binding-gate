@@ -32,6 +32,24 @@ prompt of a run is fixed by its config file.
     the rendered financial statements of one or two 10-K filings, the question
     and the same instruction.
 
+Free-form answers (PR 22; PREREGISTRATION.md section 18, amendment 1)
+---------------------------------------------------------------------
+The exploratory arm ``free_form`` (``binding_gate.arms.free_form``) asks for a
+normal answer instead of the structure: the benchmark's own ``doc_injection``
+messages with NO answer-format instruction (:func:`build_free_form_request`).
+Its reply is not parsed. Because the frozen contracts (``contracts.py``) know
+only the three statuses of a structured answer, a non-empty free-form reply is
+represented as an ``answered`` candidate whose ``value`` is the whole reply
+(``<think>`` blocks removed, outer whitespace trimmed), whose ``raw`` is the
+unmodified reply, and whose ``quote`` and ``source_id`` are the fixed sentinels
+:data:`FREE_FORM_QUOTE` and :data:`FREE_FORM_SOURCE_ID` (:func:`free_form_candidate`).
+An empty reply is ``unparseable`` (reason ``empty output``), exactly as
+:func:`binding_gate.parsing.parse_answer` treats it. :func:`is_free_form`
+recognises such a candidate; the deterministic scorers label it
+``not_applicable`` instead of scoring the sentinel as a quote, and the
+statistics of the confirmatory hypotheses refuse it. Only the secondary LLM
+judge (``binding_gate.scorers.llm_judge``) scores free-form answers.
+
 Retries
 -------
 :func:`call_model` is the only place where a model call is retried. Each attempt
@@ -61,6 +79,11 @@ from binding_gate.interfaces import ModelClient
 from binding_gate.parsing import ANSWER_FORMAT_INSTRUCTIONS, parse_answer
 
 DEFAULT_PRESENTATION = "deceptive_grounding_doc_injection"
+
+FREE_FORM_QUOTE = "[free_form: no verbatim quote was requested]"
+"""Sentinel ``quote`` of a free-form answer (PR 22). It is never text of a document."""
+FREE_FORM_SOURCE_ID = "[free_form: no source id was requested]"
+"""Sentinel ``source_id`` of a free-form answer (PR 22). It is never the id of a shown document."""
 
 
 def _deceptive_grounding(question: str, documents: Sequence[Document]) -> tuple[Message, ...]:
@@ -182,3 +205,54 @@ def answer_once(
     request = build_answer_request(arm_input, presentation)
     response, calls = call_model(model, request, "answer", sleep=sleep)
     return parse_answer(response.text), calls
+
+
+# --------------------------------------------------------------------------- #
+# Free-form answers (PR 22, exploratory)
+# --------------------------------------------------------------------------- #
+
+
+def _deceptive_grounding_free_form(question: str, documents: Sequence[Document]) -> tuple[Message, ...]:
+    from binding_gate.datasets.deceptive_grounding import doc_injection_messages
+
+    return doc_injection_messages(question, documents, "")
+
+
+FREE_FORM_PRESENTATIONS: dict[str, Callable[[str, Sequence[Document]], tuple[Message, ...]]] = {
+    "deceptive_grounding_doc_injection": _deceptive_grounding_free_form,
+}
+"""Presentations without the structured-answer instruction. Only layer 1: the benchmark's own
+``doc_injection`` messages, character for character (its system prompt asks for ``[n]`` citations)."""
+
+
+def build_free_form_request(arm_input: ArmInput, presentation: str = DEFAULT_PRESENTATION) -> ModelRequest:
+    """The benchmark's own request for one item, with no answer-format instruction."""
+    try:
+        build = FREE_FORM_PRESENTATIONS[presentation]
+    except KeyError:
+        raise ValueError(
+            f"presentation {presentation!r} has no free-form variant; available: {sorted(FREE_FORM_PRESENTATIONS)}"
+        ) from None
+    return ModelRequest(messages=build(arm_input.question, arm_input.documents))
+
+
+def free_form_candidate(raw: str) -> AnswerCandidate:
+    """A free-form reply as a candidate that fits the frozen contracts (see the module docstring)."""
+    from binding_gate.judging import strip_think
+
+    if not isinstance(raw, str):
+        raise TypeError("free_form_candidate expects the raw model output as a string")
+    text = strip_think(raw).strip()
+    if not text:
+        return AnswerCandidate.unparseable(raw=raw, reason="empty output")
+    return AnswerCandidate.answered(value=text, quote=FREE_FORM_QUOTE, source_id=FREE_FORM_SOURCE_ID, raw=raw)
+
+
+def is_free_form(candidate: AnswerCandidate | None) -> bool:
+    """True for an answered candidate that carries both free-form sentinels."""
+    return (
+        candidate is not None
+        and candidate.status.value == "answered"
+        and candidate.quote == FREE_FORM_QUOTE
+        and candidate.source_id == FREE_FORM_SOURCE_ID
+    )

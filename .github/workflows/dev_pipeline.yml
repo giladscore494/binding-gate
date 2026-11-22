@@ -35,8 +35,20 @@ run-name: "dev pipeline: ${{ inputs.stage }}"   # the results-log workflow names
 #   layer3-dev     SealQA prepared, dev_live_smoke then dev_live within the SerpApi monthly allowance
 #                  ([runner] max_searches); run directories uploaded only encrypted, next to an
 #                  unencrypted layer-3 summary (costs, outcomes, URLs, hashes; no page text).
+#   validate-layer1  (PR 22; PREREGISTRATION.md section 18, amendment 1; EXPLORATORY, post hoc) the follow-up of
+#                  the layer-1 STOP: refused unless the newest dev-baseline decision is a final STOP; then V1 = the
+#                  LLM judge on a fixed subsample (144 items per model) of the dev-baseline answers (artifacts
+#                  dev-baseline--dev_baseline--runs-* of that workflow run) and its agreement with the deterministic
+#                  label; V2 = configs/dev_validation_freeform.toml (arm free_form: the benchmark's own prompt, no
+#                  JSON) for A, E, H on the same items, then the judge on those answers; finally the paired report
+#                  (python -m binding_gate.validation) as validation_report.json / .md. Not part of all-dev.
 #   all-dev        smoke -> dev-baseline -> (stops unless CONTINUE) -> dev-rest -> layer2-dev -> layer3-dev
 #                  (layer3-dev also runs when layer2-dev failed, e.g. while the SEC pin is UNPINNED).
+#                  PR 22: refused by the budget ledger while layer-1 runs of dev-rest are STOPPED (configs/budget.toml).
+#
+# PR 22: layer2-dev applies the layer-2 stop rule (binding_gate.layer2_stop, section 10 "Layer 2") after
+# dev_sec_baseline (artifact layer2-dev--decision); dev_sec_gated and dev_sec_gated_scope run only after CONTINUE
+# or with a committed note results/dev_sec_baseline_continue.json.
 #
 # Every paid stage needs "confirm_spend". Every paid step is preceded by the budget ledger
 # (.github/actions/ledger-check): it reads the artifacts of every earlier hand-started run and the ledger
@@ -67,6 +79,7 @@ on:
           - sec-dataset-prepare
           - layer2-dev
           - layer3-dev
+          - validate-layer1
           - all-dev
       confirm_spend:
         description: "I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare)"
@@ -768,10 +781,54 @@ jobs:
       artifact_prefix: layer2-dev--dev_sec_baseline--
     secrets: inherit
 
+  layer2-decision:
+    name: layer-2 stop rule (section 10, layer 2; PR 22)
+    needs: layer2-baseline
+    if: ${{ !cancelled() && needs.layer2-baseline.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      allowed: ${{ steps.gate.outputs.allowed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the SEC baseline run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: layer2-dev--dev_sec_baseline--runs-*
+          path: sec-baseline
+          merge-multiple: true
+      - name: Layer-2 decision (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) and its gate
+        id: gate
+        run: |
+          mapfile -t RUN_DIRS < <(find sec-baseline -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No SEC baseline run directory was found."
+            exit 1
+          fi
+          mkdir -p decision
+          python -m binding_gate.pipeline layer2-decision "${RUN_DIRS[@]}" --workflow-run-id "$GITHUB_RUN_ID" \
+            --json decision/decision.json --markdown decision/decision.md
+          cat decision/decision.md >> "$GITHUB_STEP_SUMMARY"
+          python -m binding_gate.pipeline layer2-gate --decision decision/decision.json --notes-dir results | tee gate.txt
+          grep '^allowed=' gate.txt >> "$GITHUB_OUTPUT"
+          cat gate.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the layer-2 decision
+        if: ${{ always() && hashFiles('decision/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer2-dev--decision${{ env.ATTEMPT_SUFFIX }}
+          path: decision/
+          retention-days: 90
+
   layer2-gated:
     name: dev_sec_gated (answers seeded from dev_sec_baseline of this workflow run)
-    needs: [plan, layer2-baseline]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' }}
+    needs: [plan, layer2-baseline, layer2-decision]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' && needs.layer2-decision.outputs.allowed == 'true' }}
     uses: ./.github/workflows/baseline.yml
     with:
       config: configs/dev_sec_gated.toml
@@ -785,8 +842,8 @@ jobs:
 
   layer2-gated-scope:
     name: dev_sec_gated_scope (PR 18 binding-scope candidates; answers seeded from dev_sec_baseline of this workflow run)
-    needs: [plan, layer2-baseline, layer2-gated]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' }}
+    needs: [plan, layer2-baseline, layer2-decision, layer2-gated]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' && needs.layer2-decision.outputs.allowed == 'true' }}
     uses: ./.github/workflows/baseline.yml
     with:
       config: configs/dev_sec_gated_scope.toml
@@ -876,3 +933,242 @@ jobs:
       confirm_spend: ${{ inputs.confirm_spend }}
       artifact_prefix: layer3-dev--dev_live--
     secrets: inherit
+
+  # ------------------------------------------------------------------------------------------- #
+  # validate-layer1 (PR 22; PREREGISTRATION.md section 18, amendment 1; EXPLORATORY, post hoc)
+  # ------------------------------------------------------------------------------------------- #
+  validate-gate:
+    name: validate-layer1 gate (the newest dev-baseline decision must be a final STOP)
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.stage == 'validate-layer1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      seed_run_id: ${{ steps.gate.outputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: The newest dev-baseline decision of the repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m binding_gate.pipeline find-decision --out decision
+      - name: Refuse unless that decision is a final STOP (this stage is its exploratory follow-up)
+        id: gate
+        run: |
+          python -m binding_gate.pipeline validate-gate --decision decision/decision.json | tee gate.txt
+          grep '^seed_run_id=' gate.txt >> "$GITHUB_OUTPUT"
+          cat gate.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Budget ledger - refuse the stage if the caps of all its configs could exceed the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          stage: validate-layer1
+          artifact-name: validate-layer1--gate--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+
+  validate-judge-structured:
+    name: V1 - judge on the dev-baseline answers (fixed subsample) and agreement
+    needs: validate-gate
+    if: ${{ !cancelled() && needs.validate-gate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      SEED_RUN_ID: ${{ needs.validate-gate.outputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Budget ledger - refuse if the judge's cap could take the total above the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: configs/rescore/validation_judge_structured.toml
+          artifact-name: validate-layer1--validation_judge_structured--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+      - name: Get the benchmark at its pinned version
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Download the dev-baseline run directories
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--dev_baseline--runs-*
+          path: baseline-runs
+          merge-multiple: true
+          run-id: ${{ needs.validate-gate.outputs.seed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Judge dry run, paid judge scoring of the subsample (arm no_gate), agreement
+        env:
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: |
+          mapfile -t RUN_DIRS < <(find baseline-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No dev-baseline run directory was found in workflow run $SEED_RUN_ID."
+            exit 1
+          fi
+          mkdir -p rescore
+          python -m binding_gate.scorers.llm_judge dry-run --arm no_gate --config configs/rescore/validation_judge_structured.toml "${RUN_DIRS[@]}"
+          python -m binding_gate.scorers.llm_judge run --confirm-spend --arm no_gate --config configs/rescore/validation_judge_structured.toml "${RUN_DIRS[@]}"
+          python -m binding_gate.scorers.llm_judge agreement "${RUN_DIRS[@]}" --json rescore/judge_agreement.json | tee rescore/judge_agreement.txt
+          { echo '```'; cat rescore/judge_agreement.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect the judge scores (manifest and scores.llm_judge.jsonl of each run directory)
+        if: ${{ always() }}
+        run: |
+          mkdir -p rescore
+          for SCORES in baseline-runs/*/scores.llm_judge.jsonl; do
+            [ -f "$SCORES" ] || continue
+            RUN_DIR="$(dirname "$SCORES")"
+            mkdir -p "rescore/$(basename "$RUN_DIR")"
+            cp "$RUN_DIR/manifest.json" "$SCORES" "rescore/$(basename "$RUN_DIR")/"
+          done
+      - name: Upload the judge scores
+        if: ${{ always() && hashFiles('rescore/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-layer1--validation_judge_structured--rescore${{ env.ATTEMPT_SUFFIX }}
+          path: rescore/
+          retention-days: 90
+
+  validate-freeform:
+    name: V2 - free_form answers on the same items (A, E, H)
+    needs: [validate-gate, validate-judge-structured]
+    if: ${{ !cancelled() && needs.validate-gate.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_validation_freeform.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: validate-layer1--dev_validation_freeform--
+    secrets: inherit
+
+  validate-judge-freeform:
+    name: V2 - judge on the free_form answers
+    needs: [validate-gate, validate-freeform]
+    if: ${{ !cancelled() && needs.validate-gate.result == 'success' && needs.validate-freeform.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Budget ledger - refuse if the judge's cap could take the total above the hard limit
+        uses: ./.github/actions/ledger-check
+        with:
+          mode: check
+          config: configs/rescore/validation_judge_freeform.toml
+          artifact-name: validate-layer1--validation_judge_freeform--ledger${{ env.ATTEMPT_SUFFIX }}
+          github-token: ${{ github.token }}
+      - name: Get the benchmark at its pinned version
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Download the free_form run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: validate-layer1--dev_validation_freeform--runs-*
+          path: freeform-runs
+          merge-multiple: true
+      - name: Judge dry run, paid judge scoring (arm free_form)
+        env:
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: |
+          mapfile -t RUN_DIRS < <(find freeform-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No free_form run directory was found in this workflow run."
+            exit 1
+          fi
+          python -m binding_gate.scorers.llm_judge dry-run --arm free_form --config configs/rescore/validation_judge_freeform.toml "${RUN_DIRS[@]}"
+          python -m binding_gate.scorers.llm_judge run --confirm-spend --arm free_form --config configs/rescore/validation_judge_freeform.toml "${RUN_DIRS[@]}"
+      - name: Collect the judge scores (manifest and scores.llm_judge.jsonl of each run directory)
+        if: ${{ always() }}
+        run: |
+          mkdir -p rescore
+          for SCORES in freeform-runs/*/scores.llm_judge.jsonl; do
+            [ -f "$SCORES" ] || continue
+            RUN_DIR="$(dirname "$SCORES")"
+            mkdir -p "rescore/$(basename "$RUN_DIR")"
+            cp "$RUN_DIR/manifest.json" "$SCORES" "rescore/$(basename "$RUN_DIR")/"
+          done
+      - name: Upload the judge scores
+        if: ${{ always() && hashFiles('rescore/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-layer1--validation_judge_freeform--rescore${{ env.ATTEMPT_SUFFIX }}
+          path: rescore/
+          retention-days: 90
+
+  validate-report:
+    name: validation report (V1 agreement, V2 paired comparison; no model call)
+    needs: [validate-gate, validate-judge-structured, validate-freeform, validate-judge-freeform]
+    if: ${{ !cancelled() && needs.validate-gate.result == 'success' }}   # also after a failed step: unscored records are reported
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SEED_RUN_ID: ${{ needs.validate-gate.outputs.seed_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Get the benchmark at its pinned version (the subsample is drawn from the dev items)
+        uses: ./.github/actions/get-dataset
+        with:
+          config: configs/dev_baseline.toml
+      - name: Download the dev-baseline run directories
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dev-baseline--dev_baseline--runs-*
+          path: structured-runs
+          merge-multiple: true
+          run-id: ${{ needs.validate-gate.outputs.seed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Download their judge scores (V1) of this workflow run into the same run directories
+        continue-on-error: true   # a missing step leaves its records unscored in the report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: validate-layer1--validation_judge_structured--rescore*
+          path: structured-runs
+          merge-multiple: true
+      - name: Download the free_form run directories of this workflow run
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: validate-layer1--dev_validation_freeform--runs-*
+          path: freeform-runs
+          merge-multiple: true
+      - name: Download their judge scores (V2) into the same run directories
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: validate-layer1--validation_judge_freeform--rescore*
+          path: freeform-runs
+          merge-multiple: true
+      - name: Validation report (labels, counts, rates, intervals; no text)
+        run: |
+          mkdir -p validation
+          mapfile -t STRUCTURED < <(find structured-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          mapfile -t FREEFORM < <(find freeform-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' 2>/dev/null | sort)
+          python -m binding_gate.validation report --sample-config configs/rescore/validation_judge_structured.toml \
+            --structured "${STRUCTURED[@]}" --free-form "${FREEFORM[@]}" --baseline-workflow-run-id "$SEED_RUN_ID" \
+            --json validation/validation_report.json --markdown validation/validation_report.md
+          cat validation/validation_report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the validation report (the results-log workflow commits it)
+        if: ${{ always() && hashFiles('validation/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-layer1--validation-report${{ env.ATTEMPT_SUFFIX }}
+          path: validation/
+          retention-days: 90

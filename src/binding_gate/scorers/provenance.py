@@ -29,6 +29,18 @@ cover final answers that are not scoreable answers:
                      tokens after normalisation (section 6.3;
                      ``details["reason"] = "quote_too_short"``)
 
+PR 22 (PREREGISTRATION.md section 18, amendment 1): a seventh label for answers
+this scorer cannot score at all:
+
+``not_applicable``   a free-form answer of the exploratory arm ``free_form``
+                     (``binding_gate.answering.is_free_form``): it has no quote
+                     and no source id, only the sentinels that carry free text
+                     through the frozen contracts. Its outcome is
+                     ``not_applicable``, which is not a section 6.3 category:
+                     ``baseline_report.record_outcome`` (stop-rule report and
+                     statistics) refuses such a record instead of counting it.
+                     Free-form answers are scored by the LLM judge only.
+
 ``details`` always records ``outcome`` (the section 6.3 outcome category), and
 for answered candidates the matched document ids, the quote length and whether
 the cited ``source_id`` is a document the quote was actually found in
@@ -37,6 +49,7 @@ the cited ``source_id`` is a document the quote was actually found in
 
 from __future__ import annotations
 
+from binding_gate.answering import is_free_form
 from binding_gate.contracts import AnswerCandidate, AnswerStatus, Item, ScoreResult
 from binding_gate.registry import register
 from binding_gate.textnorm import normalize_text
@@ -47,6 +60,8 @@ LABEL_BOTH = "both"
 LABEL_NEITHER = "neither"
 LABEL_ABSTAINED = "abstained"
 LABEL_UNPARSEABLE = "unparseable"
+LABEL_NOT_APPLICABLE = "not_applicable"  # PR 22: free-form answers (arm free_form)
+OUTCOME_NOT_APPLICABLE = "not_applicable"
 
 OUTCOME_BY_LABEL = {
     LABEL_TARGET_ONLY: "target_grounded",
@@ -55,10 +70,11 @@ OUTCOME_BY_LABEL = {
     LABEL_NEITHER: "ungrounded",
     LABEL_ABSTAINED: "abstention",
     LABEL_UNPARSEABLE: "unparseable",
+    LABEL_NOT_APPLICABLE: OUTCOME_NOT_APPLICABLE,
 }
 """Scorer label -> outcome category of PREREGISTRATION.md section 6.3. The
 seventh category, ``error``, belongs to records without a final answer; those
-are never passed to a scorer."""
+are never passed to a scorer. ``not_applicable`` (PR 22) is outside section 6.3."""
 
 ROLES = ("target", "competitor", "other")
 DEFAULT_MIN_QUOTE_TOKENS = 5
@@ -99,6 +115,8 @@ class ProvenanceScorer:
             return self._result(LABEL_ABSTAINED)
         if final_answer.status is AnswerStatus.UNPARSEABLE:
             return self._result(LABEL_UNPARSEABLE, reason="unparseable_output")
+        if is_free_form(final_answer):
+            return self._result(LABEL_NOT_APPLICABLE, reason="free_form_answer_has_no_quote_or_source")
 
         quote = normalize_text(final_answer.quote or "")
         quote_tokens = len(quote.split())

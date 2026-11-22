@@ -53,6 +53,23 @@ limits in the runner, and together they are at most 50 USD.
 | 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
 | | **Total** | **14.25** | **42.78** | **48.35** |
 
+**After the layer-1 STOP (PR 22; PREREGISTRATION.md section 18, amendment 1).**
+The table above is the plan before the STOP. The layer-1 dev baseline (workflow
+run 45053502161) gave STOP; the 13 layer-1 runs it ends (steps 4's secondary
+judge, 6a-6f, the layer-1 test run and the mid-tier check) keep their lines in
+`configs/budget.toml` with `status = "stopped"`: they are outside the totals and
+the budget ledger refuses to run them. Added, exploratory (step 4a):
+
+| Step | Run (config) | Low | High | Cap |
+|---|---|---|---|---|
+| 4a | V1: judge on the dev-baseline answers, 144 items × 3 models (`configs/rescore/validation_judge_structured.toml`) | 2.23 | 10.87 | 11.45 |
+| 4a | V2: free-form answers, 144 items × A, E, H (`configs/dev_validation_freeform.toml`) | 0.15 | 0.43 | 0.50 |
+| 4a | V2: judge on the free-form answers (`configs/rescore/validation_judge_freeform.toml`) | 2.49 | 11.13 | 11.70 |
+| | **Active total (every run without `status = "stopped"`)** | **9.21** | **34.95** | **38.20** |
+
+Spent so far: 1.14 USD. The smoke run measured about a quarter of the planned
+HIGH.
+
 **Layer 2 since PR 17: SEC financial filings.** Layer 2 is a second
 confirmatory layer (H1 and H2 per model, the layer-1 thresholds): questions
 about a figure in a US public company's annual report (Form 10-K), answered from
@@ -121,9 +138,10 @@ configs of each stage are defined once in `binding_gate.pipeline.STAGES`
 | `dev-baseline` | `configs/dev_baseline.toml`, then the section 10 decision (job summary; artifact `dev-baseline--decision`, `decision.json`) | succeeds whatever the decision |
 | `dev-rest` | decomposer measurement, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: the binding-scope candidates), five ablations, `dev_baselines` (MiniCheck prepare/verify inside), `dev_llm_judge_checks`, the judge re-scoring of the dev-baseline runs, then the gate calibration of the `dev-gated` traces, `cli analyze` per config and the binding-scope selection of `dev-gated-scope` (`scope_selection_dev-gated-scope.txt`; artifact `dev-rest--analysis`). (PR 17: the GRAB-RAG run left this stage; layer 2 is `layer2-dev`.) | refused unless the newest `dev-baseline--decision` is CONTINUE (final), or `results/dev_baseline_continue.json` is committed for that workflow run (IN-BETWEEN or MEASUREMENT-CHECK continued by the owner, with the amendment named) |
 | `sec-dataset-prepare` | (PR 17, free) the SEC dataset generated from EDGAR (`cli dataset-prepare --config configs/dev_sec_baseline.toml`, secret `SEC_CONTACT_EMAIL`, EDGAR responses cached between runs with `actions/cache`); prints `content_sha256=<hash>` and `matches_pin=` in the log and the job summary; artifact `sec-dataset-prepare--dataset` (`prepare.json`, `manifest.json`, `selection.json`; no item text) | free; never started by another stage. Every SEC run refuses while `data_sha256` is `UNPINNED` |
-| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, the smoke usage check on it, `configs/dev_sec_baseline.toml`, then `configs/dev_sec_gated.toml` and (PR 18) `configs/dev_sec_gated_scope.toml`, both seeded with the answers of that baseline (same workflow run), then `cli analyze` of the SEC runs and the binding-scope selection (`scope_selection_dev-sec-gated-scope.txt`; artifact `layer2-dev--analysis`) | refused while the SEC dataset is unpinned (the runs refuse); the baseline only after a passing usage check |
+| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, the smoke usage check on it, `configs/dev_sec_baseline.toml`, then (PR 22) the layer-2 stop rule (`python -m binding_gate.pipeline layer2-decision`; artifact `layer2-dev--decision`), then `configs/dev_sec_gated.toml` and (PR 18) `configs/dev_sec_gated_scope.toml`, both seeded with the answers of that baseline (same workflow run), then `cli analyze` of the SEC runs and the binding-scope selection (`scope_selection_dev-sec-gated-scope.txt`; artifact `layer2-dev--analysis`) | refused while the SEC dataset is unpinned (the runs refuse); the baseline only after a passing usage check; (PR 22) the gated runs only after a layer-2 CONTINUE or with a committed `results/dev_sec_baseline_continue.json` for that workflow run |
+| `validate-layer1` | (PR 22, amendment 1; exploratory) V1: the LLM judge on a fixed subsample of the dev-baseline answers (`configs/rescore/validation_judge_structured.toml`, arm `no_gate`) and its agreement with the deterministic label; V2: `configs/dev_validation_freeform.toml` (arm `free_form`, A, E, H) and the judge on those answers (`configs/rescore/validation_judge_freeform.toml`); then `python -m binding_gate.validation report` (artifact `validate-layer1--validation-report`: `validation_report.json`, `validation_report.md`) | refused unless the newest `dev-baseline--decision` is a final STOP (never needs CONTINUE); the ledger before each paid step |
 | `layer3-dev` | `configs/dev_live_smoke.toml`, then `configs/dev_live.toml` (SealQA prepared; at most 10 + 240 searches) | `dev_live` only after a successful smoke |
-| `all-dev` | smoke → dev-baseline → dev-rest (only after CONTINUE) → layer2-dev → layer3-dev (layer 3 also runs if layer 2 failed) | as above |
+| `all-dev` | smoke → dev-baseline → dev-rest (only after CONTINUE) → layer2-dev → layer3-dev (layer 3 also runs if layer 2 failed) | as above; (PR 22) refused by the ledger while the layer-1 runs of dev-rest are stopped: start `layer2-dev` and `layer3-dev` on their own |
 
 Seed runs are found without any input: `dev-rest` takes the workflow run of the
 newest `dev-baseline--decision` and downloads its
@@ -424,8 +442,10 @@ and uploads `baseline-report/baseline_report.json` (keep it: it is the
 python -m binding_gate.cli report runs/<run_id> [runs/<run_id> ...] --json baseline.json
 ```
 
-STOP ends the study (PREREGISTRATION.md section 10). Models below 5% are carried
-no further: remove them from the later configs in a pull request.
+STOP ends layer-1 confirmatory work (PREREGISTRATION.md section 10; since
+amendment 1 the rule is layer-scoped) and is followed by the exploratory step 4a.
+Models below 5% are carried no further: remove them from the later configs in a
+pull request.
 
 Then the secondary judge on the pre-registered 60-item subsample of the three
 baseline runs (CLI only; needs `MOONSHOT_API_KEY`; one invocation over the three
@@ -439,7 +459,62 @@ python -m binding_gate.scorers.llm_judge agreement runs/<run_id A> runs/<run_id 
 ```
 
 Read the `_scored` rates in the agreement output: they compare the judge and our
-scorer on the judged records only.
+scorer on the judged records only. (PR 22: after the layer-1 STOP this 60-item
+cross-check is stopped; step 4a replaces it.)
+
+## 4a. After a layer-1 STOP: the exploratory validation (stage `validate-layer1`; PR 22; caps 23.65 USD)
+
+PREREGISTRATION.md section 18, amendment 1: decided by the owner on 2026-11-22
+AFTER the layer-1 dev baseline gave STOP. Post hoc and exploratory, dev split
+only; it decides nothing and cannot re-open layer-1 confirmatory work. Workflow
+**dev pipeline**:
+
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Stage of the dev pipeline (docs/OWNER_SETUP.md) | `validate-layer1` |
+| I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
+
+What runs, in order (needs `MOONSHOT_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+`ZAI_API_KEY`):
+
+1. **gate** - `python -m binding_gate.pipeline find-decision` and `validate-gate`:
+   the newest `dev-baseline--decision` must be a final STOP (otherwise exit 5,
+   nothing runs); its workflow run holds the dev-baseline run directories. Then
+   the budget ledger for the whole stage (caps 11.45 + 0.50 + 11.70 USD).
+2. **V1** - the judge (`kimi-k3.1-pro`, the benchmark's judge prompt) on the
+   `no_gate` records of the fixed subsample - seed 20261122, 12 items per
+   condition, `null_control` excluded: 144 dev items per model, at most 432
+   calls - then `llm_judge agreement` (`judge_agreement.json`). Artifact
+   `validate-layer1--validation_judge_structured--rescore`.
+3. **V2 answers** - `configs/dev_validation_freeform.toml` through the workflow
+   `baseline` (one job per model; the benchmark's own prompt with no JSON
+   instruction; same 144 items). Artifacts
+   `validate-layer1--dev_validation_freeform--runs-<model>`.
+4. **V2 judge** - the same judge on those free-form answers (`--arm free_form`).
+   Artifact `validate-layer1--validation_judge_freeform--rescore`.
+5. **report** - `python -m binding_gate.validation report` (no model call):
+   per model the judge's rates (EAF or substitution, EAF, substitution,
+   confabulation; unparseable and failed judgments; unscored records) for both
+   arms, V1 agreement (raw, kappa, kappa over parsed judgments), and the V2
+   paired difference free-form minus structured with its 95% cluster-bootstrap
+   interval. Artifact `validate-layer1--validation-report`
+   (`validation_report.json`, `validation_report.md`); the results-log workflow
+   commits both to `results-log` under `runs/<workflow run id>-validate-layer1/`.
+
+If V2 fails, the report still runs with V1 only (it says so in its notes); if a
+judge step stops at its cap, its unscored records are listed and count as not
+positive. The same locally, with the three dev-baseline run directories in
+`runs/` and the benchmark in `data/raw/`:
+
+```bash
+python -m binding_gate.scorers.llm_judge run --confirm-spend --arm no_gate --config configs/rescore/validation_judge_structured.toml runs/<A> runs/<E> runs/<H>
+python -m binding_gate.cli run --config configs/dev_validation_freeform.toml --model all --runs-dir runs --confirm-spend
+python -m binding_gate.scorers.llm_judge run --confirm-spend --arm free_form --config configs/rescore/validation_judge_freeform.toml runs/<free A> runs/<free E> runs/<free H>
+python -m binding_gate.validation report --sample-config configs/rescore/validation_judge_structured.toml \
+  --structured runs/<A> runs/<E> runs/<H> --free-form runs/<free A> runs/<free E> runs/<free H> \
+  --json validation_report.json --markdown validation_report.md
+```
 
 ## 5. Decomposer evaluation (CLI only; estimate 0.03-0.06 USD, cap 0.10 USD)
 
@@ -966,6 +1041,17 @@ supplied is listed as absent.
 | 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
 | | **סך הכול** | **14.25** | **42.78** | **48.35** |
 
+**אחרי ה-STOP של שכבה 1 (PR 22; תיקון 1 בסעיף 18 של PREREGISTRATION.md).** הטבלה למעלה היא התוכנית לפני ה-STOP. ה-baseline של שכבה 1 על dev (ריצת workflow מספר 45053502161) נתן STOP; 13 הריצות של שכבה 1 שהוא מסיים (השופט המשני של שלב 4, שלבים 6א עד 6ו, ריצת ה-test של שכבה 1 ובדיקת מודלי הביניים) נשארות ב-`configs/budget.toml` עם `status = "stopped"`: הן מחוץ לסכומים, וה-ledger מסרב להריץ אותן. נוספו, כניסוי (שלב 4א):
+
+| שלב | ריצה (קונפיג) | נמוך | גבוה | תקרה |
+|---|---|---|---|---|
+| 4א | V1: שופט על תשובות ה-baseline, ‏144 פריטים × 3 מודלים (`configs/rescore/validation_judge_structured.toml`) | 2.23 | 10.87 | 11.45 |
+| 4א | V2: תשובות חופשיות, 144 פריטים × A, E, H (`configs/dev_validation_freeform.toml`) | 0.15 | 0.43 | 0.50 |
+| 4א | V2: שופט על התשובות החופשיות (`configs/rescore/validation_judge_freeform.toml`) | 2.49 | 11.13 | 11.70 |
+| | **סך הכול הפעיל (כל ריצה בלי `status = "stopped"`)** | **9.21** | **34.95** | **38.20** |
+
+הוצאה עד עכשיו: 1.14 דולר. ה-smoke מדד בערך רבע מההערכה הגבוהה.
+
 **שכבה 2 מאז PR 17: דוחות כספיים מ-SEC.** שכבה 2 היא שכבה מאששת שנייה (H1 ו-H2 לכל מודל, עם הספים של שכבה 1): שאלות על נתון מהדוח השנתי (Form 10-K) של חברה ציבורית אמריקאית, שעונים עליהן מתוך הדוחות הכספיים של אותו דוח ו/או של דוח של חברה מקבילה מאותו ענף; התשובות הנכונות הן עובדות ה-XBRL של הדוחות. מאגר הנתונים נבנה פעם אחת, בחינם, מ-SEC EDGAR (שלב 8). GRAB-RAG, שהייתה שכבה 2 עד PR 17, שמורה תחת `configs/extended/` ולא רצה. ההערכות של שכבה 2 הן dry runs שמרניים על נתונים סינתטיים; ה-dry run החינמי על נתוני ה-dev האמיתיים מחליף אותן לפני ההקפאה.
 
 למה זה נכנס: שלושה מודלים ראשיים זולים (`openai-low`, `google-low`, `zai-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `google-mid`, `zai-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בתוכנית החינמית של SerpApi. התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
@@ -1001,9 +1087,10 @@ supplied is listed as absent.
 | `dev-baseline` | `configs/dev_baseline.toml` והחלטת כלל העצירה (artifact `dev-baseline--decision`) | מצליח בכל החלטה |
 | `dev-rest` | מדידת ה-decomposer, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: המועמדים ל-binding scope), חמשת ה-ablations, `dev_baselines`, `dev_llm_judge_checks`, השופט המשני, כיול ה-gate, ניתוח ובחירת ה-binding scope (PR 17: ריצת GRAB-RAG יצאה מהשלב; שכבה 2 היא `layer2-dev`) | רק אחרי CONTINUE, או עם הערה `results/dev_baseline_continue.json` לאותה ריצה |
 | `sec-dataset-prepare` | (PR 17, חינם) בניית מאגר SEC מ-EDGAR עם ה-secret `SEC_CONTACT_EMAIL` ו-cache בין ריצות; מדפיס `content_sha256=<hash>` בלוג ובסיכום | חינם; אף שלב אחר לא מפעיל אותו. כל ריצת SEC מסרבת כל עוד `data_sha256` הוא `UNPINNED` |
-| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, בדיקת שימוש בטוקנים, `configs/dev_sec_baseline.toml`, ואז `configs/dev_sec_gated.toml` ו-(PR 18) `configs/dev_sec_gated_scope.toml` עם התשובות של ה-baseline מאותה ריצה, ואז ניתוח ובחירת ה-binding scope | מסרב כל עוד המאגר לא נעוץ; ה-baseline רק אחרי בדיקת שימוש שעברה |
+| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, בדיקת שימוש בטוקנים, `configs/dev_sec_baseline.toml`, ואז (PR 22) כלל העצירה של שכבה 2 (artifact `layer2-dev--decision`), ואז `configs/dev_sec_gated.toml` ו-(PR 18) `configs/dev_sec_gated_scope.toml` עם התשובות של ה-baseline מאותה ריצה, ואז ניתוח ובחירת ה-binding scope | מסרב כל עוד המאגר לא נעוץ; ה-baseline רק אחרי בדיקת שימוש שעברה; (PR 22) ריצות ה-gate רק אחרי CONTINUE של שכבה 2, או עם הערה `results/dev_sec_baseline_continue.json` לאותה ריצה |
+| `validate-layer1` | (PR 22, תיקון 1; ניסיוני) V1: שופט ה-LLM על מדגם קבוע מתשובות ה-baseline של dev והסכמה שלו עם התווית הדטרמיניסטית; V2: `configs/dev_validation_freeform.toml` (זרוע `free_form`, ‏A, E, H) והשופט על התשובות האלה; ואז דוח `python -m binding_gate.validation report` (artifact `validate-layer1--validation-report`) | מסרב אלא אם ההחלטה האחרונה של `dev-baseline--decision` היא STOP סופי (לעולם לא דורש CONTINUE); ledger לפני כל צעד בתשלום |
 | `layer3-dev` | `configs/dev_live_smoke.toml` ואז `configs/dev_live.toml` | `dev_live` רק אחרי smoke מוצלח |
-| `all-dev` | הכול ברצף: smoke ← dev-baseline ← dev-rest ← layer2-dev ← layer3-dev; עוצר אם אין CONTINUE (שכבה 3 רצה גם אם שכבה 2 נכשלה) | כמו למעלה |
+| `all-dev` | הכול ברצף: smoke ← dev-baseline ← dev-rest ← layer2-dev ← layer3-dev; עוצר אם אין CONTINUE (שכבה 3 רצה גם אם שכבה 2 נכשלה) | כמו למעלה; (PR 22) ה-ledger מסרב לו כל עוד ריצות שכבה 1 של dev-rest עצורות: מפעילים את `layer2-dev` ואת `layer3-dev` כל אחד לבד |
 
 **ה-ledger** (`python -m binding_gate.ledger`): לפני כל צעד בתשלום הוא מוריד דרך ה-API של GitHub את ה-artifacts של כל הריצות הקודמות שהופעלו ידנית, מחשב את ההוצאה **בפועל** (כל קריאה מתומחרת לפי `configs/prices.toml` בדיוק כמו ב-runner), ומסרב אם ההוצאה עד עכשיו ועוד התקרות שעומדות לרוץ עוברות 50 דולר, אם יש הוצאה לא ידועה (artifact שפג תוקפו ולא מכוסה ב-`results/ledger.json`, ריצה מוצפנת בלי סיכום), או אם ריצה ידנית אחרת עדיין פעילה. מאז PR 17 ה-ledger קורא גם את כל קבצי ה-`ledger.json` שב-branch `results-log`, ואחרי כל ריצה נכתב שם ledger חדש (`runs/<מספר>-<שלב>/ledger-after-run/ledger.json`), כך שהוצאה לא הולכת לאיבוד כש-artifacts פגים אחרי 90 יום. הוצאה שנעשתה מחוץ ל-GitHub Actions נרשמת ידנית ב-`results/ledger.json`.
 
@@ -1103,7 +1190,7 @@ Workflow.
 
 1,455 קריאות לכל מודל ראשי (חזרה אחת). **לשמור את המספר בסוף ה-URL של ריצת ה-workflow הזאת** (`.../actions/runs/<מספר>`): זה הערך של "Seed runs" בשלב 6. להרצה חוזרת של מודל אחד כותבים את התווית שלו במקום `all`. ה-job האחרון, **baseline report**, מדפיס בעמוד הסיכום את התוצאה (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) ומעלה את `baseline-report/baseline_report.json` — לשמור, זה הקלט `--baseline` של שלב 11. אותו דוח מקומית: `python -m binding_gate.cli report runs/<run_id> [...] --json baseline.json`.
 
-STOP מסיים את המחקר. מודלים מתחת ל-5% לא ממשיכים: מוציאים אותם מהקונפיגים הבאים ב-pull request.
+STOP מסיים את העבודה המאששת של שכבה 1 (סעיף 10; מאז תיקון 1 הכלל הוא לפי שכבה), ואחריו בא שלב 4א הניסיוני. מודלים מתחת ל-5% לא ממשיכים: מוציאים אותם מהקונפיגים הבאים ב-pull request.
 
 אחר כך השופט המשני על המדגם הקבוע של 60 פריטים מתוך שלוש ריצות ה-baseline (CLI בלבד; צריך `MOONSHOT_API_KEY`; הפעלה אחת על שלוש תיקיות הריצה; תקרה 4.75 דולר). קודם להוריד את שלושת ה-artifacts `runs-<תווית>` לתוך `runs/`:
 
@@ -1113,7 +1200,29 @@ python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/re
 python -m binding_gate.scorers.llm_judge agreement runs/<run_id A> runs/<run_id E> runs/<run_id H> --json judge_agreement.json
 ```
 
-בפלט ההסכמה לקרוא את השיעורים עם `_scored`: הם משווים בין השופט לבין ה-scorer שלנו רק על הרשומות שנשפטו.
+בפלט ההסכמה לקרוא את השיעורים עם `_scored`: הם משווים בין השופט לבין ה-scorer שלנו רק על הרשומות שנשפטו. (PR 22: אחרי ה-STOP של שכבה 1 הבדיקה הזאת של 60 פריטים עצורה; שלב 4א מחליף אותה.)
+
+### שלב 4א — אחרי STOP בשכבה 1: הבדיקה הניסיונית (השלב `validate-layer1`; ‏PR 22; תקרות 23.65 דולר)
+
+תיקון 1 בסעיף 18 של PREREGISTRATION.md: החלטה שלך מ-22.11.2026, **אחרי** שה-baseline של שכבה 1 נתן STOP. זה ניסוי שנקבע בדיעבד, רק על ה-dev split; הוא לא מחליט כלום ולא יכול לפתוח מחדש את העבודה המאששת של שכבה 1.
+
+איך מפעילים: GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלית **dev pipeline** ← כפתור **Run workflow** מימין ← למלא בדיוק לפי הטבלה ← הכפתור הירוק **Run workflow**.
+
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Stage of the dev pipeline (docs/OWNER_SETUP.md) | `validate-layer1` |
+| I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
+
+מה רץ, לפי הסדר (צריך את `MOONSHOT_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`):
+
+1. **שער** — `find-decision` ואז `validate-gate`: ההחלטה האחרונה ב-`dev-baseline--decision` חייבת להיות STOP סופי (אחרת exit 5 ושום דבר לא רץ); בריצת ה-workflow שלה נמצאות תיקיות הריצה של ה-baseline. אחר כך בדיקת ledger לכל השלב (תקרות 11.45 + 0.50 + 11.70 דולר).
+2. **V1** — השופט (`kimi-k3.1-pro`, עם פרומפט השופט של הבנצ'מרק) על רשומות `no_gate` של המדגם הקבוע: seed ‏20261122, ‏12 פריטים לכל תנאי, בלי `null_control` — ‏144 פריטי dev לכל מודל, עד 432 קריאות; ואז `llm_judge agreement` ‏(`judge_agreement.json`). artifact: ‏`validate-layer1--validation_judge_structured--rescore`.
+3. **תשובות V2** — `configs/dev_validation_freeform.toml` דרך ה-workflow ‏`baseline` (job לכל מודל; הפרומפט של הבנצ'מרק עצמו בלי הוראת JSON; אותם 144 פריטים). artifacts: ‏`validate-layer1--dev_validation_freeform--runs-<מודל>`.
+4. **שופט V2** — אותו שופט על התשובות החופשיות (`--arm free_form`). artifact: ‏`validate-layer1--validation_judge_freeform--rescore`.
+5. **דוח** — `python -m binding_gate.validation report` (בלי קריאה למודל): לכל מודל, לשתי הזרועות, השיעורים של השופט (EAF או substitution, ‏EAF, ‏substitution, ‏confabulation; תשובות שופט שלא נקראו או נכשלו; רשומות בלי ציון), ההסכמה של V1 (גולמית, kappa, ‏kappa רק על שיפוטים שנקראו), וההפרש המזווג של V2 (חופשי פחות מובנה) עם רווח סמך 95% מ-cluster bootstrap. artifact: ‏`validate-layer1--validation-report` ‏(`validation_report.json`, `validation_report.md`); ה-workflow ‏results log מכניס את שניהם ל-`results-log` תחת `runs/<מספר הריצה>-validate-layer1/`.
+
+אם V2 נכשל, הדוח רץ בכל זאת עם V1 בלבד (וכותב את זה בהערות); אם שלב של שופט נעצר בתקרה, הרשומות בלי ציון מפורטות ונספרות כלא-חיוביות.
 
 ### שלב 5 — מדידת ה-decomposer (CLI בלבד; הערכה 0.03 עד 0.06 דולר, תקרה 0.10)
 

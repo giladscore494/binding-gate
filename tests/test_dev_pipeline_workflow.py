@@ -108,14 +108,16 @@ def config_of(name: str, job: dict) -> str:
     if job.get("uses") == BASELINE_CALL:
         return job["with"]["config"]
     text = "\n".join(s.get("run", "") + str(s.get("with", "")) for s in steps(job))
-    for config in ("configs/decomposer_eval_dev.toml", "configs/rescore/dev_llm_judge.toml"):
+    for config in ("configs/decomposer_eval_dev.toml", "configs/rescore/dev_llm_judge.toml",
+                   "configs/rescore/validation_judge_structured.toml", "configs/rescore/validation_judge_freeform.toml"):
         if f"--config {config}" in text:
             return config
     return ""
 
 
 def test_every_config_runs_through_baseline_with_a_predictable_prefix_and_the_user_confirmation():
-    stage_of = {c: s for s in ("smoke", "dev-baseline", "dev-rest", "layer2-dev", "layer3-dev") for c in pipeline.STAGES[s]}
+    stage_of = {c: s for s in ("smoke", "dev-baseline", "dev-rest", "layer2-dev", "layer3-dev", "validate-layer1")
+                for c in pipeline.STAGES[s]}
     seen = []
     for name, job in calls().items():
         w = job["with"]
@@ -136,7 +138,7 @@ def test_every_config_runs_through_baseline_with_a_predictable_prefix_and_the_us
         else:
             assert "seed_run_id" not in w and "seed_pattern" not in w
     custom = [config_of(n, j) for n, j in JOBS.items() if j.get("uses") is None and config_of(n, j)]
-    assert sorted(seen + custom) == sorted(pipeline.STAGES["all-dev"])
+    assert sorted(seen + custom) == sorted(pipeline.STAGES["all-dev"] + pipeline.STAGES["validate-layer1"])
 
 
 def chain(start: str, stop: str) -> list[str]:
@@ -220,6 +222,9 @@ def test_the_sec_dataset_is_prepared_with_a_cache_and_reports_the_hash_to_pin():
 def test_layer2_dev_is_wired_smoke_check_baseline_gated_analysis():
     assert [JOBS[n]["with"]["config"] for n in ("layer2-smoke", "layer2-baseline", "layer2-gated", "layer2-gated-scope")] == list(
         pipeline.STAGES["layer2-dev"])  # PR 18: the binding-scope candidates after the gated run
+    # PR 22: the layer-2 stop rule sits between the baseline and the gated runs
+    for name in ("layer2-gated", "layer2-gated-scope"):
+        assert "layer2-decision" in JOBS[name]["needs"] and "needs.layer2-decision.outputs.allowed == 'true'" in JOBS[name]["if"]
     smoke_if = JOBS["layer2-smoke"]["if"]
     assert "inputs.stage == 'layer2-dev'" in smoke_if and "inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success'" in smoke_if
     assert "dev-analysis" in JOBS["layer2-smoke"]["needs"]  # all-dev: layer 2 after dev-rest
@@ -261,7 +266,9 @@ def test_the_ledger_guards_the_stage_and_every_paid_step():
     (plan,) = ledger_steps(JOBS["plan"])
     assert plan["with"]["mode"] == "check" and plan["with"]["stage"] == "${{ env.STAGE }}"
     assert plan["if"] == f"${{{{ {FREE} }}}}"
-    for name, paid in (("decomposer-eval", "Paid measurement"), ("rescore", "Judge dry run, paid re-scoring, agreement")):
+    for name, paid in (("decomposer-eval", "Paid measurement"), ("rescore", "Judge dry run, paid re-scoring, agreement"),
+                       ("validate-judge-structured", "Judge dry run, paid judge scoring of the subsample (arm no_gate), agreement"),
+                       ("validate-judge-freeform", "Judge dry run, paid judge scoring (arm free_form)")):
         names = [s.get("name") for s in steps(JOBS[name])]
         (check,) = ledger_steps(JOBS[name])
         assert check["with"]["mode"] == "check" and check["with"]["config"] == config_of(name, JOBS[name])
@@ -272,7 +279,8 @@ def test_the_ledger_guards_the_stage_and_every_paid_step():
     assert base["with"]["config"] == "${{ env.CONFIG }}" and base["with"]["model"] == "${{ env.MODEL }}"
     names = [s.get("name") for s in steps(BASE["jobs"]["plan"])]
     assert names.index(base["name"]) < names.index("Select models")  # before any model job starts
-    for job in (JOBS["plan"], JOBS["decomposer-eval"], JOBS["rescore"], JOBS["dev-rest-gate"], JOBS["check-secrets"], BASE["jobs"]["plan"]):
+    for job in (JOBS["plan"], JOBS["decomposer-eval"], JOBS["rescore"], JOBS["dev-rest-gate"], JOBS["check-secrets"],
+                JOBS["validate-gate"], JOBS["validate-judge-structured"], JOBS["validate-judge-freeform"], BASE["jobs"]["plan"]):
         for step in ledger_steps(job):
             assert step["with"]["github-token"] == "${{ github.token }}"
             assert ledger.artifact_role(sample_name(step["with"]["artifact-name"])) == "ledger"
@@ -456,3 +464,70 @@ def test_readme_and_running_guide_link_the_owner_page():
     assert "docs/OWNER_SETUP.md" in readme[: readme.index("## The failure studied")]
     running = (REPO_ROOT / "docs" / "RUNNING.md").read_text(encoding="utf-8")
     assert "OWNER_SETUP.md" in running and "dev_pipeline.yml" in running and "binding_gate.ledger" in running
+
+
+# --------------------------------------------------------------------------- #
+# PR 22: validate-layer1 (amendment 1) and the layer-2 stop rule
+# --------------------------------------------------------------------------- #
+
+
+def job_text(job: dict) -> str:
+    """Every script, env and with-block of a job as one string (yaml.safe_dump would wrap long lines)."""
+    parts = [str(job.get("if", "")), str(job.get("needs", ""))]
+    for step in steps(job):
+        parts += [step.get("run", ""), str(step.get("with", "")), str(step.get("env", ""))]
+    return "\n".join(parts)
+
+
+def test_validate_layer1_follows_a_stop_never_needs_continue_and_runs_v1_v2_then_the_report():
+    gate = JOBS["validate-gate"]
+    assert gate["needs"] == "plan" and "inputs.stage == 'validate-layer1'" in gate["if"]
+    text = job_text(gate)
+    assert "binding_gate.pipeline find-decision" in text and "binding_gate.pipeline validate-gate" in text
+    assert "dev-rest-gate" not in text and "dev-rest-gate" not in str(JOBS["validate-judge-structured"]["needs"])
+    (check,) = ledger_steps(gate)
+    assert check["with"]["stage"] == "validate-layer1"
+    assert gate["outputs"]["seed_run_id"] == "${{ steps.gate.outputs.seed_run_id }}"
+    assert "validate-layer1" not in str(pipeline.STAGES["all-dev"]) and not set(pipeline.STAGES["validate-layer1"]) & set(
+        pipeline.STAGES["all-dev"])
+    # V1: the judge on the dev-baseline answers of the decision's workflow run, arm no_gate
+    v1 = JOBS["validate-judge-structured"]
+    (download,) = [s for s in steps(v1) if "download-artifact" in str(s.get("uses"))]
+    assert download["with"]["pattern"] == pipeline.VALIDATION_SEED_PATTERN
+    assert download["with"]["run-id"] == "${{ needs.validate-gate.outputs.seed_run_id }}"
+    assert "--arm no_gate" in job_text(v1) and "judge_agreement.json" in job_text(v1)
+    # V2: the free_form config through baseline.yml, then the judge on its runs of this workflow run
+    v2 = JOBS["validate-freeform"]
+    assert v2["with"]["config"] == "configs/dev_validation_freeform.toml" and "seed_run_id" not in v2["with"]
+    j2 = JOBS["validate-judge-freeform"]
+    assert "needs.validate-freeform.result == 'success'" in j2["if"] and "--arm free_form" in job_text(j2)
+    (download,) = [s for s in steps(j2) if "download-artifact" in str(s.get("uses"))]
+    assert download["with"]["pattern"] == "validate-layer1--dev_validation_freeform--runs-*" and "run-id" not in download["with"]
+    produced_v2 = produced(v2["with"]["artifact_prefix"])
+    assert any(fnmatch.fnmatch(n, download["with"]["pattern"]) for n in produced_v2)
+    # the report reads both, and its upload is on the results-log allow-list
+    report = JOBS["validate-report"]
+    assert set(report["needs"]) == {"validate-gate", "validate-judge-structured", "validate-freeform", "validate-judge-freeform"}
+    text = job_text(report)
+    assert "python -m binding_gate.validation report" in text and "--sample-config configs/rescore/validation_judge_structured.toml" in text
+    (upload,) = [s for s in steps(report) if "upload-artifact" in str(s.get("uses"))]
+    assert ledger.artifact_role(sample_name(upload["with"]["name"])) is None
+    from binding_gate import results_log
+
+    assert results_log.name_refusal("validate-layer1--validation-report/validation_report.json") is None
+    assert results_log.name_refusal("validate-layer1--validation-report/validation_report.md") is None
+    for job in ("validate-judge-structured", "validate-judge-freeform"):
+        (upload,) = [s for s in steps(JOBS[job]) if "upload-artifact" in str(s.get("uses"))]
+        assert ledger.artifact_role(sample_name(upload["with"]["name"])) == "rescore"
+        assert set(re.findall(r"secrets\.([A-Z_]+)", job_text(JOBS[job]))) == {"MOONSHOT_API_KEY"}
+
+
+def test_the_layer2_decision_job_computes_the_rule_and_gates_the_rest_of_layer2():
+    job = JOBS["layer2-decision"]
+    assert job["needs"] == "layer2-baseline" and job["outputs"]["allowed"] == "${{ steps.gate.outputs.allowed }}"
+    text = job_text(job)
+    assert "binding_gate.pipeline layer2-decision" in text and "binding_gate.pipeline layer2-gate" in text
+    (download,) = [s for s in steps(job) if "download-artifact" in str(s.get("uses"))]
+    assert download["with"]["pattern"] == pipeline.LAYER2_SEED_PATTERN
+    (upload,) = [s for s in steps(job) if "upload-artifact" in str(s.get("uses"))]
+    assert sample_name(upload["with"]["name"]) == "layer2-dev--decision" and "secrets." not in text

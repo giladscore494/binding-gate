@@ -26,12 +26,26 @@ its log apply unchanged). Selected in a run config with::
     [sample]
     per_stratum = 20
     seed = 20261122
+
+PR 22 (PREREGISTRATION.md section 18, amendment 1): an optional
+``exclude_strata`` list removes whole strata BEFORE the per-stratum selection,
+for example the three ``<cx_level>/null_control`` conditions of layer 1::
+
+    [sample]
+    per_stratum = 12
+    seed = 20261122
+    exclude_strata = ["absent/null_control", "partial/null_control", "complete/null_control"]
+
+Ranking is per stratum, so the items kept in the remaining strata are exactly
+those kept without the exclusion (the nesting above still holds). A table
+without the key is unchanged, and so is the config hash of every config that
+does not use it.
 """
 
 from __future__ import annotations
 
 import hashlib
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from binding_gate.contracts import Item
 
@@ -46,15 +60,32 @@ def sample_key(seed: int, item_id: str) -> str:
     return hashlib.sha256(f"{seed}\n{item_id}".encode("utf-8")).hexdigest()
 
 
-def stratified_sample(items: Sequence[Item], *, per_stratum: int, seed: int) -> list[Item]:
-    """The ``per_stratum`` items with the smallest :func:`sample_key` in every stratum, in input order."""
+def stratified_sample(
+    items: Sequence[Item], *, per_stratum: int, seed: int, exclude_strata: Sequence[str] = ()
+) -> list[Item]:
+    """The ``per_stratum`` items with the smallest :func:`sample_key` in every stratum not in
+    ``exclude_strata``, in input order."""
     if isinstance(per_stratum, bool) or not isinstance(per_stratum, int) or per_stratum < 1:
         raise ValueError("per_stratum must be an integer >= 1")
+    excluded = set(exclude_strata)
     by_stratum: dict[str, list[Item]] = {}
     for item in items:
-        by_stratum.setdefault(item.stratum or NO_STRATUM, []).append(item)
+        stratum = item.stratum or NO_STRATUM
+        if stratum in excluded:
+            continue
+        by_stratum.setdefault(stratum, []).append(item)
     kept: set[str] = set()
     for members in by_stratum.values():
         ranked = sorted(members, key=lambda item: (sample_key(seed, item.id), item.id))
         kept.update(item.id for item in ranked[:per_stratum])
     return [item for item in items if item.id in kept]
+
+
+def sample_items(items: Sequence[Item], sample: Mapping[str, Any]) -> list[Item]:
+    """Apply a parsed ``[sample]`` table (``per_stratum``, ``seed``, optional ``exclude_strata``)."""
+    return stratified_sample(
+        items,
+        per_stratum=sample["per_stratum"],
+        seed=sample["seed"],
+        exclude_strata=tuple(sample.get("exclude_strata", ())),
+    )

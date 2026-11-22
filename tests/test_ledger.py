@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import shutil
 import zipfile
@@ -97,7 +98,8 @@ def test_judge_scores_and_decomposer_measurements_are_priced(tmp_path):
     (run_dir / "scores.llm_judge.jsonl").write_text("".join(json.dumps(s) + "\n" for s in scores), encoding="utf-8")
     (entry,) = ledger.judge_scores_spend(run_dir, repo)
     expected = (1000 * 100 + 100 * 200) / 1e6 + (100 * 100 + 50 * 200) / 1e6  # 400 chars / 4 = 100 input tokens
-    assert entry.key == f"judge:{summary.run_id}:{'h' * 16}" and entry.usd == pytest.approx(expected)
+    session = hashlib.sha256(json.dumps(scores[0]).encode("utf-8")).hexdigest()[:12]  # PR 22: scoring session
+    assert entry.key == f"judge:{summary.run_id}:{'h' * 16}:{session}" and entry.usd == pytest.approx(expected)
 
     from binding_gate.canonical import sha256_json
     from binding_gate.contracts import RunManifest

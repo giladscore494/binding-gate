@@ -76,8 +76,18 @@ def summarise_errors(errors: Iterable[str], limit: int = 3) -> list[dict[str, An
     return [{"count": n, "message": msg} for msg, n in counts.most_common(limit)]
 
 
+NOT_APPLICABLE = "not_applicable"
+"""PR 22: the ``provenance`` outcome of a free-form answer (arm ``free_form``); not a section 6.3 category."""
+
+
 def record_outcome(record: TraceRecord) -> str:
-    """The section 6.3 outcome category of one record."""
+    """The section 6.3 outcome category of one record.
+
+    PR 22: a free-form answer (``provenance`` outcome ``not_applicable``) is REFUSED with
+    :class:`ReportError`: it is exploratory (PREREGISTRATION.md section 18, amendment 1), scored by
+    the LLM judge only, and must never enter the stop rule or the statistics of H1-H4 (which all
+    read outcomes through this function).
+    """
     if record.error is not None:
         return "error"
     for score in record.scores:
@@ -85,6 +95,13 @@ def record_outcome(record: TraceRecord) -> str:
             outcome = score.details.get("outcome")
             if outcome in OUTCOMES:
                 return outcome
+            if outcome == NOT_APPLICABLE:
+                raise ReportError(
+                    f"record {record.item_id!r} (arm {record.arm!r}, model {record.model!r}) is a free-form answer "
+                    "that the deterministic scorer does not score (provenance 'not_applicable'). Free-form runs are "
+                    "exploratory (PREREGISTRATION.md section 18, amendment 1) and are analysed only by "
+                    "`python -m binding_gate.validation`, never by the stop rule or the statistics of H1-H4."
+                )
             return "error"  # the scorer itself failed (label "scorer_error")
     raise ReportError(
         f"record {record.item_id!r} ({record.model}, repeat {record.repeat}) has no provenance score"

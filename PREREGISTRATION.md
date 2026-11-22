@@ -2,9 +2,28 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.9 (2026-11-22, PR 18)
+**Document version:** 0.10 (2026-11-22, PR 22)
 
-**Changelog.** 0.9 (2026-11-22, PR 18): binding-scope options of the gate and a
+**Changelog.** 0.10 (2026-11-22, PR 22): **amendment 1** (section 18), decided
+by the owner on 2026-11-22 **after** seeing the layer-1 dev baseline (workflow
+run 45053502161; R = 2.0% / 2.4% / 1.6% for A / E / H, every model below 5%,
+measurement check not triggered: section 10 says STOP). Layer-1 confirmatory
+work stays stopped; nothing is re-thresholded. Three EXPLORATORY, post hoc
+validation steps on the dev split (section 10, "Outcome of the layer-1 rule"):
+V1, the secondary LLM judge on a fixed 144-item-per-model subsample of the
+dev-baseline answers, with its agreement with the deterministic label; V2, a new
+exploratory arm `free_form` (the benchmark's own prompt, no structured answer;
+section 5) on the same items, scored by the judge only, compared paired with V1;
+V3, layer 2 proceeds with its planned dev runs under a new layer-2 stop rule
+written before its baseline is scored (section 10, "Layer 2"; thresholds as for
+layer 1, PROPOSED and requiring owner approval). Section 10 made layer-scoped; two validity critiques and
+the post hoc nature of the decision added to section 16; items 55 closed and
+58-62 added (section 17). Budget plan (section 9): the 13 layer-1 runs that the
+STOP ends are kept with status `stopped` (refused by the budget ledger, outside
+the totals); three validation runs added; active planned HIGH 34.95 USD, active
+caps 38.20 USD. No threshold, gate parameter, sample-size rule or primary model
+changed. Status stays DRAFT.
+0.9 (2026-11-22, PR 18): binding-scope options of the gate and a
 pre-registered rule that chooses among them on dev data (section 5.1, "Binding
 scope"), written before any real model output exists. Two signals obtained
 without real outputs - the orchestrator's integration run with a scripted fake
@@ -107,6 +126,14 @@ may still change and nothing in it has been approved. It becomes binding when th
 owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
+
+**State of the project at version 0.10 (PR 22):** the smoke run and the
+layer-1 dev baseline have run (dev split only; spend so far 1.14 USD of 50). The
+layer-1 baseline gave STOP under section 10 (R = 2.0% / 2.4% / 1.6%); layer-1
+confirmatory work is stopped, and the exploratory validation of amendment 1 and
+the layer-2 dev runs follow (section 10). No test-split item of any layer has
+been shown to a model. The paragraph below is the state at version 0.8, before
+any model had been called.
 
 **State of the project at version 0.8 (PR 17):** all ten planned pull requests,
 the housekeeping PR 11, PR 12, PR 13, PR 14 and PR 16 are merged; PR 13 fitted the paid
@@ -784,6 +811,7 @@ structured answer of section 6.2.
 | `gated` | Decomposer (A) + deterministic checks (C, D) + verdict (E). | 3, 4 |
 | `gated` minus one check | One ablation per check, selected in the run config. | 5 |
 | `gated_research` | `gated` plus the targeted re-search loop (layer 3 only). | 8 |
+| `free_form` | EXPLORATORY (version 0.10, amendment 1): the benchmark's own `doc_injection` prompt and documents, a normal free-text answer; no structured answer, no gate. Scored by the LLM judge only. | 22 |
 
 - **Same candidate, different gate.** In the controlled layers, `gated`, its
   ablations, `faithfulness_checker` and `llm_judge_checks` are applied to the
@@ -867,6 +895,22 @@ structured answer of section 6.2.
 - **Judge-family rule.** Any LLM used as a judge (in `llm_judge_checks` or as a
   secondary scorer) comes from a different model family than the model under
   test in that comparison.
+- **`free_form` (version 0.10, amendment 1; exploratory, post hoc, dev only).**
+  The one arm that does NOT return the structured answer of section 6.2: it
+  sends the Deceptive Grounding benchmark's `doc_injection` messages character
+  for character - its system prompt (which asks for `[n]` citations), the
+  documents and the question - without our answer-format instruction, and keeps
+  the reply as free text. Because the frozen contracts know only structured
+  answers, a non-empty reply is stored as an `answered` candidate whose value is
+  the reply and whose quote and source id are fixed sentinels that are never a
+  document's text or id (`binding_gate.answering`); an empty reply is
+  `unparseable`. The deterministic scorers label it `not_applicable`; the
+  stop-rule report and the statistics of H1-H4 refuse such records, so it can
+  never enter a confirmatory metric. A refusal in free text is not turned into
+  an abstention (no deterministic rule exists); the judge labels a reply
+  without affirmative claims about X `no_claims`. Its only purpose is step V2 of
+  section 10: the failure rate of a free-form agent on the same items as the
+  structured baseline.
 
 ### 5.1 Gate checks and verdict (PR 4)
 
@@ -1262,6 +1306,16 @@ for the human audit (section 13).
   measurement check triggers, the owner may extend the judged set from the
   reserve, by amendment before the freeze. **PROPOSED — requires owner approval before
   freeze.**
+- *Validation of the layer-1 STOP (version 0.10, amendment 1; exploratory).*
+  The same judge, prompt and settings score (V1) the `no_gate` records of the
+  three dev baselines and (V2) the `free_form` records, on one fixed subsample
+  (section 10, "Outcome of the layer-1 rule"); configs
+  `configs/rescore/validation_judge_structured.toml` and
+  `configs/rescore/validation_judge_freeform.toml`. The judge reads a free-form
+  reply exactly as it reads a structured one (the raw reply, `<think>` removed).
+  The earlier 60-item cross-check (`configs/rescore/dev_llm_judge.toml`) is
+  stopped with layer-1 dev-rest; V1's subsample contains its 48
+  non-`null_control` items.
 
 ## 7. Metrics
 
@@ -1850,6 +1904,21 @@ reported size; searches free (SerpApi Free plan).
 | **layer 2 test, confirmatory** (`test_sec.toml`) | A, E, H | SEC test items (about 450; at most 540) | 0.78 | 2.55 | 2.75 |
 | **Total** | | | **14.25** | **42.78** | **48.35** |
 
+*Version 0.10 (amendment 1).* The table above is the plan before the layer-1
+STOP. The 13 layer-1 runs that the STOP ends - nondeterminism, gated arm,
+binding-scope candidates, five ablations, comparison baselines, LLM-judge arm,
+secondary judge, layer-1 test and mid-tier check (low 9.91, high 30.26, caps
+33.80 USD) - stay in `configs/budget.toml` with `status = "stopped"`: still
+checked against their configs, outside the planned totals, and refused by the
+budget ledger (`binding_gate.ledger check`) until a further amendment sets them
+back. Three exploratory validation runs were added: V1 judge on the structured
+answers (2.23 / 10.87 / 11.45), V2 free-form answers (`dev_validation_freeform.toml`;
+0.15 / 0.43 / 0.50), V2 judge on the free-form answers (2.49 / 11.13 / 11.70);
+the judge estimates come from the real judge prompts of the 432 subsample
+records with an 800-character (structured) or 2,000-character (free-form)
+answer. Active totals: low 9.21, high 34.95, caps 38.20 USD; spent so far
+1.14 USD. The smoke run measured about a quarter of the planned high.
+
 *Version 0.8.* GRAB-RAG's two runs (0.22 / 0.92 / 1.00 USD) left the plan; the
 four layer-2 runs were estimated by dry runs on a synthetic EDGAR stand-in with
 realistic statement sizes (238 companies, 300 dev items, 8,400 prompt
@@ -1899,7 +1968,17 @@ Selection rule (**PROPOSED — requires owner approval before freeze**):
 6. If a provider retires or silently changes a frozen model before the test run,
    that is recorded as an amendment and the affected results are labelled.
 
-## 10. PR 2 stop rule
+## 10. Stop rules (layer 1: the PR 2 rule; layer 2: amendment 1)
+
+**Scope (version 0.10, amendment 1).** This section was written for layer 1
+before layers 2 and 3 existed in their present form, and it did not say what a
+layer-1 STOP means for them. Since amendment 1 it is layer-scoped: the rule
+directly below is the **layer-1 rule** and governs layer-1 work only; layer 2
+has its own rule ("Layer 2" below), written before its baseline is scored;
+layer 3 has none (item 61). Where the text below says "the study", read "layer
+1" for the consequences of the layer-1 rule.
+
+### Layer 1 (the PR 2 stop rule)
 
 PR 2 runs `no_gate` only, on the **dev split only**, deterministic scoring;
 since version 0.5 with one repeat and, since version 0.6, the three primary
@@ -1915,7 +1994,9 @@ The mid-tier models are not run on dev and the rule is not applied to them
   models at or above 5%; the others are reported and carried no further.
 - **Stop** if every model has R < 5%. The baseline results are published as the
   project's finding ("current models rarely make this error on this benchmark")
-  and PRs 3-10 are not started.
+  and PRs 3-10 are not started. (Version 0.10, amendment 1: by the time the rule
+  was applied those PRs existed; "not started" means that the layer-1 runs they
+  serve are not run - see "Outcome of the layer-1 rule" below.)
 - **In between** (best model between 5% and 10%): the default is to stop. The
   owner may decide to continue, as an explicitly exploratory study, by recording
   the reason in the amendment log before any further work.
@@ -1962,6 +2043,103 @@ Why these numbers:
 
 We do not know the current failure rate of any model on this benchmark under our
 structured-answer protocol; that is exactly what PR 2 measures.
+
+### Outcome of the layer-1 rule and the exploratory validation (version 0.10, amendment 1)
+
+*Outcome.* The layer-1 dev baseline ran on 2026-11-22 (workflow run
+45053502161; `no_gate`, 1,455 dev items per model, one repeat, deterministic
+`provenance` scoring). R = 2.0% (A, `gpt-6-luna`), 2.4% (E,
+`gemini-3.1-flash-lite`), 1.6% (H, `glm-5.3-flash`); ungrounded plus unparseable
+at most 0.6% of records, so the measurement check did not trigger. Every model
+is below 5%: the rule says **STOP**, and it is applied as written. Layer-1
+confirmatory work - the gated arm and its calibration, the binding-scope
+selection on layer 1, the ablations, the comparison arms, H1-H3 on layer 1,
+`configs/test_layer1.toml` and the mid-tier check - stays **stopped**; no
+threshold is changed and no layer-1 test-split item is used. The baseline is the
+layer-1 finding.
+
+*Why a validation (the orchestrator's critique, recorded neutrally; section
+16).* (1) The deterministic metric checks only which document the QUOTE came
+from; a model can quote the target document yet state competitor content in its
+value, which is the claim-level failure the benchmark measures with an LLM
+judge, so R may undercount. (2) The baseline already forces the structured
+answer (value + verbatim quote + source id, gate function B), which may itself
+suppress the failure; the benchmark paper reports 8-87% under free-form answers.
+The rule therefore measured headroom after a strong mitigation, not the failure
+of a free-form agent. (3) The rule did not say whether layer 2 continues, and
+layer 2 had no stop rule.
+
+*Decision (owner, 2026-11-22, taken AFTER seeing the layer-1 dev baseline).*
+Three steps, all **exploratory and post hoc**, on the dev split only; none of
+them can re-open layer-1 confirmatory work or change the STOP (that would need a
+further amendment, and test-split work for layer 1 would remain subject to the
+lock):
+
+- **V1 - does the deterministic metric undercount?** The secondary judge of
+  section 6.5 labels the `no_gate` records of the three dev baselines on a fixed
+  subsample: `binding_gate.sampling` with seed 20261122, 12 items per condition,
+  the three `null_control` conditions excluded (12 × 12 = 144 dev items per
+  model, 432 records; `configs/rescore/validation_judge_structured.toml`).
+  Reported per model: the judge's claim-level rates (EAF or substitution, EAF,
+  substitution, confabulation), unparseable and failed judgments, and its
+  agreement with the deterministic label (raw agreement, Cohen's kappa, kappa
+  over parsed judgments only, discordant counts).
+- **V2 - does forcing the structured answer reduce the failure?** The arm
+  `free_form` (section 5) answers the same 144 items per model with the same
+  three models and settings (`configs/dev_validation_freeform.toml`), scored ONLY
+  by the same judge (`configs/rescore/validation_judge_freeform.toml`). Per
+  model, paired by item: free-form rate minus structured rate of "EAF or
+  substitution", with discordant counts and a 95% percentile cluster-bootstrap
+  interval by `group_id` (seed 20261122, 10,000 resamples; both arms resampled
+  jointly).
+- **V3 - layer 2 proceeds** with its planned dev runs, under the layer-2 rule
+  below, which was written before the layer-2 baseline was run or scored.
+
+*Definitions of V1 and V2 (fixed before any validation output exists;
+`binding_gate.validation`).* Unit: one subsample record. Positive: judge label
+`eaf_or_substitution`. Rates over all subsample records of the arm and model:
+abstentions, `no_claims`, judge failures, unscored records and arm errors stay
+in the denominator and count as not positive; the same rates over the
+determinate records only (no judge failure, no arm error, scored) are a
+sensitivity analysis. The report (`validation_report.json` / `.md`, stage
+`validate-layer1` of the dev pipeline) contains labels, counts, rates and
+intervals only. Its results are recorded here as exploratory findings with
+their intervals; they decide nothing. **PROPOSED — requires owner approval
+before freeze** (subsample size, definitions).
+
+### Layer 2 (version 0.10, amendment 1; written before the layer-2 baseline is scored)
+
+The layer-2 dev baseline (`configs/dev_sec_baseline.toml`: `no_gate`, the three
+primary models, one repeat, dev split, scorer `sec_answer`) is decided by a rule
+that mirrors the layer-1 rule, per model, from the `sec_answer` labels
+(`binding_gate.layer2_stop`):
+
+- **R2E** (wrong entity) = `wrong_entity` records / all records of the two
+  conditions in which a peer company's filing is shown (`present/peer`,
+  `absent/peer`), the analogue of the 12 non-`null_control` conditions;
+- **R2P** (wrong period or scale) = `wrong_period_or_scale` records / all
+  records of the three conditions (another year of the same filing, or a scale
+  error, needs no peer document);
+- a model's rate for the rule is the larger of the two.
+
+**PROPOSED — requires owner approval before freeze** (thresholds identical to
+layer 1): **continue** if at least one model has R2E ≥ 10% or R2P ≥ 10% (the
+models at or above 5% on either rate are carried forward); **stop** if every
+model is below 5% on both; **in between** otherwise (default stop; the owner may
+continue as an explicitly exploratory study, recorded in a committed note
+`results/dev_sec_baseline_continue.json` and the amendment log); **measurement
+check** if more than 20% of a model's dev records are `other_wrong` or
+`unparseable` (the labels under which the deterministic scorer cannot tell what
+went wrong): that model is not decided mechanically, and the overall outcome
+follows the layer-1 combination rule. Records with an error stay in every
+denominator.
+
+What it governs: on STOP, layer 2 ends after its baseline - the gated dev runs
+(`dev_sec_gated`, `dev_sec_gated_scope`) are not started (the `layer2-dev` stage
+runs them only after CONTINUE or with the note) and `configs/test_sec.toml` is
+not run; the baseline is published as the layer-2 finding. H1 on layer 2 is
+about wrong-entity answers only, so a CONTINUE reached through R2P alone leaves
+H1 on layer 2 with little headroom; this is reported, not corrected.
 
 ## 11. Success thresholds
 
@@ -2255,7 +2433,30 @@ section in the generator.
 - **Forcing structure changes the task.** Requiring value + quote + source from
   every arm, including the baseline, may itself change how often models make the
   error. Our baseline rates are therefore not comparable with the benchmark
-  paper's published rates, and the study says nothing about free-text answers.
+  paper's published rates, and the study says nothing about free-text answers
+  (except the exploratory step V2 of section 10, version 0.10).
+- **The layer-1 stop metric may undercount (version 0.10, amendment 1).** The
+  deterministic metric behind the layer-1 STOP checks only which document the
+  QUOTE came from. A model can quote the target document and still assert
+  competitor content in its value - the claim-level entity-attribution failure
+  that the benchmark measures with an LLM judge - so R may undercount the
+  failure. Step V1 (section 10) measures the judge's claim-level rate on a
+  subsample and its agreement with R; the judge is itself an LLM with unknown
+  error rates, so V1 bounds the problem, it does not settle it.
+- **The STOP was measured after a strong mitigation (version 0.10, amendment
+  1).** The "no gate" baseline already forces the structured answer (value +
+  verbatim quote + source id, gate function B), which may suppress the failure;
+  the benchmark paper reports 8-87% under free-form answers. The layer-1 rule
+  therefore measured the headroom left AFTER that mitigation, not the failure of
+  a free-form agent. Step V2 (section 10) estimates the free-form rate on the
+  same items; with 144 items per model its intervals will be wide.
+- **Decisions taken after seeing the layer-1 baseline (version 0.10, amendment
+  1).** The validation steps, the layer-scoping of section 10 and the layer-2
+  stop rule were decided after the layer-1 dev result was known. They are
+  labelled post hoc and exploratory, cannot re-open layer-1 confirmatory work,
+  and change no threshold; the layer-2 rule was fixed before any layer-2 output
+  existed. A reader should still treat any conclusion that rests on them as
+  hypothesis-generating.
 - **Decomposer errors.** If (A) extracts the wrong entity or misses a qualifier,
   the deterministic checks faithfully enforce the wrong constraints. (A) is
   measured separately and its contribution to gate errors is reported, but it
@@ -2645,6 +2846,8 @@ owner in the repository settings).
     scope"); closed when items 56 and 57 are.*
 55. Whether the dev baseline of layer 2 gets a stop rule like section 10 (none
     is pre-registered; the layer is run regardless of its baseline rate).
+    *Closed in version 0.10 (amendment 1): the layer-2 stop rule of section 10,
+    written before the layer-2 baseline was scored; its thresholds are item 58.*
 
 **(F) Binding scope (version 0.9, PR 18).**
 
@@ -2658,6 +2861,24 @@ owner in the repository settings).
     "<name>"` in the gated arm of `configs/test_layer1.toml` (and
     `configs/test_layer1_midtier.toml`) and of `configs/test_sec.toml` before
     the tag of the layer.
+
+**(G) Amendment 1 (version 0.10, PR 22; decided after the layer-1 dev baseline).**
+
+58. Owner approval of the layer-2 stop rule (section 10, "Layer 2": R2E, R2P,
+    thresholds identical to layer 1, measurement check on `other_wrong` +
+    `unparseable`), before the layer-2 dev baseline is scored.
+59. Owner approval of the V1/V2 subsample (12 items per non-`null_control`
+    condition, seed 20261122) and definitions (section 10, "Outcome of the
+    layer-1 rule"); then run the stage `validate-layer1` and record its results
+    in section 10 as exploratory findings, with their intervals.
+60. What, if anything, follows from V1/V2 for layer 1: any change to the STOP or
+    to layer-1 work needs a further amendment; layer-1 test-split work stays
+    stopped until then.
+61. Whether the dev baseline of layer 3 gets a stop rule (none is
+    pre-registered; layer 3 runs regardless of its baseline, H4 as in section 11).
+62. The decomposer measurement of section 7 (`configs/decomposer_eval_dev.toml`)
+    runs only in the layer-1 stage `dev-rest`, which the STOP refuses; whether it
+    moves before the layer-2 gated runs (which use the decomposer) is open.
 
 *Closed earlier, kept for the record:* layer-1 facts from the real files
 (PR 2; section 3, facts 1-11); "correct" for layer 1 cannot be tightened to a
@@ -2683,10 +2904,12 @@ earlier tag, and the stage frozen says which.
 ## 18. Amendment log
 
 Rules: after the freeze this document changes only by adding a row here, in the
-same commit as the change. Each row states what changed, why, and whether any
+same commit as the change. A decision that is taken after a result has been seen
+is recorded here even before the freeze (amendment 1), so that it cannot pass as
+pre-registered. Each row states what changed, why, and whether any
 test-split result had been seen by anyone involved at that time. Before the
 freeze, changes are ordinary edits and need no row.
 
 | # | Date | Section | Change | Reason | Test results seen before the change? |
 |---|---|---|---|---|---|
-| (none yet) | | | | | |
+| 1 | 2026-11-22 | 5, 6.5, 9, 10, 16, 17 | Layer-1 STOP applied as written; layer-1 confirmatory work (gated arms, ablations, comparison arms, H1-H3 on layer 1, `test_layer1`, mid-tier check) stays stopped and its 13 budget entries get status `stopped` (refused by the ledger). Three exploratory, post hoc dev steps added: V1 secondary judge on a fixed 144-item-per-model subsample of the dev-baseline answers with its agreement with the deterministic label; V2 new arm `free_form` (benchmark prompt, no structured answer) on the same items, judge-scored, paired comparison with cluster bootstrap; V3 layer 2 continues with its dev runs under a new layer-2 stop rule (thresholds identical to layer 1) fixed before its baseline is scored. Section 10 made layer-scoped; threats and open items 58-62 added. Version 0.10. | Owner's decision after the layer-1 dev baseline (workflow run 45053502161: R = 2.0% / 2.4% / 1.6%, STOP), on the orchestrator's critique that the quote-provenance metric may undercount claim-level failures, that the structured answer may itself suppress the failure (the paper reports 8-87% free-form), and that the rule did not cover layer 2. Decided AFTER seeing the layer-1 DEV baseline; nothing is re-thresholded; test-split work for layer 1 remains stopped. | No (dev only; no test-split item of any layer has been shown to a model) |

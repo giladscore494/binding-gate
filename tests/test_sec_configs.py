@@ -92,7 +92,8 @@ def test_preregistration_names_layer_2_and_the_code_agrees():
     from binding_gate.stats import prereg
 
     text = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert "**Document version:** 0.9 (2026-11-22, PR 18)" in text and "**Status:** DRAFT" in text  # PR 18: 0.9
+    assert "**Document version:** 0.10 (2026-11-22, PR 22)" in text and "**Status:** DRAFT" in text  # PR 22: 0.10
+    assert "0.9 (2026-11-22, PR 18):" in text
     assert "0.8 (2026-11-22, PR 17): layer 2 replaced" in text
     assert prereg.LAYER_BY_DATASET == {"deceptive_grounding": 1, "sec_financials": 2, "sealqa": 3}
     assert prereg.HYPOTHESES_BY_LAYER[2] == ("H1", "H2") and "grab_rag" in prereg.EXTENDED_DATASETS
