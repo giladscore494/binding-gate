@@ -1,0 +1,27 @@
+BASELINE REPORT (PREREGISTRATION.md section 10) - dev split, arm 'no_gate', deterministic provenance scoring
+run directories: runs/20261122T175841Z-5867d17e-5fce
+Thresholds (PROPOSED, need owner approval): continue at R >= 10%, carry models at R >= 5%, measurement check above 20% ungrounded-or-unparseable.
+
+== model openai-low  (served as: gpt-6-luna)
+   realised counts : 1 groups, 15 items, repeats [0], 15 records
+   R = wrong-entity / all records over the 12 non-null_control conditions = 0 / 12 = 0.0%
+   outcomes, 12 non-null_control conditions: target_grounded 8, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 4, unparseable 0, error 0
+   outcomes, all 15 conditions            : target_grounded 10, wrong_entity 0, ambiguous 0, ungrounded 0, abstention 5, unparseable 0, error 0
+   unparseable share (all records)        : 0.0%
+   ungrounded share (all records)         : 0.0%
+   error share (all records)              : 0.0%
+   measurement check: ungrounded + unparseable = 0 / 15 = 0.0% -> not triggered (<= 20%)
+   quote found, but not in the cited source_id: 0 record(s)
+   model calls: 15 answered by the provider, 0 failed attempt(s), 0 truncated at the output limit
+   tokens reported: input 11,359, output 1,193 (of which reasoning 0, itemised by 15 call(s))
+   wrong-entity / records by condition (rows: competing document; columns: X document)
+                                  absent      complete       partial
+      class_proximate            0/1           0/1           0/1    
+      context_adjacent           0/1           0/1           0/1    
+      null_control               0/1           0/1           0/1    
+      prior_completing           0/1           0/1           0/1    
+      synthetic_y                0/1           0/1           0/1    
+   STOP-RULE OUTCOME for openai-low: STOP
+
+OVERALL STOP-RULE OUTCOME: STOP
+Meaning: every model has R < 5%. The baseline is the project's finding; PRs 3-10 are not started.

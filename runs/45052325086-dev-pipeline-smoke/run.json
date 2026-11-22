@@ -1,0 +1,216 @@
+{
+  "artifacts": [
+    "ledger-after-run",
+    "pipeline--smoke--ledger",
+    "smoke--dev_smoke--baseline-report",
+    "smoke--dev_smoke--ledger",
+    "smoke--dev_smoke--runs-google-low",
+    "smoke--dev_smoke--runs-google-mid",
+    "smoke--dev_smoke--runs-openai-low",
+    "smoke--dev_smoke--runs-openai-mid",
+    "smoke--dev_smoke--runs-zai-low",
+    "smoke--dev_smoke--runs-zai-mid",
+    "smoke--dev_smoke--usage-check"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T18:00:05+00:00",
+  "conclusion": "failure",
+  "event": "workflow_dispatch",
+  "folder": "runs/45052325086-dev-pipeline-smoke",
+  "head_branch": "main",
+  "head_sha": "2ac4b84b386fa3c723dbee92a21cc42a0c22a1d8",
+  "kept": [
+    {
+      "bytes": 23001,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "828baca6449c6308e205b4d14abe9e5d026e3ab5b4c6007136374dcd5421f8ac"
+    },
+    {
+      "bytes": 4582,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "ead84711860d5d38cb0d01fbe373f7b63322b257d3a9b8603f2b172499114406"
+    },
+    {
+      "bytes": 15807,
+      "path": "pipeline--smoke--ledger/ledger.json",
+      "sha256": "c209b1226bcafd73ed47e14f7a632a66b080512652e6b9de0d93135d03e5176d"
+    },
+    {
+      "bytes": 3632,
+      "path": "pipeline--smoke--ledger/ledger.md",
+      "sha256": "851bc92ce1e40011733071fabc927124a8486a8a34070160cd4faedd53840bd3"
+    },
+    {
+      "bytes": 10932,
+      "path": "smoke--dev_smoke--baseline-report/baseline_report.json",
+      "sha256": "0532d0ab7616c8304ff05bf504e836059af6d8071ff4401711d4483e0c223bef"
+    },
+    {
+      "bytes": 7249,
+      "path": "smoke--dev_smoke--baseline-report/baseline_report.txt",
+      "sha256": "91a5e89cb332fc11e16e370d25826f272b9c145bccc76700230ab7f2051593d5"
+    },
+    {
+      "bytes": 16118,
+      "path": "smoke--dev_smoke--ledger/ledger.json",
+      "sha256": "59dc98fb1f6c716a4385649c003e1d0d962f81846b62d155f7cc8ed88468ccc8"
+    },
+    {
+      "bytes": 3653,
+      "path": "smoke--dev_smoke--ledger/ledger.md",
+      "sha256": "816848f23159c231baeec1342ca79aa1e7fb1b5602ecb20ee61c9e116022e267"
+    },
+    {
+      "bytes": 3424,
+      "path": "smoke--dev_smoke--runs-google-low/20261122T175839Z-5867d17e-b059/invocations.jsonl",
+      "sha256": "928ddec0c740f302c2929cfcea481d9b4e276b245b9bc0fcf83cd4c9b8cfd666"
+    },
+    {
+      "bytes": 4302,
+      "path": "smoke--dev_smoke--runs-google-low/20261122T175839Z-5867d17e-b059/manifest.json",
+      "sha256": "1f6e7f0f4ab10fe24999420f70bf4885514f762683c5dd403b0282438507243d"
+    },
+    {
+      "bytes": 0,
+      "path": "smoke--dev_smoke--runs-google-low/baseline_report_google-low.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 3425,
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T175838Z-5867d17e-8bb1/invocations.jsonl",
+      "sha256": "a1bd082bb7149e059b971fbd690a356f6913bdffa9e3df374e62ddcc6f6f9351"
+    },
+    {
+      "bytes": 4302,
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T175838Z-5867d17e-8bb1/manifest.json",
+      "sha256": "d6789f0e6a2773bae9ee9613539d389dd44ff51cc1806689ed2727f5811aaada"
+    },
+    {
+      "bytes": 0,
+      "path": "smoke--dev_smoke--runs-google-mid/baseline_report_google-mid.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 919,
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T175841Z-5867d17e-5fce/invocations.jsonl",
+      "sha256": "e6cc316d3b0ef3d995bcbcc4643b9848a716d66156b48f18bf78f3c15543f8b1"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T175841Z-5867d17e-5fce/manifest.json",
+      "sha256": "dd8b1f74f97ae597fcd17b9f230860ae83f412db25b0a611a6547921242ec4d4"
+    },
+    {
+      "bytes": 2783,
+      "path": "smoke--dev_smoke--runs-openai-low/baseline_report_openai-low.json",
+      "sha256": "9ca4c57a063c1a4d77c81edd8b2816ff9dea460a6823dd4593151625834b3ff3"
+    },
+    {
+      "bytes": 1959,
+      "path": "smoke--dev_smoke--runs-openai-low/baseline_report_openai-low.txt",
+      "sha256": "08800071f816c4cecd0b0352b0efe76e16f4c8a1c15069b60e0b743cbcfcce12"
+    },
+    {
+      "bytes": 920,
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T175850Z-5867d17e-d2b5/invocations.jsonl",
+      "sha256": "f7c1829856ebf4cc15d85e84513012966f0e61818ec662be87cbfb39b3ffc891"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T175850Z-5867d17e-d2b5/manifest.json",
+      "sha256": "d4f8242da11f1ac02333db13cdf442f7eac634aeab79e9a070cdd07794ee9705"
+    },
+    {
+      "bytes": 2786,
+      "path": "smoke--dev_smoke--runs-openai-mid/baseline_report_openai-mid.json",
+      "sha256": "90872ab444ae6acd622c227050f4385f09c716c41da4aebc3da8d99f1ed1fe1d"
+    },
+    {
+      "bytes": 1962,
+      "path": "smoke--dev_smoke--runs-openai-mid/baseline_report_openai-mid.txt",
+      "sha256": "56119344e84141115ab5fa34d2de966d130fb3f999a1ee3a137a694c4f4b54bf"
+    },
+    {
+      "bytes": 910,
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T175843Z-5867d17e-a2bc/invocations.jsonl",
+      "sha256": "65eb102e396e3ac949c6ac94408e7ab53ee210b65b8026f5677f5ef5cc3032ee"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T175843Z-5867d17e-a2bc/manifest.json",
+      "sha256": "38962179c0a1155dd1a264538c9568c9dd801f3d606bff52192390343cfa8be3"
+    },
+    {
+      "bytes": 2785,
+      "path": "smoke--dev_smoke--runs-zai-low/baseline_report_zai-low.json",
+      "sha256": "af32732830db6bd30f6157a710e83858ba268a1199f00748d15f8cde7757177f"
+    },
+    {
+      "bytes": 1958,
+      "path": "smoke--dev_smoke--runs-zai-low/baseline_report_zai-low.txt",
+      "sha256": "d676c5a007bc204baa872488584e6376992ad10898a4938c3a7d1ecb21686687"
+    },
+    {
+      "bytes": 910,
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T175843Z-5867d17e-d0fb/invocations.jsonl",
+      "sha256": "be63ed7f7e4fea2c4f83f8e7cccc5a6dda532092b7d0776cae36ff11f0b9ba43"
+    },
+    {
+      "bytes": 4385,
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T175843Z-5867d17e-d0fb/manifest.json",
+      "sha256": "b7d4d814da5147da9f1e6330b36ead01653e9e02c33f6c709824b3d3c9ffbd63"
+    },
+    {
+      "bytes": 2777,
+      "path": "smoke--dev_smoke--runs-zai-mid/baseline_report_zai-mid.json",
+      "sha256": "4f481b83ef7ecc269d4c367bcdc6ba24819a5e4f956b9d9027ce2df5a2e086b0"
+    },
+    {
+      "bytes": 1950,
+      "path": "smoke--dev_smoke--runs-zai-mid/baseline_report_zai-mid.txt",
+      "sha256": "9c85e4b4f70bb477e2c771beef02dd77d942cffa83f3b7929cf8e26103272a23"
+    },
+    {
+      "bytes": 10793,
+      "path": "smoke--dev_smoke--usage-check/smoke_usage_check.json",
+      "sha256": "b18d8ae742125ee5c730acaab7bc46ddf739d8c3c1f8bf4350498cb0d83fd849"
+    },
+    {
+      "bytes": 2031,
+      "path": "smoke--dev_smoke--usage-check/smoke_usage_check.md",
+      "sha256": "ddc743ab8a54ba3f247299d50584ede39d06ed0b736e4840c484de0bb0f4e8c4"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "smoke--dev_smoke--runs-google-low/20261122T175839Z-5867d17e-b059/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-google-mid/20261122T175838Z-5867d17e-8bb1/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-openai-low/20261122T175841Z-5867d17e-5fce/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-openai-mid/20261122T175850Z-5867d17e-d2b5/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-zai-low/20261122T175843Z-5867d17e-a2bc/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "smoke--dev_smoke--runs-zai-mid/20261122T175843Z-5867d17e-d0fb/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45052325086,
+  "stage": "dev-pipeline-smoke",
+  "title": "dev pipeline: smoke",
+  "workflow": "dev pipeline: smoke"
+}
