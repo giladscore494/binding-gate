@@ -31,7 +31,8 @@ def test_pr2_and_pr4_components_are_registered():
     assert {"openai_responses", "anthropic_messages", "google_gemini", "moonshot_chat"} <= set(available("model"))
     assert {"no_gate", "gated"} <= set(available("arm"))
     assert "provenance" in available("scorer")
-    assert available("decomposer") == ["model_decomposer"]  # PR 3
+    # test doubles (tests/gate_fakes.py registers "fake_decomposer") are excluded
+    assert [n for n in available("decomposer") if not n.startswith("fake_")] == ["model_decomposer"]  # PR 3
     # PR 4: the five reserved check names and the verdict gate
     assert available("check") == sorted(
         ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]

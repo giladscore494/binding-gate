@@ -40,7 +40,8 @@ def make(behaviour: str = "reference", *, cache: str = "process", label: str = "
 
 
 def test_only_the_model_decomposer_is_registered_and_it_satisfies_the_protocol():
-    assert registry.available("decomposer") == ["model_decomposer"]
+    # test doubles (tests/gate_fakes.py registers "fake_decomposer") are excluded
+    assert [n for n in registry.available("decomposer") if not n.startswith("fake_")] == ["model_decomposer"]
     decomposer = make()
     assert decomposer.name == "model_decomposer"
     assert callable(decomposer.decompose)
