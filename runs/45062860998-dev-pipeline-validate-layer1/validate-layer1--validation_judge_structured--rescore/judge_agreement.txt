@@ -1,0 +1,20 @@
+LLM-JUDGE CROSS-CHECK (secondary; decides no hypothesis). Ours = provenance 'wrong_entity'; judge = 'eaf_or_substitution'. Judge failures stay in the population and count as disagreement.
+
+openai-low / no_gate  (baseline-runs/20261122T181107Z-9a35bd87-b841)
+  records 1455, not yet scored 1311, judged 97, judge failures 0
+  raw agreement 97.9%; Cohen's kappa 0.489 (parsed judgments only: 0.489)
+  both wrong-entity 1, only ours 1, only judge 1
+  12 non-null_control conditions: R = 2.0%, judge EAF-or-substitution rate = 0.2%
+
+google-low / no_gate  (baseline-runs/20261122T181107Z-9a35bd87-e07f)
+  records 1455, not yet scored 1311, judged 97, judge failures 0
+  raw agreement 96.9%; Cohen's kappa -0.014 (parsed judgments only: -0.014)
+  both wrong-entity 0, only ours 2, only judge 1
+  12 non-null_control conditions: R = 2.4%, judge EAF-or-substitution rate = 0.1%
+
+zai-low / no_gate  (baseline-runs/20261122T181114Z-9a35bd87-2a51)
+  records 1455, not yet scored 1311, judged 96, judge failures 1
+  raw agreement 99.0%; Cohen's kappa 0.663 (parsed judgments only: 1.000)
+  both wrong-entity 1, only ours 0, only judge 0
+  12 non-null_control conditions: R = 1.6%, judge EAF-or-substitution rate = 0.1%
+

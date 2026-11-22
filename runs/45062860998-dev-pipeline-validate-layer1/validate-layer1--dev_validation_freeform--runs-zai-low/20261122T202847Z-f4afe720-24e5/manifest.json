@@ -1,0 +1,119 @@
+{
+  "config": {
+    "arms": [
+      {
+        "label": "free_form",
+        "name": "free_form",
+        "options": {
+          "presentation": "deceptive_grounding_doc_injection"
+        }
+      }
+    ],
+    "config_version": 1,
+    "dataset": {
+      "label": "deceptive_grounding",
+      "name": "deceptive_grounding",
+      "options": {
+        "commit": "61b0281d8d3897f53bef3f7402727c905614c1e4",
+        "data_sha256": "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123",
+        "repository": "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark",
+        "root": "data/raw/deceptive-grounding-benchmark"
+      }
+    },
+    "description": "PR 22 (amendment 1, exploratory): free_form answers on the V1 subsample (144 dev items per model), A, E, H, 1 repeat.",
+    "limit": null,
+    "models": [
+      {
+        "label": "openai-low",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6-luna",
+          "reasoning": {
+            "effort": "none"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-low",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.1-flash-lite",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "zai-low",
+        "name": "zai_chat",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "glm-5.3-flash",
+          "reasoning_effort": "low",
+          "temperature": 0.0,
+          "thinking": {
+            "type": "enabled"
+          },
+          "timeout_seconds": 180
+        }
+      }
+    ],
+    "name": "dev-validation-freeform",
+    "repeats": 1,
+    "runner": {
+      "concurrency": 8,
+      "max_usd": 0.1,
+      "max_usd_by_model": {
+        "google-low": 0.2,
+        "zai-low": 0.2
+      },
+      "prices": "configs/prices.toml"
+    },
+    "sample": {
+      "exclude_strata": [
+        "absent/null_control",
+        "partial/null_control",
+        "complete/null_control"
+      ],
+      "per_stratum": 12,
+      "seed": 20261122
+    },
+    "scorers": [
+      {
+        "label": "provenance",
+        "name": "provenance",
+        "options": {
+          "min_quote_tokens": 5
+        }
+      }
+    ],
+    "split": "dev"
+  },
+  "config_hash": "f4afe720c4364beb80ebc457f731b84af25b534aaeca695c5616be9d9d0391cf",
+  "config_path": "configs/dev_validation_freeform.toml",
+  "ended_at": "2026-11-22T20:29:52+00:00",
+  "git_commit": "1311367a09cc8465134b1dec6cc59fba26185a25",
+  "git_dirty": false,
+  "package_version": "0.1.0",
+  "python_version": "3.13.18",
+  "run_id": "20261122T202847Z-f4afe720-24e5",
+  "schema_version": 1,
+  "started_at": "2026-11-22T20:28:47+00:00",
+  "test_unlock_tag": null,
+  "trace_count": 144,
+  "traces_sha256": "f857a9b58f962f08c75c3a3f5f6129f5dfae1eb9d9f75aa985c1d9a41f0334f2"
+}
