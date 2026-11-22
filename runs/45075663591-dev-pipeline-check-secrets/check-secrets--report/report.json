@@ -1,0 +1,129 @@
+{
+  "failed": [],
+  "preflights": [
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "openai lists 'gpt-6-luna'",
+      "model_id": "gpt-6-luna",
+      "provider": "openai",
+      "secret": "OPENAI_API_KEY",
+      "status": "OK",
+      "target": "openai-low"
+    },
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "openai lists 'gpt-6.1-sol'",
+      "model_id": "gpt-6.1-sol",
+      "provider": "openai",
+      "secret": "OPENAI_API_KEY",
+      "status": "OK",
+      "target": "openai-mid"
+    },
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "google lists 'gemini-3.1-flash-lite'",
+      "model_id": "gemini-3.1-flash-lite",
+      "provider": "google",
+      "secret": "GEMINI_API_KEY",
+      "status": "OK",
+      "target": "google-low"
+    },
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "google lists 'gemini-3.5-flash'",
+      "model_id": "gemini-3.5-flash",
+      "provider": "google",
+      "secret": "GEMINI_API_KEY",
+      "status": "OK",
+      "target": "google-mid"
+    },
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "zai lists 'glm-5.3-flash'",
+      "model_id": "glm-5.3-flash",
+      "provider": "zai",
+      "secret": "ZAI_API_KEY",
+      "status": "OK",
+      "target": "zai-low"
+    },
+    {
+      "config": "configs/dev_smoke.toml",
+      "detail": "zai lists 'glm-5.3'",
+      "model_id": "glm-5.3",
+      "provider": "zai",
+      "secret": "ZAI_API_KEY",
+      "status": "OK",
+      "target": "zai-mid"
+    },
+    {
+      "config": "configs/dev_llm_judge_checks.toml",
+      "detail": "moonshot lists 'kimi-k3.1-pro'",
+      "model_id": "kimi-k3.1-pro",
+      "provider": "moonshot",
+      "secret": "MOONSHOT_API_KEY",
+      "status": "OK",
+      "target": "judge judge-kimi-k3.1-pro (arm llm_judge_checks)"
+    },
+    {
+      "config": "configs/dev_live_smoke.toml",
+      "detail": "Serper test search OK (9 organic results; one credit used; searches left unknown)",
+      "model_id": "serper/google",
+      "provider": "serper",
+      "secret": "SERPER_API_KEY",
+      "status": "OK",
+      "target": "search search (arm no_gate)"
+    }
+  ],
+  "secrets": [
+    {
+      "name": "OPENAI_API_KEY",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "needed_by_study": false,
+      "set": false
+    },
+    {
+      "name": "GEMINI_API_KEY",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "MOONSHOT_API_KEY",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "DEEPSEEK_API_KEY",
+      "needed_by_study": false,
+      "set": false
+    },
+    {
+      "name": "ZAI_API_KEY",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "SERPER_API_KEY",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "SERPAPI_API_KEY",
+      "needed_by_study": false,
+      "set": false
+    },
+    {
+      "name": "RUNS_ENCRYPTION_PASSPHRASE",
+      "needed_by_study": true,
+      "set": true
+    },
+    {
+      "name": "SEC_CONTACT_EMAIL",
+      "needed_by_study": true,
+      "set": true
+    }
+  ]
+}
