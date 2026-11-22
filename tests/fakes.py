@@ -51,8 +51,11 @@ class ScriptedFake:
         preflight_ok: bool = True,
         max_output_tokens: int = 4096,
         max_retries: int = 2,
+        balance_after: int | None = None,
     ):
         self.name = label or model_id
+        self._balance_after = balance_after  # PR 19: calls served before the "wallet" is empty
+        self._served = 0
         self.model_id = model_id
         self.behaviour = behaviour
         self.max_output_tokens = max_output_tokens
@@ -74,6 +77,16 @@ class ScriptedFake:
             self._failures[prompt] = seen + 1
         if self.behaviour == "crash":
             raise ModelError("HTTP 400: scripted permanent failure", status=400)
+        if self._balance_after is not None:
+            with _LOCK:
+                self._served += 1
+                empty = self._served > self._balance_after
+            if empty:
+                raise ModelError(
+                    "BALANCE EXHAUSTED: HTTP 429: {\"error\": {\"code\": \"insufficient_quota\"}}",
+                    status=429,
+                    retryable=False,
+                )
         if seen < self._fail_first:
             raise ModelError("HTTP 429: scripted rate limit", status=429, retryable=True, retry_after=0)
         documents = shown_documents(request)
