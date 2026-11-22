@@ -132,13 +132,57 @@ presentation = "deceptive_grounding_doc_injection"
 name = "gated"
 label = "gated"
 [arms.options]
+presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
 label = "gated_minus_premise_present"
 [arms.options]
+presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[scorers]]
 name = "provenance"
