@@ -67,3 +67,24 @@ output_per_mtok = 10.00
 source = "tech-insider report (price); platform.kimi.ai model list (id)"
 accessed = "2026-11-22"
 note = "secondary judge (slot J); price unverified; not used by any PR 2 config"
+
+# PR 8 (layer 3): per-call prices (per_call_usd) for the web search API and the page fetcher.
+# Every call in a trace is priced by the id in its response ("serpapi/google",
+# "binding-gate/fetch@1") and charged to the budget cap of the record's model.
+
+[[price]]
+model_id = "serpapi/google"
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+per_call_usd = 0.025
+source = "serpapi.com/pricing (Starter plan: $25 per month for 1,000 searches, 200 per hour)"
+accessed = "2026-11-22"
+note = "conservative: SerpApi does not count cached or failed searches; the Free plan gives 250 searches per month at 50 per hour"
+
+[[price]]
+model_id = "binding-gate/fetch@1"
+input_per_mtok = 0.0
+output_per_mtok = 0.0
+per_call_usd = 0.0
+source = "no charge: direct HTTP GET by this project's page fetcher (research/fetch.py)"
+accessed = "2026-11-22"

@@ -47,8 +47,9 @@ model under test is known, otherwise at the first judge call.
 
 Budget
 ------
-The PR 2 runner does not charge judge calls (the judge is not in
-``[[models]]``). This arm therefore enforces its own hard cap,
+The PR 2 runner did not charge judge calls (the judge is not in
+``[[models]]``); since PR 8 it prices them by the model id in the response and
+charges them to the cap of the record's model. This arm also enforces its own hard cap,
 ``judge_max_usd``, over all judge calls of all its instances in one process,
 priced from ``prices`` (default ``configs/prices.toml``, relative to the
 working directory, i.e. the repository root when run through the CLI). When

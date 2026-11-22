@@ -6,10 +6,12 @@ read from the environment (API keys are, through ``binding_gate.secrets``).
 Commands
 --------
 ``dry-run --config C [--model L]``
-    Load the items, build every request, count calls and estimate cost. Calls no
+    Load the items, build every request, count calls and estimate cost (model
+    under test and auxiliary calls: decomposer, judge, web search). Calls no
     API, needs no key, writes no trace.
 ``preflight --config C [--model L]``
-    Free check that each configured model id exists at its provider.
+    Free check that each configured model id exists at its provider, and of
+    every auxiliary client (decomposer model, judges, web search account).
 ``run --config C --confirm-spend [--model L] [--runs-dir runs] [--resume DIR]``
     The paid run. Refuses without ``--confirm-spend``; runs the preflight
     itself; enforces the budget cap of the config.
@@ -23,11 +25,23 @@ Commands
     holds (the refusal is logged), runs the config on the test split, then
     writes the analysis under ``runs/<run_id>/analysis/``
     (``binding_gate.frozen_run``).
-``models --config C``
-    The model labels of a config as a JSON array (used by the workflow matrix).
+``models --config C [--available]``
+    The model labels of a config as a JSON array (used by the workflow matrix);
+    with ``--available`` only those whose API key is set.
 ``dataset-pin --config C``
-    ``repository=``, ``commit=`` and ``root=`` of the config's dataset (used by
-    the workflow to clone the benchmark at the pinned commit).
+    ``repository=``, ``commit=`` and ``root=`` of the config's dataset, plus
+    ``method=prepare`` for a dataset that is downloaded and converted rather
+    than cloned with git (used by the workflow to get the data at its pinned
+    version; no ``method`` line means git).
+``dataset-prepare --config C``
+    Download and convert a dataset whose ``method`` is ``prepare`` (SealQA)
+    into its ``root`` under ``data/raw/``, checking every pinned hash.
+``requirements --config C``
+    What the workflow needs for a config, one ``key=value`` per line:
+    ``extras`` (optional dependency groups to install), ``secrets`` (API keys
+    the run reads), ``layer``, ``private_outputs`` (true when the run stores
+    third-party page text, so its artifacts must not be published) and
+    ``baseline_report`` (whether the PR 2 stop-rule report applies).
 
 Exit codes: 0 success; 1 failure; 2 bad command line; 3 budget cap reached (run
 left unfinished and resumable); 4 a required API key is not set.
@@ -105,19 +119,17 @@ def _parser() -> argparse.ArgumentParser:
     with_model(frozen)
     frozen.add_argument("--no-figures", action="store_true", help="do not draw figures")
 
-    with_config("models", "print the model labels of a config as a JSON array")
-    with_config("dataset-pin", "print repository, commit and root of the config's dataset")
+    models = with_config("models", "print the model labels of a config as a JSON array")
+    models.add_argument("--available", action="store_true", help="only models whose API key is set")
+    with_config("dataset-pin", "print repository, commit, root and method of the config's dataset")
+    with_config("dataset-prepare", "download and convert a dataset whose method is 'prepare'")
+    with_config("requirements", "print extras, secrets, layer and output privacy of a config")
     return parser
 
 
 def _missing_keys(config, selection: str | None) -> list[tuple[str, str]]:
-    """``(label, secret name)`` of every selected model whose API key is not set."""
-    missing = []
-    for spec in runner.select_models(config, selection):
-        secret = getattr(runner.build_model(spec), "secret_name", None)
-        if secret and not secrets.has_secret(secret):
-            missing.append((spec.label, secret))
-    return missing
+    """``(label, secret name)`` of every selected model and auxiliary client whose API key is not set."""
+    return runner.missing_keys(config, selection)
 
 
 def _cmd_dry_run(args: argparse.Namespace) -> int:
@@ -138,19 +150,18 @@ def _cmd_dry_run(args: argparse.Namespace) -> int:
 def _cmd_preflight(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     failed = skipped = 0
-    for spec in runner.select_models(config, args.model):
-        client = runner.build_model(spec)
+    for label, client in runner.preflight_targets(config, args.model):
         secret = getattr(client, "secret_name", None)
         check = getattr(client, "preflight", None)
         if check is None:
-            print(f"preflight {spec.label}: no preflight available for component {spec.name!r}")
+            print(f"preflight {label}: no preflight available for {type(client).__name__}")
             continue
         if secret and not secrets.has_secret(secret):
-            print(f"preflight {spec.label}: SKIPPED - repository secret / environment variable {secret} is not set")
+            print(f"preflight {label}: SKIPPED - repository secret / environment variable {secret} is not set")
             skipped += 1
             continue
         result = check()
-        print(f"preflight {spec.label}: {'OK' if result.ok else 'FAILED'} - {result.detail}")
+        print(f"preflight {label}: {'OK' if result.ok else 'FAILED'} - {result.detail}")
         failed += not result.ok
     if failed:
         return EXIT_FAILURE
@@ -246,7 +257,12 @@ def _cmd_frozen_test_run(args: argparse.Namespace) -> int:
 
 
 def _cmd_models(args: argparse.Namespace) -> int:
-    print(json.dumps([spec.label for spec in load_config(args.config).models]))
+    config = load_config(args.config)
+    labels = [spec.label for spec in config.models]
+    if args.available:
+        missing = {label for label, _secret in runner.missing_keys(config, "all")}
+        labels = [label for label in labels if label not in missing]
+    print(json.dumps(labels))
     return EXIT_OK
 
 
@@ -258,6 +274,25 @@ def _cmd_dataset_pin(args: argparse.Namespace) -> int:
         if value is None:
             raise runner.RunnerError(f"dataset {config.dataset.name!r} does not declare {name!r}")
         print(f"{name}={Path(value).as_posix() if name == 'root' else value}")
+    method = getattr(adapter, "pin_method", None)
+    if method is not None:  # absent means "git" (the PR 2 output is unchanged for git datasets)
+        print(f"method={method}")
+    return EXIT_OK
+
+
+def _cmd_dataset_prepare(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    adapter = registry.create("dataset", config.dataset.name, **config.dataset.options)
+    if getattr(adapter, "pin_method", "git") != "prepare" or not hasattr(adapter, "prepare"):
+        raise runner.RunnerError(f"dataset {config.dataset.name!r} is obtained with git, not prepared")
+    print(json.dumps(adapter.prepare(), indent=2, sort_keys=True))
+    return EXIT_OK
+
+
+def _cmd_requirements(args: argparse.Namespace) -> int:
+    for key, value in runner.run_requirements(load_config(args.config)).items():
+        text = ",".join(value) if isinstance(value, (list, tuple)) else str(value).lower() if isinstance(value, bool) else str(value)
+        print(f"{key}={text}")
     return EXIT_OK
 
 
@@ -270,6 +305,8 @@ _COMMANDS = {
     "frozen-test-run": _cmd_frozen_test_run,
     "models": _cmd_models,
     "dataset-pin": _cmd_dataset_pin,
+    "dataset-prepare": _cmd_dataset_prepare,
+    "requirements": _cmd_requirements,
 }
 
 

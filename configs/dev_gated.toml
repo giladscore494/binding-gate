@@ -14,8 +14,9 @@
 # Cost: the answer calls cost the same as the dev baseline (one call per item, model
 # and repeat; this is a new run, so the baseline's responses are not reused). The
 # decomposer is called at most once per distinct question for the whole run (45 dev
-# questions) and only for answered candidates; its calls are logged in the trace but
-# are NOT covered by the [runner] budget caps, which apply to the models under test.
+# questions) and only for answered candidates; its calls are logged in the trace and,
+# since PR 8, priced by the model id in the response and charged to the [runner] budget
+# cap of the record's model (the dry run lists them as auxiliary calls).
 #
 # Gate parameters below are PROPOSED values (PREREGISTRATION.md section 5.1) and
 # require owner approval before the freeze. They may be changed on dev only, with

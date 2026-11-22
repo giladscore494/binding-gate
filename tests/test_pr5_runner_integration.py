@@ -41,6 +41,9 @@ def setup(tmp_path, monkeypatch):
     ]
     models = [{"name": "pr5_family_fake", "label": "good", "options": {"model_id": "fake-cheap", "behaviour": "target", "provider": "openai"}}]
     repo, config, _raw = h.setup(tmp_path, arms=arms, models=models, repeats=REPEATS)
+    # PR 8: the runner prices auxiliary calls (here the judge) by the id in the response and
+    # refuses to start without a price for them, so the run's price file lists the judge too.
+    (repo / "configs" / "prices.toml").write_text(h.PRICES + f.FAKE_JUDGE_PRICE, encoding="utf-8")
     yield repo, config, tmp_path
     judging.reset_shared_state()
     fc.reset_backends()
@@ -74,11 +77,14 @@ def test_checker_arms_reuse_the_no_gate_candidate_with_zero_extra_calls(setup):
             assert record.attempts[0].verdict.decision is Decision.ABSTAIN  # the judge fails entity_in_window
             assert [c.purpose for c in record.model_calls] == ["answer", "check"]
             assert record.final_answer.status is AnswerStatus.ABSTAINED
-    # Judge calls are not priced by the PR 2 runner (the judge is not a [[models]] entry);
-    # llm_judge_checks enforces its own cap. The runner lists the judge as unpriced.
-    assert summary.unpriced_clients == ["judge-a"]
+    # PR 8: judge calls are priced by the model id in the response ("fake-judge") and charged
+    # to the budget of the record's model (llm_judge_checks keeps its own cap as well).
+    assert summary.unpriced_clients == []
     per_call = (1000 * 1.0 + 500 * 2.0) / 1_000_000
-    assert summary.spend_usd["good"] == pytest.approx(N_DEV_ITEMS * REPEATS * 2 * per_call)
+    per_judge_call = (2000 * 2.0 + 300 * 10.0) / 1_000_000
+    assert summary.spend_usd["good"] == pytest.approx(
+        N_DEV_ITEMS * REPEATS * 2 * per_call + TARGET_ANSWERED * REPEATS * per_judge_call
+    )
 
 
 def test_dry_run_builds_every_request_without_loading_the_checker_or_calling_the_judge(setup):
