@@ -35,3 +35,6 @@ secrets.*
 .idea/
 .vscode/
 .DS_Store
+
+# Local Python 3.11 test environment (PR 3)
+.venv311/
