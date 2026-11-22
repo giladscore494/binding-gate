@@ -207,3 +207,16 @@ def test_thresholds_match_the_preregistration_text():
     assert f"R ≥ {br.CONTINUE_PERCENT}%" in PREREG
     assert f"R < {br.CARRY_PERCENT}%" in PREREG
     assert f"more than {br.MEASUREMENT_CHECK_PERCENT}% of dev records" in PREREG
+
+
+def test_top_errors_are_counted_truncated_and_scrubbed():
+    from binding_gate.baseline_report import summarise_errors
+
+    errors = ["ModelCallFailed: HTTP 400: Unsupported value 'none' for reasoning.effort"] * 3 + [
+        "HTTP 401: key=SECRET123 Bearer abc.def sk-abcdefghijklmnop"
+    ]
+    top = summarise_errors(errors)
+    assert top[0] == {"count": 3, "message": "ModelCallFailed: HTTP 400: Unsupported value 'none' for reasoning.effort"}
+    assert "SECRET123" not in top[1]["message"] and "sk-abcdefghijklmnop" not in top[1]["message"]
+    assert "abc.def" not in top[1]["message"]
+    assert all(len(e["message"]) <= 300 for e in summarise_errors(["x" * 1000]))
