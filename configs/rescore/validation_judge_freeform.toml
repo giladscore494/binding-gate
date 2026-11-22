@@ -44,9 +44,8 @@ label = "judge-kimi-k3.1-pro"
 [judges.options]
 model_id = "kimi-k3.1-pro"
 max_output_tokens = 12288
-# 0.0 as in the benchmark; UNVERIFIED for this model on Moonshot's API. If it is
-# rejected, delete the line (provider default) and record the deviation.
-temperature = 0.0
+# The benchmark judged at 0.0; Kimi K3 cannot (deviation, PREREGISTRATION.md section 18).
+# temperature: not sent - Kimi K3 models fix it at 1.0 and reject any other value (platform.kimi.ai models overview, read 2026-11-22; every judge call of run 45060087457 failed)
 timeout_seconds = 300
 max_retries = 5
 backoff_seconds = 2.0

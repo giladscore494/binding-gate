@@ -490,8 +490,8 @@ def test_the_amendment_is_recorded_as_post_hoc_and_changes_no_threshold():
     from binding_gate.report import prereg_doc
 
     text = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert prereg_doc.status(text) == "DRAFT" and prereg_doc.version(text).startswith("0.10 ")
-    (row,) = prereg_doc.amendments(text)
+    assert prereg_doc.status(text) == "DRAFT" and prereg_doc.version(text).startswith(("0.10 ", "0.11 "))
+    row = prereg_doc.amendments(text)[0]
     assert "AFTER seeing the layer-1 DEV baseline" in row["reason"] and "45053502161" in row["reason"]
     assert "test-split work for layer 1 remains stopped" in row["reason"] and row["test results seen before the change?"].startswith("No")
     section10 = prereg_doc.section(text, 10)
@@ -522,3 +522,12 @@ def test_the_running_guide_documents_the_stage_in_both_languages():
     assert "Layer-1 baseline: STOP; validation in progress." in readme
     architecture = (REPO_ROOT / "ARCHITECTURE.md").read_text(encoding="utf-8")
     assert "`free_form` (PR 22, exploratory" in architecture and "PR 22 changed no contract" in architecture
+
+
+def test_the_judge_command_on_free_form_runs_skips_the_provenance_agreement(runs, capsys):
+    """Run 45060087457: the agreement printout refused the free-form records after a successful rescore."""
+    repo, _structured_dir, free_dir, sample_config, _raw = runs
+    code = lj.main(["run", "--confirm-spend", "--arm", "free_form", "--config", str(sample_config),
+                    "--repo-root", str(repo), str(free_dir)])
+    out = capsys.readouterr().out
+    assert code == lj.EXIT_OK and "no agreement with provenance" in out and '"top_errors": []' in out

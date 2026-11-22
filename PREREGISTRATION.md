@@ -2,7 +2,7 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.10 (2026-11-22, PR 22)
+**Document version:** 0.11 (2026-11-22, PR 26: amendment 2, judge temperature)
 
 **Changelog.** 0.10 (2026-11-22, PR 22): **amendment 1** (section 18), decided
 by the owner on 2026-11-22 **after** seeing the layer-1 dev baseline (workflow
@@ -2913,3 +2913,4 @@ freeze, changes are ordinary edits and need no row.
 | # | Date | Section | Change | Reason | Test results seen before the change? |
 |---|---|---|---|---|---|
 | 1 | 2026-11-22 | 5, 6.5, 9, 10, 16, 17 | Layer-1 STOP applied as written; layer-1 confirmatory work (gated arms, ablations, comparison arms, H1-H3 on layer 1, `test_layer1`, mid-tier check) stays stopped and its 13 budget entries get status `stopped` (refused by the ledger). Three exploratory, post hoc dev steps added: V1 secondary judge on a fixed 144-item-per-model subsample of the dev-baseline answers with its agreement with the deterministic label; V2 new arm `free_form` (benchmark prompt, no structured answer) on the same items, judge-scored, paired comparison with cluster bootstrap; V3 layer 2 continues with its dev runs under a new layer-2 stop rule (thresholds identical to layer 1) fixed before its baseline is scored. Section 10 made layer-scoped; threats and open items 58-62 added. Version 0.10. | Owner's decision after the layer-1 dev baseline (workflow run 45053502161: R = 2.0% / 2.4% / 1.6%, STOP), on the orchestrator's critique that the quote-provenance metric may undercount claim-level failures, that the structured answer may itself suppress the failure (the paper reports 8-87% free-form), and that the rule did not cover layer 2. Decided AFTER seeing the layer-1 DEV baseline; nothing is re-thresholded; test-split work for layer 1 remains stopped. | No (dev only; no test-split item of any layer has been shown to a model) |
+| 2 | 2026-11-22 | 5, 6.5 | The secondary judge (kimi-k3.1-pro) is called without a temperature (the provider fixes it at 1.0) instead of the benchmark's 0.0. Judge summaries now report the most frequent error messages. | Moonshot's Kimi K3 models reject any temperature other than 1.0 (platform.kimi.ai models overview, read 2026-11-22); in workflow run 45060087457 the judge calls of V1 and V2 failed (V1 290, V2 431 judge errors), so no judgment from that run is used. A judge at temperature 1.0 is not deterministic; its agreement figures are reported as such. | No (dev only) |
