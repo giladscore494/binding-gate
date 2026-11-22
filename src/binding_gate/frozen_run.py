@@ -5,12 +5,14 @@
 
 1. **Config checks** (no data is touched, nothing is logged): the config's
    split is ``test``; it has the pre-registered number of repeats and the
-   reference arm ``no_gate``; the config file lies inside the repository and is
+   reference arm ``no_gate``; it names no seed runs (PR 12: a test run makes
+   all of its own calls); the config file lies inside the repository and is
    tracked by git (so the clean-tree condition covers it); the runs directory is
    outside the repository or git-ignored.
 2. ``--confirm-spend`` must be given (a test run makes paid model calls).
 3. **Lock pre-check.** The conditions of ``testlock.load_test_split`` are
-   evaluated first. If any fails, ``load_test_split`` itself is called with no
+   evaluated first with the public, read-only ``testlock.check_unlock`` (no
+   access, no log entry). If any fails, ``load_test_split`` itself is called with no
    items, so that the refusal is written to ``audit/test_access_log.jsonl`` by
    the one official function and ``TestSplitLocked`` is raised. No preflight
    and no model call happens before the lock is known to open.
@@ -81,6 +83,8 @@ def config_refusals(config: RunConfig, config_path: Path, repo_root: Path, runs_
         reasons.append(f"the config's split is {config.split.value!r}; a frozen test run needs split = \"test\"")
     if config.repeats != prereg.REPEATS:
         reasons.append(f"repeats = {config.repeats}; the pre-registration fixes {prereg.REPEATS}")
+    if config.runner.get("seed_responses_from"):
+        reasons.append("the config names seed runs ([runner] seed_responses_from); a frozen test run makes all its own calls")
     if prereg.REFERENCE_ARM not in {arm.label for arm in config.arms}:
         reasons.append(f"the config has no arm labelled {prereg.REFERENCE_ARM!r} (the reference of every comparison)")
     relative = _inside(config_path, repo_root)
@@ -102,14 +106,14 @@ def config_refusals(config: RunConfig, config_path: Path, repo_root: Path, runs_
 def lock_precheck(repo_root: Path, tag: str, purpose: str) -> None:
     """Raise ``TestSplitLocked`` (after logging the refusal) unless the lock would open.
 
-    Uses the lock's own condition check; a refusal is logged by calling
+    Uses the lock's own read-only condition check (``testlock.check_unlock``); a refusal is logged by calling
     ``testlock.load_test_split`` with no items, so the log has exactly one entry
     per refused attempt and the official function stays the only writer.
     """
-    reasons, _head = testlock._unlock_refusals(repo_root, tag, purpose)  # read-only evaluation
-    if reasons:
+    check = testlock.check_unlock(repo_root, tag, purpose)  # read-only: not an access, not logged
+    if not check.would_unlock:
         testlock.load_test_split([], repo_root=repo_root, confirm_tag=tag, purpose=purpose)
-        raise testlock.TestSplitLocked(reasons)  # pragma: no cover - load_test_split raises first
+        raise testlock.TestSplitLocked(list(check.reasons))  # pragma: no cover - load_test_split raises first
 
 
 def _access_log_tail(repo_root: Path) -> dict[str, Any]:

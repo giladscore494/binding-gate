@@ -9,8 +9,13 @@ arms, LLM-judge scorer, ablation configs), PR 6 (statistics, plots, frozen test
 run), PR 7 (GRAB-RAG, layer 2), PR 8 (SealQA live-web layer, re-search loop,
 snapshots), PR 9 (MCP server) and PR 10 (public report, human-audit tool).
 PR 11 refreshed the documentation, added the operating guide `docs/RUNNING.md`
-and let `cli analyze` handle layer-3 runs. "PR n" below names the PR that added
-a part. No model has been run yet; the pre-registration is still DRAFT.
+and let `cli analyze` handle layer-3 runs. PR 12 closed engineering gaps before
+the keys are connected: decomposer cache preload on resume, seeding a run's
+response cache from earlier dev runs (section 8a), a public read-only lock
+check (section 6), the complete `configs/test_layer1.toml`, the MiniCheck
+preparation step of the workflow, and per-model judge budgets. "PR n" below
+names the PR that added a part. No model has been run yet; the pre-registration
+is still DRAFT.
 
 What is measured and how success is judged is defined in
 [PREREGISTRATION.md](PREREGISTRATION.md). This file is about how the code is
@@ -111,7 +116,7 @@ src/binding_gate/
   audit_tool/    human audit: sample, label, analyse (section 13)               PR 10
 tests/                           one or more test files per module
 .github/workflows/tests.yml      pytest on Python 3.11 and 3.13
-.github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run) PR 2, 8
+.github/workflows/baseline.yml   manually started dev runs (dry run, smoke, paid run) PR 2, 8, 12
 ```
 
 Ownership as delivered. Each PR added files in the places listed and did not
@@ -217,7 +222,7 @@ reads, as of PR 11:
 | Arms | `no_gate`, `no_gate_live` (layer-3 baseline, run with label `no_gate`), `prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`, `gated`, `gated_research` |
 | Scorers | `provenance` (deterministic, primary, layers 1-2), `grab_rag_answer` (deterministic, layer 2), `sealqa_answer` (deterministic, primary, layer 3), `llm_judge` (secondary) |
 | Search clients (not a registry kind) | `serpapi_google` (`research/search.py`, `SEARCH_CLIENTS`) |
-| Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs (`configs/test_layer1.toml` still writes `gated-minus-<check>`; pre-registration section 17) |
+| Arm labels read by the statistics and the audit | `no_gate` (reference), `gated` (H1, H2), `faithfulness_checker` (H3), `gated_research` (H4); ablations `gated_minus_<check>` in the dev configs and in `configs/test_layer1.toml` (one scheme since PR 12) |
 | `provenance` labels | `target_only`, `competitor_only`, `both`, `neither`, plus `abstained`, `unparseable` |
 | `grab_rag_answer` labels | `correct`, `misled`, `ambiguous`, `other_wrong`, `abstained`, `unparseable` |
 | `sealqa_answer` labels | `correct`, `incorrect`, `abstained`, `unparseable` |
@@ -277,7 +282,8 @@ Registering the same name twice raises an error.
   they are listed and read. Secrets never appear in configs, traces or logs.
 - Dev runs are started from the manually triggered GitHub Actions workflow
   `.github/workflows/baseline.yml`, whose inputs are the config path, a model
-  label, a dry-run box and a spend confirmation, with API keys taken from
+  label, a dry-run box, a spend confirmation and (PR 12) the id of the workflow
+  run that holds the config's seed runs, if it names any, with API keys taken from
   repository secrets, so that a run is started by choosing a file rather than by
   editing settings (operating guide: `docs/RUNNING.md`). The frozen test run,
   the decomposer measurement, calibration, re-scoring, analysis, audit and
@@ -292,7 +298,11 @@ Registering the same name twice raises an error.
   function returning test items except `testlock.load_test_split`, which
   requires: a named tag `prereg-freeze-*`; HEAD equal to that tag; a clean
   working tree; `PREREGISTRATION.md` status FROZEN; a stated purpose.
-- Every call, granted or refused, appends a hash-chained line to
+- `testlock.check_unlock` (PR 12) evaluates the same conditions read-only: it
+  reports why the lock would refuse and writes nothing, so it is not an access.
+  `frozen_run.py` uses it to stop before any preflight or paid call; the access
+  itself, and the log entry of a refusal, still go through `load_test_split`.
+- Every call of `load_test_split`, granted or refused, appends a hash-chained line to
   `audit/test_access_log.jsonl`. The log is committed after each test run; CI
   verifies the chain and that no access was granted while the status is DRAFT.
 - Limitation: this is auditability, not access control. Someone determined can
@@ -325,7 +335,9 @@ These are fixed here because every later PR relies on them.
 2. Hand arms `item.arm_input()` only.
 3. Within a run, reuse the response to an identical `ModelRequest` for the same
    client and repeat index, so that arms sharing the answer prompt are compared
-   on the same candidate answer (PREREGISTRATION.md section 5).
+   on the same candidate answer (PREREGISTRATION.md section 5). A dev run may
+   also reuse, by explicit opt-in, the answers of earlier dev runs under the same
+   key (PR 12; section 8a, "Seeding from earlier runs").
 4. Dev runs use `split.select_dev`; test runs use `testlock.load_test_split`
    and record the tag in `RunManifest.test_unlock_tag`.
 5. Retries on transport errors are bounded, configured in the run config, and
@@ -359,9 +371,37 @@ These are fixed here because every later PR relies on them.
   hidden reasoning tokens.
 - **Cache.** Key = SHA-256 of `{client label, repeat, request}`. A reused
   response is flagged `raw["cache_hit"] = true` and is not charged. On resume
-  the cache is rebuilt from the trace.
+  the cache is rebuilt from the trace, and (PR 12) each `model_decomposer`'s
+  process cache is seeded from the decompose calls already in the trace
+  (`ModelDecomposer.preload_from_call`, which re-parses each recorded reply), so
+  no question is decomposed twice in one run and every segment uses the same
+  constraints. The resume entry of `invocations.jsonl` records the counts
+  (`decompositions_preloaded`).
+- **Seeding from earlier runs (PR 12, opt-in).** `[runner] seed_responses_from =
+  ["seeds/<run id>", ...]` (paths relative to the repository root) loads the
+  successful, non-cached `answer` calls of the model under test from earlier dev
+  run directories into the cache, under the same key as the live cache (model
+  label, repeat, request), after the run's own trace on resume; the first listed
+  seed wins a duplicate key. A run that sends the same answer request for the
+  same model label and repeat then reuses that response: it is recorded with
+  `raw["cache_hit"] = true` and `raw["seeded_from"] = <seed run id>` and costs
+  nothing. This is how `dev_gated`, the ablations and the comparison baselines
+  reuse the `no_gate` answers of the dev baseline. Refused, before any paid call
+  and before a run directory exists (`runner.load_seed_responses`): any seeding
+  in a test run; a seed that is not a dev run (manifest split, test unlock tag
+  or any record's split); a different dataset spec or dataset fingerprint (from
+  the seed's `invocations.jsonl`); a different model spec for a selected label
+  (transport options `timeout_seconds`, `max_retries`, `backoff_seconds`,
+  `max_backoff_seconds` aside); a live-web config or seed; a seed whose answer
+  calls match no request of this run (a different answer prompt or
+  presentation); a closed seed whose `traces.jsonl` no longer matches its
+  manifest hash; the run seeding itself. The dry run lists the seeded responses
+  per model; the `started`/`resumed` entries of `invocations.jsonl` record each
+  seed. The workflow downloads seed runs into `seeds/` from the `runs-*`
+  artifacts of the workflow run named in its `seed_run_id` input.
 - **`[runner]` config table** (optional, hashed when present): `concurrency`,
-  `max_usd` (hard cap per model label), `max_usd_by_model`, `prices`.
+  `max_usd` (hard cap per model label), `max_usd_by_model`, `prices`,
+  `seed_responses_from` (PR 12).
   `config.py` passes it through; `runner.RunnerSettings` validates it.
 - **Run directory** additionally holds `invocations.jsonl` (one line per start,
   resume and end of the runner: selected models, dataset fingerprint, price
@@ -409,8 +449,9 @@ PR 2 (2026-11-22) changed no contract; the schema version and fingerprint are
 unchanged. It added one optional run-config table, `[runner]` (see section 8a),
 which is not a data contract; configs without it keep their hash.
 
-PRs 3-11 (2026-11-22) changed no contract: `contracts.py` and `schema_lock.py`
+PRs 3-12 (2026-11-22) changed no contract: `contracts.py` and `schema_lock.py`
 are as in PR 1, `SCHEMA_VERSION` is 1 and the fingerprint is unchanged. New
-names (arms, scorers, purposes, gold keys; section 3) and new files written
+names (arms, scorers, purposes, gold keys; section 3), new files written
 beside a run (`scores.<scorer>.jsonl`, `snapshots/`, `frozen_run.jsonl`,
-`analysis/`) are conventions, not data contracts.
+`analysis/`), the PR 12 response flag `raw["seeded_from"]` and the PR 12
+`[runner]` key `seed_responses_from` are conventions, not data contracts.

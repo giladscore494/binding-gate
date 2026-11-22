@@ -12,7 +12,11 @@
 # label and delete one name from "checks" (ARCHITECTURE.md section 3).
 #
 # Cost: the answer calls cost the same as the dev baseline (one call per item, model
-# and repeat; this is a new run, so the baseline's responses are not reused). The
+# and repeat), unless the dev baseline's answers are reused: add
+#   seed_responses_from = ["seeds/<baseline run id>", ...]
+# to [runner] (PR 12; docs/RUNNING.md step 6), and every answer request the baseline
+# already made for the same model label and repeat is taken from its trace at no cost
+# (recorded with cache_hit and seeded_from in this run's trace). The
 # decomposer is called at most once per distinct question for the whole run (45 dev
 # questions) and only for answered candidates; its calls are logged in the trace and,
 # since PR 8, priced by the model id in the response and charged to the [runner] budget

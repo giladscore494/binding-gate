@@ -80,7 +80,8 @@ RUN_STEPS = _steps("run")
 
 def test_plan_job_reads_the_requirements_of_the_config():
     plan = _job("plan")
-    for output in ("models", "extras", "private_outputs", "single_job", "baseline_report"):
+    for output in ("models", "extras", "private_outputs", "single_job", "baseline_report",
+                   "faithfulness_checker", "faithfulness_weights", "seed_runs"):  # last three: PR 12
         assert f"      {output}: ${{{{ steps." in plan
     steps = _steps("plan")
     requirements = steps["Read what the config needs (extras, secrets, output privacy)"]
@@ -145,7 +146,7 @@ def test_running_guide_uses_the_exact_dialog_labels_of_every_workflow_input():
     inputs = WORKFLOW.split("    inputs:\n", 1)[1].split("\npermissions:", 1)[0]
     descriptions = re.findall(r"^        description: (?:\"(.*)\"|'(.*)')$", inputs, re.MULTILINE)
     labels = [double or single for double, single in descriptions]
-    assert len(labels) == 4
+    assert len(labels) == 5  # PR 12 added seed_run_id
     for label in labels:
         assert f"| {label} |" in RUNNING, label
     assert "| Use workflow from (Branch) | `main` |" in RUNNING
@@ -162,3 +163,56 @@ def test_running_guide_names_only_existing_configs_and_modules_and_every_secret(
     assert modules and all(importlib.util.find_spec(m) is not None for m in modules), sorted(modules)
     for secret in set(re.findall(r"secrets\.([A-Z_]+)", WORKFLOW)):
         assert f"`{secret}`" in RUNNING
+
+
+# --------------------------------------------------------------------------- #
+# PR 12: MiniCheck preparation (section 17 item 40) and seed runs (item 32)
+# --------------------------------------------------------------------------- #
+
+
+def test_faithfulness_checker_is_prepared_and_verified_before_any_paid_call():
+    names = list(RUN_STEPS)
+    cache = "Cache the MiniCheck weights and NLTK data (faithfulness checker)"
+    prepare = "Prepare and verify the faithfulness checker (pinned MiniCheck weights; no model API)"
+    for name in (cache, prepare):
+        assert "needs.plan.outputs.faithfulness_checker == 'true'" in RUN_STEPS[name]
+    assert "python -m binding_gate.arms.faithfulness_checker prepare" in RUN_STEPS[prepare]
+    assert "python -m binding_gate.arms.faithfulness_checker verify" in RUN_STEPS[prepare]
+    assert "actions/cache@v4" in RUN_STEPS[cache] and "~/.cache/huggingface/hub" in RUN_STEPS[cache]
+    assert "key: minicheck-${{ needs.plan.outputs.faithfulness_weights }}" in RUN_STEPS[cache]
+    install = names.index("Install package (with the optional extras the config needs)")
+    preflight = names.index("Preflight (free check that the model ids and the search account exist)")
+    assert install < names.index(cache) < names.index(prepare) < preflight < names.index("Paid run")
+    assert "secrets." not in RUN_STEPS[prepare]  # no key reaches the preparation step
+
+
+def test_requirements_drive_the_faithfulness_step_for_the_baselines_config_only():
+    from binding_gate import runner
+    from binding_gate.arms.faithfulness_checker import MINICHECK_CHECKPOINT, MINICHECK_WEIGHTS_REVISION
+    from binding_gate.config import load_config
+
+    baselines = runner.run_requirements(load_config(REPO_ROOT / "configs" / "dev_baselines.toml"))
+    assert baselines["faithfulness_checker"] is True and "faithfulness" in baselines["extras"]
+    assert baselines["faithfulness_weights"] == f"{MINICHECK_CHECKPOINT}@{MINICHECK_WEIGHTS_REVISION}"
+    assert "," not in baselines["faithfulness_weights"]  # GitHub cache keys must not contain commas
+    gated = runner.run_requirements(load_config(REPO_ROOT / "configs" / "dev_gated.toml"))
+    assert gated["faithfulness_checker"] is False and gated["faithfulness_weights"] == ""
+
+
+def test_seed_runs_are_checked_downloaded_outside_runs_and_verified():
+    assert "      seed_run_id:" in WORKFLOW and "actions: read" in WORKFLOW
+    assert "  SEED_RUN_ID: ${{ inputs.seed_run_id }}" in WORKFLOW  # reaches shells only as a variable
+    check = _steps("plan")["Check the seed runs of the config against the seed_run_id input"]
+    assert '[ -n "$SEED_RUNS" ] && [ -z "$SEED_RUN_ID" ]' in check and '[ -z "$SEED_RUNS" ] && [ -n "$SEED_RUN_ID" ]' in check
+    assert "*[!0-9]*" in check and "seeds/*/*" in check and "exit 1" in check
+    download = RUN_STEPS["Download the seed runs named in the config (runs-* artifacts of the workflow run seed_run_id)"]
+    assert "actions/download-artifact@v4" in download and "path: seeds" in download
+    assert "run-id: ${{ inputs.seed_run_id }}" in download and "github-token: ${{ github.token }}" in download
+    assert "needs.plan.outputs.seed_runs != ''" in download
+    verify = RUN_STEPS["Check that every seed run was downloaded"]
+    assert '"$SEED/manifest.json"' in verify and "exit 1" in verify
+    names = list(RUN_STEPS)
+    assert names.index("Check that every seed run was downloaded") < names.index("Dry run (no API call, no key needed)")
+    # seeds/ is never part of what is uploaded or reported as the new run
+    assert "path: runs/" in RUN_STEPS["Upload runs/ (traces, manifest, report)"]
+    assert "seeds" not in RUN_STEPS["Baseline report for this model"]

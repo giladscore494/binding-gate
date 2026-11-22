@@ -197,6 +197,9 @@ def test_requirements_dataset_pin_and_prepare_commands(tmp_path, monkeypatch, ca
         "private_outputs": True,
         "single_job": True,
         "baseline_report": False,
+        "faithfulness_checker": False,
+        "faithfulness_weights": "",
+        "seed_runs": [],
     }
     path = tmp_path / "live.toml"
     path.write_text(to_toml(raw), encoding="utf-8")

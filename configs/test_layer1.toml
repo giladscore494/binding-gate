@@ -11,13 +11,13 @@
 # FROZEN. Then it runs every arm below on the test split and writes the analysis
 # (binding_gate.stats) under runs/<run_id>/analysis/.
 #
-# STATE OF THIS FILE (2026-11-22, PR 6): DRAFT. It is validated for its schema
-# and names only (tests/test_frozen_run.py). The arms prompt_entity_check,
-# faithfulness_checker and llm_judge_checks (PR 5) and gated (PRs 3 and 4) did
-# not exist when it was written, so their options below are the ones frozen in
-# ARCHITECTURE.md section 3 (the gated arm's `checks` list) plus TODO markers.
-# Before the freeze, PRs 3-5 must complete these options, a dry run of the same
-# arms on the dev split must succeed, and the owner must approve the file.
+# STATE OF THIS FILE (2026-11-22, PR 12): DRAFT, arms complete. Every arm has the
+# options of its dev counterpart (see the arms section below; checked by
+# tests/test_pr12_test_config.py), so a frozen run executes the pre-registered arms.
+# The same arms were dry-run on the dev split (a copy of this file with split = "dev";
+# also in the tests). Open before the freeze (PREREGISTRATION.md section 17): the
+# owner's approval of this file, of the gate parameters (item 7) and of the budget
+# caps, which are placeholders (item 13).
 #
 # Models, sampling, dataset pin and scorer are identical to configs/dev_baseline.toml
 # (PREREGISTRATION.md section 9); only the split, the arms and the budget differ.
@@ -34,19 +34,21 @@ repeats = 3
 concurrency = 8
 prices = "configs/prices.toml"
 # Hard budget cap in US dollars PER MODEL LABEL. PLACEHOLDER VALUES, NOT A
-# MEASUREMENT: the PR 2 dev caps scaled by (2,505 test items x 3 repeats x 2
-# distinct answer prompts) / (1,455 dev items x 3 repeats x 1 prompt) = 3.44,
-# rounded up. Since PR 8 they bound the answering calls of the models under test AND
-# the decomposer and judge calls charged to each model's records (priced by the id in
-# the response; the run refuses to start without a price for them). PROPOSED - requires owner approval before
-# freeze, after the dev baseline has measured real usage. The test split cannot
-# be dry-run without unlocking it, so the estimate must come from dev runs.
-max_usd = 21.0
+# MEASUREMENT (the test split cannot be dry-run without unlocking it). Since PR 8 the
+# caps bound the answer calls of each model under test AND the decomposer and judge
+# calls charged to its records. Derived in PR 12: the HIGH dry-run estimate per model
+# job of these same arms on the dev split (2026-11-22; two answer prompts + judge +
+# decomposer: 120.68 / 324.47 / 120.68 / 324.47 / 141.68 / 300.30 USD) scaled by
+# 2,505 test / 1,455 dev items (x 1.7216) and rounded up to the next 10 USD.
+# (PR 6 placeholders, without the judge: 21 / 380 / 21 / 380 / 59 / 345.) Sum: 2,310.
+# PROPOSED - requires owner approval before freeze, after the dev runs have measured
+# real usage.
+max_usd = 210.0
 [runner.max_usd_by_model]
-openai-mid = 380.0
-anthropic-mid = 380.0
-google-low = 59.0
-google-mid = 345.0
+openai-mid = 560.0
+anthropic-mid = 560.0
+google-low = 250.0
+google-mid = 520.0
 
 [dataset]
 name = "deceptive_grounding"
@@ -62,6 +64,7 @@ label = "openai-low"
 [models.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+# temperature: not sent (provider default), as in configs/dev_baseline.toml
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -73,6 +76,7 @@ label = "openai-mid"
 [models.options]
 model_id = "gpt-6.1-sol"
 max_output_tokens = 4096
+# temperature: not sent (provider default), as in configs/dev_baseline.toml
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -126,9 +130,14 @@ max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-# ---- Arms (PREREGISTRATION.md section 5). Labels are what the analysis reads:
-# "no_gate" is the reference, "gated" is H1/H2, "faithfulness_checker" is H3.
-# The ablations and llm_judge_checks / prompt_entity_check are exploratory.
+# ---- Arms (PREREGISTRATION.md section 5). Labels are what the analysis reads
+# (binding_gate.stats.prereg): "no_gate" is the reference, "gated" is H1/H2,
+# "faithfulness_checker" is H3. The ablations ("gated_minus_<check>", the labels of the
+# dev ablation configs) and llm_judge_checks / prompt_entity_check are exploratory.
+# Every arm's options are those of its dev counterpart (no_gate: dev_baseline.toml;
+# prompt_entity_check, faithfulness_checker, llm_judge_checks: dev_baselines.toml;
+# gated: dev_gated.toml; gated_minus_<check>: dev_ablation_<check>.toml), except the
+# split-dependent judge budget judge_max_usd (tests/test_pr12_test_config.py).
 
 [[arms]]
 name = "no_gate"
@@ -137,65 +146,212 @@ label = "no_gate"
 presentation = "deceptive_grounding_doc_injection"
 
 [[arms]]
-name = "prompt_entity_check"             # PR 5; TODO(PR 5): confirm option names
+name = "prompt_entity_check"
 label = "prompt_entity_check"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 
 [[arms]]
-name = "faithfulness_checker"            # PR 5; TODO(PR 5): pinned checker and its options
-label = "faithfulness_checker"
+name = "faithfulness_checker"            # MiniCheck-Flan-T5-Large, pinned (section 5); needs the
+label = "faithfulness_checker"           # faithfulness extra and `faithfulness_checker prepare`
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
+backend = "minicheck"
+evidence = "all_documents"
 
 [[arms]]
-name = "llm_judge_checks"                # PR 5; TODO(PR 5): judge model (other family) and options
+name = "llm_judge_checks"
 label = "llm_judge_checks"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+prices = "configs/prices.toml"
+# Judge-only cap in US dollars PER MODEL UNDER TEST (as in dev_baselines.toml).
+# PLACEHOLDER, split-dependent: the dev value (110 USD for 1,455 items) scaled by
+# 2,505 / 1,455 test items = 189.4, rounded up to the next 10 USD. PROPOSED.
+judge_max_usd = 190.0
+[[arms.options.judges]]
+name = "moonshot_chat"
+label = "judge-kimi-k3.1-pro"
+[arms.options.judges.options]
+model_id = "kimi-k3.1-pro"
+max_output_tokens = 4096
+temperature = 0.0                        # UNVERIFIED on Moonshot's API; see dev_baselines.toml
+timeout_seconds = 300
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
-name = "gated"                           # PRs 3, 4; TODO(PR 3/4): decomposer component and window options
+name = "gated"
 label = "gated"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
-# Per-check ablations (exploratory): the gated arm with one check removed.
+# Per-check ablations (exploratory): the gated arm with one check removed, labelled
+# as in configs/dev_ablation_<check>.toml.
+
 [[arms]]
 name = "gated"
-label = "gated-minus-quote_verbatim"
+label = "gated_minus_quote_verbatim"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
-label = "gated-minus-entity_in_window"
+label = "gated_minus_entity_in_window"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
-label = "gated-minus-qualifiers_in_window"
+label = "gated_minus_qualifiers_in_window"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
-label = "gated-minus-no_closer_competitor"
+label = "gated_minus_no_closer_competitor"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[arms]]
 name = "gated"
-label = "gated-minus-premise_present"
+label = "gated_minus_premise_present"
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
 
 [[scorers]]
 name = "provenance"

@@ -37,10 +37,19 @@ Scope
 :func:`shared_cache` returns one cache per decomposer config hash for the whole
 Python process. The runner builds one arm (and so one decomposer) per model and
 repeat; sharing the cache by config hash is what gives all of them the same
-decomposition. One CLI invocation runs one run, so "process" means "run".
-Limitation: a resumed run starts with an empty cache, so questions decomposed
-before the interruption may be decomposed again; :meth:`DecompositionCache.preload`
-exists so that a caller holding the earlier trace can seed the cache.
+decomposition. One CLI invocation runs one run segment, so "process" means "run
+segment".
+
+Resume (PR 12)
+--------------
+A resumed run is a new process with an empty cache. Before the first unit of a
+resumed segment, the runner reads the decompose calls already in the run's
+trace and seeds the cache with them
+(``ModelDecomposer.preload_from_call``, which re-parses each recorded reply with
+the same deterministic parser and stores the result with :meth:`DecompositionCache.preload`
+or, for a recorded parse failure, :meth:`DecompositionCache.preload_failure`).
+So no question is decomposed twice in one run, and every segment uses the
+decomposition of the first one. The first recorded call for a question wins.
 """
 
 from __future__ import annotations
@@ -118,6 +127,20 @@ class DecompositionCache:
         """Seed the cache with a decomposition obtained earlier (e.g. read back from a trace)."""
         with self._guard:
             self._entries.setdefault(self.key(decomposition.constraints.question), decomposition)
+
+    def preload_failure(self, question: str, error: BaseException) -> None:
+        """Seed the cache with a cacheable failure obtained earlier for ``question`` (e.g. from a trace).
+
+        Later uses re-raise it exactly as if it had been computed in this
+        process (through ``rebuild_error`` of :meth:`get_or_compute`).
+        """
+        with self._guard:
+            self._entries.setdefault(self.key(question), error)
+
+    def peek(self, question: str) -> Decomposition | BaseException | None:
+        """What is cached for ``question`` (a decomposition, a cached failure, or ``None``); no side effect."""
+        with self._guard:
+            return self._entries.get(self.key(question))
 
     def get_or_compute(
         self,

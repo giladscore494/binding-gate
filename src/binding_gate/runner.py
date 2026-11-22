@@ -10,7 +10,9 @@ Implements the requirements of ARCHITECTURE.md section 8:
    cache key is ``SHA-256(canonical JSON of {client, repeat, request})``. A
    reused response is marked ``raw["cache_hit"] = true`` in the reusing call and
    costs nothing. On resume the cache is rebuilt from the trace file, so no
-   separate cache file exists.
+   separate cache file exists. On resume the decomposers' caches are also
+   seeded from the decompose calls in the trace (PR 12), so no question is
+   decomposed twice in one run.
 4. Dev runs use ``split.select_dev``; test runs go through
    ``testlock.load_test_split`` (the only path to test items) and record the tag.
 5. Retries are bounded and configured per model; every attempt is a logged
@@ -26,6 +28,10 @@ Execution settings come from the ``[runner]`` table of the run config:
                       run. The worst case for a whole run is the sum of the caps.
 ``max_usd_by_model``  optional table ``label -> cap`` overriding ``max_usd``.
 ``prices``            path of the price file (default ``configs/prices.toml``).
+``seed_responses_from`` optional list of earlier dev run directories (paths
+                      relative to the repository root) whose answer responses
+                      are loaded into the response cache before the first unit
+                      (PR 12; see "Seeding" below).
 
 **Budget cap.** After each record is written, the cost of its (non-cached)
 model calls is added to the spend of its model, computed from the token usage
@@ -56,6 +62,19 @@ first-attempt searches and fetches it observes (live-web arms use no-network
 stand-ins in a dry run), plus upper bounds for decompositions (one per distinct
 question), judge calls (one per item and repeat) and re-search attempts
 (``max_attempts - 1`` per item and repeat).
+
+**Seeding (PR 12, opt-in).** With ``seed_responses_from``, the answer
+responses of earlier dev runs are put into the response cache under the same
+key as the live cache (model label, repeat, request), after the run's own trace
+on resume. A run that sends the same answer request for the same model label
+and repeat then reuses that response instead of paying for it again: it is
+recorded with ``raw["cache_hit"] = true`` and ``raw["seeded_from"] = <seed run
+id>`` and costs nothing. This lets ``dev_gated``, the ablations and the
+comparison baselines reuse the ``no_gate`` answers of the dev baseline. Seeds
+are refused unless they are dev runs on the same dataset pin with the same
+model specs and request format, and never in a test run or a live-web run
+(:func:`load_seed_responses`). The dry run lists how many responses each seed
+provides; its cost estimates do not subtract them.
 
 **Run context (PR 8).** Arms are built inside
 ``binding_gate.research.context.activate`` so that live-web arms can store
@@ -95,7 +114,8 @@ from binding_gate.trace import TRACES_NAME, TraceWriter, read_traces
 INVOCATIONS_NAME = "invocations.jsonl"
 CACHE_HIT_KEY = "cache_hit"
 SCORER_ERROR_LABEL = "scorer_error"
-_RUNNER_KEYS = {"concurrency", "max_usd", "max_usd_by_model", "prices"}
+SEEDED_FROM_KEY = "seeded_from"
+_RUNNER_KEYS = {"concurrency", "max_usd", "max_usd_by_model", "prices", "seed_responses_from"}
 _DRY_RUN_TEXT = '{"status": "abstained", "reason": "dry run: no model was called"}'
 
 Log = Callable[[str], None]
@@ -124,6 +144,7 @@ class RunnerSettings:
     max_usd: float | None = None
     max_usd_by_model: dict[str, float] = field(default_factory=dict)
     prices: str = "configs/prices.toml"
+    seed_responses_from: tuple[str, ...] = ()
 
     @classmethod
     def from_config(cls, config: RunConfig) -> RunnerSettings:
@@ -146,10 +167,28 @@ class RunnerSettings:
         prices = raw.get("prices", "configs/prices.toml")
         if not isinstance(prices, str) or not prices:
             raise RunnerError("[runner].prices must be a path")
-        return cls(concurrency=concurrency, max_usd=max_usd, max_usd_by_model=by_model, prices=prices)
+        seeds = _seed_paths(raw.get("seed_responses_from", []))
+        return cls(
+            concurrency=concurrency, max_usd=max_usd, max_usd_by_model=by_model, prices=prices,
+            seed_responses_from=seeds,
+        )
 
     def cap_for(self, label: str) -> float | None:
         return self.max_usd_by_model.get(label, self.max_usd)
+
+
+def _seed_paths(raw: Any) -> tuple[str, ...]:
+    """Validate ``[runner].seed_responses_from``: relative run-directory paths, no duplicates."""
+    where = "[runner].seed_responses_from"
+    if not isinstance(raw, list) or not all(isinstance(p, str) and p.strip() for p in raw):
+        raise RunnerError(f"{where} must be a list of run directory paths (strings)")
+    for path in raw:
+        pure = Path(path)
+        if pure.is_absolute() or ".." in pure.parts:
+            raise RunnerError(f"{where}: {path!r} must be a path relative to the repository root, without '..'")
+    if len(set(raw)) != len(raw):
+        raise RunnerError(f"{where} lists a run directory twice")
+    return tuple(raw)
 
 
 # --------------------------------------------------------------------------- #
@@ -310,6 +349,212 @@ class CachedClient:
 
 def is_cache_hit(call: ModelCall) -> bool:
     return call.response is not None and call.response.raw.get(CACHE_HIT_KEY) is True
+
+
+# --------------------------------------------------------------------------- #
+# Seeding the response cache from earlier runs (PR 12)
+# --------------------------------------------------------------------------- #
+
+TRANSPORT_OPTIONS = frozenset({"timeout_seconds", "max_retries", "backoff_seconds", "max_backoff_seconds"})
+"""Model options that change how a request is delivered, never what is sent or answered.
+They are ignored when a seed run's model spec is compared with the current one."""
+
+
+@dataclass(frozen=True)
+class SeedSummary:
+    """What one seed run directory contributed (written to ``invocations.jsonl`` and the dry run)."""
+
+    path: str
+    run_id: str
+    closed: bool
+    responses_by_model: dict[str, int]
+    unmatched_answer_calls: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return dict(self.__dict__)
+
+
+def _comparable_model(spec: ComponentSpec) -> dict[str, Any]:
+    return {
+        "name": spec.name,
+        "options": {k: v for k, v in spec.options.items() if k not in TRANSPORT_OPTIONS},
+    }
+
+
+def _uses_live_web(config: RunConfig) -> bool:
+    return any(spec.options.get("search") is not None for spec in config.arms)
+
+
+def _request_hash(request: ModelRequest) -> str:
+    return sha256_json(request.to_dict())
+
+
+def expected_answer_requests(config: RunConfig, plan: Plan) -> frozenset[str]:
+    """Hashes of the answer requests this run sends first for its items (no network, no key).
+
+    Every arm is run once per item against a recording client that abstains, as
+    in the dry run; answer requests do not depend on the model or the repeat.
+    """
+    recorder = _RecordingClient("seed-check")
+    with run_context.activate(run_context.RunContext(run_dir=None, dry_run=True)):
+        arms = _build_arms(config, CachedClient(recorder, 0, ResponseCache()))
+    for item in plan.items:
+        for _label, arm in arms:
+            arm.run(item.arm_input())
+    return frozenset(_request_hash(request) for request in recorder.requests)
+
+
+def load_seed_responses(
+    config: RunConfig,
+    settings: RunnerSettings,
+    *,
+    repo_root: str | Path,
+    plan: Plan,
+    specs: Sequence[ComponentSpec],
+    expected: frozenset[str],
+    exclude_run_id: str | None = None,
+) -> tuple[dict[str, ModelResponse], list[SeedSummary]]:
+    """Answer responses of earlier runs, keyed exactly like the live cache (opt-in, ``seed_responses_from``).
+
+    Returns ``(cache key -> response, one summary per seed)``. A seeded
+    response carries ``raw["seeded_from"] = <seed run id>``; when the run uses
+    it, :class:`CachedClient` marks it ``raw["cache_hit"] = true`` like any
+    reused response, so it costs nothing and the trace shows where it came from.
+
+    Refused (:class:`RunnerError`, before any paid call and before a run
+    directory is created) when the current run is not a dev run; when a seed
+    directory has no manifest or trace, is the run being resumed, was run on
+    another split or with a test unlock tag, holds a record of another split or
+    run, or was modified after it was closed; when the dataset spec or the
+    dataset fingerprint recorded in its ``invocations.jsonl`` differ from this
+    run's; when a model label selected here has another model spec there
+    (transport options aside: :data:`TRANSPORT_OPTIONS`); when either config
+    uses the live web (answers depend on the evidence gathered in that run); and
+    when a seed has answer calls for a selected model but none of them is a
+    request this run sends (the prompt format or presentation differs).
+
+    Used: successful, non-cached ``answer`` calls of the model under test
+    (``call.client == record.model``) for the selected labels whose request is
+    one this run sends. The key is :func:`cache_key` of (model label, repeat,
+    request). When several seeds hold the same key, the first listed wins; the
+    run's own trace (on resume) wins over every seed.
+    """
+    from binding_gate.config import parse_config
+    from binding_gate.trace import read_manifest
+
+    paths = settings.seed_responses_from
+    if not paths:
+        return {}, []
+    if config.split is not Split.DEV:
+        raise RunnerError(
+            "[runner].seed_responses_from is allowed only in dev runs: a test run makes all of its own calls"
+        )
+    if _uses_live_web(config):
+        raise RunnerError(
+            "[runner].seed_responses_from is not supported for live-web configs: their answers depend on the "
+            "evidence gathered in each run"
+        )
+    selected = {spec.label: spec for spec in specs}
+    seeded: dict[str, ModelResponse] = {}
+    summaries: list[SeedSummary] = []
+    for path_text in paths:
+        where = f"seed {path_text}"
+        run_dir = Path(repo_root) / path_text
+        if not (run_dir / "manifest.json").is_file() or not (run_dir / TRACES_NAME).is_file():
+            raise RunnerError(f"{where}: no manifest.json and traces.jsonl in {run_dir} (download the seed run first)")
+        manifest = read_manifest(run_dir)
+        if exclude_run_id is not None and manifest.run_id == exclude_run_id:
+            raise RunnerError(f"{where} is the run being resumed; a run cannot seed itself")
+        try:
+            seed_config = parse_config(manifest.config)
+        except Exception as exc:  # noqa: BLE001 - reported as a refusal
+            raise RunnerError(f"{where}: its manifest holds an unreadable config: {_describe(exc)}") from exc
+        if seed_config.split is not Split.DEV or manifest.test_unlock_tag is not None:
+            raise RunnerError(
+                f"{where} was run on the {seed_config.split.value!r} split; only dev runs can seed a dev run"
+            )
+        if seed_config.dataset != config.dataset:
+            raise RunnerError(f"{where}: its dataset spec (name, pin, options) differs from this run's")
+        if _uses_live_web(seed_config):
+            raise RunnerError(f"{where} is a live-web run; its answers cannot seed another run")
+        fingerprints = {
+            entry.get("dataset_fingerprint")
+            for entry in read_invocations(run_dir)
+            if entry.get("event") in ("started", "resumed")
+        }
+        if not fingerprints:
+            raise RunnerError(f"{where}: no {INVOCATIONS_NAME} entry records its dataset fingerprint")
+        if fingerprints != {plan.dataset_fingerprint}:
+            raise RunnerError(
+                f"{where}: dataset fingerprint {sorted(map(str, fingerprints))} differs from this run's "
+                f"{plan.dataset_fingerprint}"
+            )
+        seed_models = {spec.label: spec for spec in seed_config.models}
+        for label, spec in selected.items():
+            other = seed_models.get(label)
+            if other is not None and _comparable_model(other) != _comparable_model(spec):
+                raise RunnerError(
+                    f"{where}: model label {label!r} has another model spec there "
+                    f"({_comparable_model(other)} vs {_comparable_model(spec)})"
+                )
+        if manifest.traces_sha256 is not None:
+            import hashlib
+
+            digest = hashlib.sha256((run_dir / TRACES_NAME).read_bytes()).hexdigest()
+            if digest != manifest.traces_sha256:
+                raise RunnerError(f"{where}: traces.jsonl does not match the SHA-256 in its manifest")
+        usable = {label for label in selected if label in seed_models}
+        counts = {label: 0 for label in sorted(usable)}
+        unmatched = 0
+        candidates = 0
+        matched = 0
+        for record in read_traces(run_dir):
+            if record.run_id != manifest.run_id:
+                raise RunnerError(f"{where}: a trace record belongs to another run ({record.run_id})")
+            if record.split is not Split.DEV:
+                raise RunnerError(f"{where}: a trace record is from the {record.split.value!r} split")
+            if record.model not in usable:
+                continue
+            for call in record.model_calls:
+                if call.purpose != "answer" or call.client != record.model:
+                    continue
+                if call.response is None or is_cache_hit(call):
+                    continue
+                candidates += 1
+                if _request_hash(call.request) not in expected:
+                    unmatched += 1
+                    continue
+                matched += 1
+                key = cache_key(record.model, record.repeat, call.request)
+                if key in seeded:
+                    continue
+                seeded[key] = ModelResponse(
+                    text=call.response.text,
+                    model=call.response.model,
+                    usage=call.response.usage,
+                    raw={**call.response.raw, SEEDED_FROM_KEY: manifest.run_id},
+                )
+                counts[record.model] += 1
+        if candidates and not matched:
+            raise RunnerError(
+                f"{where}: none of its {candidates} answer calls for the selected models is a request this run "
+                "sends (the answer prompt format, the presentation or the items differ)"
+            )
+        summaries.append(
+            SeedSummary(
+                path=path_text,
+                run_id=manifest.run_id,
+                closed=manifest.ended_at is not None,
+                responses_by_model=counts,
+                unmatched_answer_calls=unmatched,
+            )
+        )
+    return seeded, summaries
+
+
+def seeded_totals(summaries: Sequence[SeedSummary], labels: Iterable[str]) -> dict[str, int]:
+    """Seeded responses per selected model label over all seeds."""
+    return {label: sum(s.responses_by_model.get(label, 0) for s in summaries) for label in labels}
 
 
 # --------------------------------------------------------------------------- #
@@ -572,6 +817,7 @@ class DryRunReport:
     models: tuple[ModelEstimate, ...]
     auxiliary: dict[str, tuple[AuxEstimate, ...]] = field(default_factory=dict)
     auxiliary_problems: tuple[str, ...] = ()
+    seeds: tuple[SeedSummary, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = dict(self.__dict__)
@@ -579,6 +825,7 @@ class DryRunReport:
         data["models"] = [m.to_dict() for m in self.models]
         data["auxiliary"] = {label: [a.to_dict() for a in rows] for label, rows in self.auxiliary.items()}
         data["auxiliary_problems"] = list(self.auxiliary_problems)
+        data["seeds"] = [seed.to_dict() for seed in self.seeds]
         return data
 
     def total(self, name: str) -> float | None:
@@ -665,6 +912,15 @@ class DryRunReport:
             )
         for problem in self.auxiliary_problems:
             lines.append(f"NOTE: {problem}")
+        if self.seeds:
+            lines.append("")
+            lines.append("SEEDED RESPONSES ([runner] seed_responses_from; reused at no cost, not subtracted above):")
+            for seed in self.seeds:
+                state = "closed" if seed.closed else "unfinished"
+                lines.append(f"  {seed.path}  (run {seed.run_id}, {state})")
+            per_repeat = self.requests_per_repeat * self.repeats
+            for label, count in seeded_totals(self.seeds, [m.label for m in self.models]).items():
+                lines.append(f"  {label:<22}{count:>7} of at most {per_repeat} answer calls seeded")
         lines.append("")
         lines.append(
             "The cap column is the hard budget limit per model ([runner] max_usd); a paid run "
@@ -837,6 +1093,10 @@ def dry_run(
                 entry[1] += _request_chars(call.request) if call.purpose not in ("search", "fetch") else 0
     requests = len(recorder.requests)
     characters = sum(_request_chars(request) for request in recorder.requests)
+    _seeded, seeds = load_seed_responses(
+        config, settings, repo_root=repo_root, plan=plan, specs=specs,
+        expected=frozenset(_request_hash(r) for r in recorder.requests),
+    )
 
     assumptions = prices.assumptions
     input_tokens_per_repeat = sum(
@@ -903,6 +1163,7 @@ def dry_run(
         models=tuple(estimates),
         auxiliary=auxiliary,
         auxiliary_problems=tuple(problems),
+        seeds=tuple(seeds),
     )
 
 
@@ -929,6 +1190,12 @@ def run_requirements(config: RunConfig) -> dict[str, Any]:
     aux, _problems = auxiliary_clients(config)
     secret_names |= {entry.secret for entry in aux}
     live = any(entry.role == "search" for entry in aux)
+    faithfulness = any(a.name == "faithfulness_checker" for a in config.arms)
+    weights = ""
+    if faithfulness:
+        from binding_gate.arms.faithfulness_checker import MINICHECK_CHECKPOINT, MINICHECK_WEIGHTS_REVISION
+
+        weights = f"{MINICHECK_CHECKPOINT}@{MINICHECK_WEIGHTS_REVISION}"
     return {
         "extras": sorted(extras),
         "secrets": sorted(s for s in secret_names if s),
@@ -936,6 +1203,11 @@ def run_requirements(config: RunConfig) -> dict[str, Any]:
         "private_outputs": live,
         "single_job": live,
         "baseline_report": any(s.name == "provenance" for s in config.scorers),
+        # PR 12: the MiniCheck preparation step of the workflow, and the cache key of its weights
+        "faithfulness_checker": faithfulness,
+        "faithfulness_weights": weights,
+        # PR 12: run directories the workflow must download before the run ([runner] seed_responses_from)
+        "seed_runs": list(RunnerSettings.from_config(config).seed_responses_from),
     }
 
 
@@ -1085,6 +1357,67 @@ def _preload(run_dir: Path, cache: ResponseCache, cost: CostModel, spend: dict[s
             spend[record.model] += cost.record_cost(record)
 
 
+def _preload_decompositions(run_dir: Path, aux: Sequence[AuxiliaryClient], plan: Plan, log: Log) -> dict[str, int]:
+    """On resume: seed each decomposer's process cache from the decompose calls in the trace.
+
+    Pre-registration section 17, item 31. Without this a resumed segment starts
+    with an empty decomposition cache and decomposes again every question the
+    earlier segments had decomposed. Each decompose call recorded in the trace
+    (the original or a cache-hit copy, which carries the same reply) is offered
+    to every decomposer of the config with a process cache
+    (``preload_from_call``); the one whose client label and request match takes
+    it. The first recorded call per (decomposer, question) wins, which is the
+    decomposition the earlier segment used for all its later records. Records
+    whose constraints differ from it (possible only for traces written before
+    this preload existed) are counted and reported, not changed.
+    """
+    counts = {"constraints": 0, "failure": 0, "inconsistent_records": 0}
+    decomposers: dict[str, Any] = {}
+    arm_decomposer: dict[str, str] = {}
+    for entry in aux:
+        if entry.role != "decomposer":
+            continue
+        built = entry.detail["decomposer"]
+        if not hasattr(built, "preload_from_call") or getattr(built, "cache", None) is None:
+            continue
+        key = str(getattr(built, "config_hash", id(built)))
+        decomposers.setdefault(key, built)
+        arm_decomposer[entry.arm] = key
+    if not decomposers or not (run_dir / TRACES_NAME).exists():
+        return counts
+    questions = {item.id: item.question for item in plan.items}
+    done: set[tuple[str, str]] = set()
+    records = list(read_traces(run_dir))
+    for record in records:
+        question = questions.get(record.item_id)
+        if question is None:
+            continue
+        for call in record.model_calls:
+            if call.purpose != "decompose" or call.response is None:
+                continue
+            for key, decomposer in decomposers.items():
+                if (key, question) in done:
+                    continue
+                outcome = decomposer.preload_from_call(question, call)
+                if outcome is not None:
+                    done.add((key, question))
+                    counts[outcome] += 1
+                    break
+    for record in records:
+        key = arm_decomposer.get(record.arm)
+        if key is None or record.constraints is None:
+            continue
+        cached = decomposers[key].cache.peek(record.constraints.question)
+        if getattr(cached, "constraints", record.constraints) != record.constraints:
+            counts["inconsistent_records"] += 1
+    if counts["inconsistent_records"]:
+        log(
+            f"WARNING: {counts['inconsistent_records']} earlier record(s) carry constraints that differ from the "
+            "first recorded decomposition of their question; the resumed segment uses the first one"
+        )
+    return counts
+
+
 def execute_run(
     config: RunConfig,
     *,
@@ -1112,6 +1445,11 @@ def execute_run(
         )
     repo_root = Path(repo_root)
     settings = RunnerSettings.from_config(config)
+    if settings.seed_responses_from and config.split is not Split.DEV:
+        # Checked before anything else, so that no test-split access is logged for a run that must stop.
+        raise RunnerError(
+            "[runner].seed_responses_from is allowed only in dev runs: a test run makes all of its own calls"
+        )
     specs = select_models(config, selection)
     try:
         prices = load_prices(repo_root / settings.prices)
@@ -1164,6 +1502,18 @@ def execute_run(
 
     plan = load_plan(config, repo_root=repo_root, test_unlock_tag=test_unlock_tag, purpose=purpose)
     scorers = _build_scorers(config)
+    seeded: dict[str, ModelResponse] = {}
+    seeds: list[SeedSummary] = []
+    if settings.seed_responses_from:
+        from binding_gate.trace import read_manifest
+
+        seeded, seeds = load_seed_responses(
+            config, settings, repo_root=repo_root, plan=plan, specs=specs,
+            expected=expected_answer_requests(config, plan),
+            exclude_run_id=None if resume_dir is None else read_manifest(resume_dir).run_id,
+        )
+        for label, count in seeded_totals(seeds, [spec.label for spec in specs]).items():
+            log(f"seeded responses for {label}: {count}" + ("" if count else " (WARNING: nothing to reuse)"))
 
     if resume_dir is None:
         writer = TraceWriter.start(
@@ -1185,6 +1535,9 @@ def execute_run(
     cache = ResponseCache()
     try:
         _preload(writer.run_dir, cache, cost, summary.spend_usd)
+        for key, response in seeded.items():
+            cache.put(key, response)  # never replaces a response of this run's own trace
+        decompositions = _preload_decompositions(writer.run_dir, aux, plan, log)
         done = writer.completed_keys()
         identity = {
             "run_id": writer.manifest.run_id,
@@ -1205,6 +1558,8 @@ def execute_run(
                 "caps_usd": {spec.label: settings.cap_for(spec.label) for spec in specs},
                 "concurrency": settings.concurrency,
                 "records_already_present": len(done),
+                "seeds": [seed.to_dict() for seed in seeds],
+                "decompositions_preloaded": decompositions,
             },
         )
         arm_labels = [spec.label for spec in config.arms]

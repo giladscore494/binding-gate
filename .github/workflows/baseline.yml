@@ -14,6 +14,15 @@ name: baseline
 # its run directory - which holds third-party page text - is uploaded only encrypted with
 # the RUNS_ENCRYPTION_PASSPHRASE secret (the paid run refuses without it), next to an
 # unencrypted publish manifest of URLs, times and hashes (PREREGISTRATION.md section 14).
+#
+# PR 12 additions, also driven by the config:
+# - a config with the faithfulness_checker arm gets the pinned MiniCheck weights and the
+#   NLTK data prepared and verified before its preflight (`faithfulness_checker prepare`
+#   and `verify`; no model API is called), with the weights cached between runs;
+# - a config with `[runner] seed_responses_from = ["seeds/<run id>", ...]` reuses the
+#   answers of earlier dev runs: the seed run directories are downloaded from the
+#   runs-* artifacts of the workflow run given in the input seed_run_id into seeds/
+#   (outside runs/, so they are never uploaded or reported as part of the new run).
 
 on:
   workflow_dispatch:
@@ -38,9 +47,15 @@ on:
         required: true
         default: false
         type: boolean
+      seed_run_id:
+        description: "Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
+  actions: read   # download the runs-* artifacts of an earlier workflow run (seed runs, PR 12)
 
 concurrency:
   group: baseline-${{ github.ref }}-${{ inputs.config }}-${{ inputs.model }}-${{ inputs.dry_run }}
@@ -49,6 +64,7 @@ concurrency:
 env:
   CONFIG: ${{ inputs.config }}
   MODEL: ${{ inputs.model }}
+  SEED_RUN_ID: ${{ inputs.seed_run_id }}
 
 jobs:
   plan:
@@ -61,6 +77,9 @@ jobs:
       private_outputs: ${{ steps.requirements.outputs.private_outputs }}
       single_job: ${{ steps.requirements.outputs.single_job }}
       baseline_report: ${{ steps.requirements.outputs.baseline_report }}
+      faithfulness_checker: ${{ steps.requirements.outputs.faithfulness_checker }}
+      faithfulness_weights: ${{ steps.requirements.outputs.faithfulness_weights }}
+      seed_runs: ${{ steps.requirements.outputs.seed_runs }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,6 +97,29 @@ jobs:
         run: |
           python -m binding_gate.cli requirements --config "$CONFIG" | tee requirements.txt
           cat requirements.txt >> "$GITHUB_OUTPUT"
+      - name: Check the seed runs of the config against the seed_run_id input
+        env:
+          SEED_RUNS: ${{ steps.requirements.outputs.seed_runs }}
+        run: |
+          if [ -z "$SEED_RUNS" ] && [ -n "$SEED_RUN_ID" ]; then
+            echo "::error::seed_run_id is set but the config names no seed runs ([runner] seed_responses_from). Leave it empty. Nothing was run."
+            exit 1
+          fi
+          if [ -n "$SEED_RUNS" ] && [ -z "$SEED_RUN_ID" ]; then
+            echo "::error::The config reuses earlier runs ($SEED_RUNS). Enter in seed_run_id the id of the workflow run whose runs-* artifacts hold them. Nothing was run."
+            exit 1
+          fi
+          case "$SEED_RUN_ID" in *[!0-9]*) echo "::error::seed_run_id must be the number in the URL of that workflow run (.../actions/runs/<number>)"; exit 1 ;; esac
+          for SEED in ${SEED_RUNS//,/ }; do
+            case "$SEED" in
+              seeds/*/*|seeds/) echo "::error::seed run $SEED must be seeds/<run id>"; exit 1 ;;
+              seeds/*) ;;
+              *) echo "::error::seed run $SEED must be seeds/<run id> (seeds/ is where the workflow downloads it)"; exit 1 ;;
+            esac
+            case "${SEED#seeds/}" in *[!A-Za-z0-9._-]*) echo "::error::seed run $SEED has characters outside A-Z a-z 0-9 . _ -"; exit 1 ;; esac
+          done
+          echo "Seed runs: ${SEED_RUNS:-none}"
+
       - name: Select models
         id: models
         env:
@@ -110,6 +152,7 @@ jobs:
       MODEL: ${{ matrix.model }}
       EXTRAS: ${{ needs.plan.outputs.extras }}
       PRIVATE_OUTPUTS: ${{ needs.plan.outputs.private_outputs }}
+      SEED_RUNS: ${{ needs.plan.outputs.seed_runs }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -144,6 +187,27 @@ jobs:
           fi
           rm -f dataset-pin.txt
 
+      - name: Download the seed runs named in the config (runs-* artifacts of the workflow run seed_run_id)
+        if: ${{ needs.plan.outputs.seed_runs != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: runs-*
+          path: seeds
+          merge-multiple: true
+          run-id: ${{ inputs.seed_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Check that every seed run was downloaded
+        if: ${{ needs.plan.outputs.seed_runs != '' }}
+        run: |
+          for SEED in ${SEED_RUNS//,/ }; do
+            if [ ! -f "$SEED/manifest.json" ] || [ ! -f "$SEED/traces.jsonl" ]; then
+              echo "::error::$SEED is not in the runs-* artifacts of workflow run $SEED_RUN_ID. Check the run id and the run ids in the config."
+              exit 1
+            fi
+            echo "seed run $SEED: $(wc -l < "$SEED/traces.jsonl") trace records"
+          done
+
       - name: Single live-web job - select every model whose API key is set
         if: ${{ matrix.model == 'all' && needs.plan.outputs.single_job == 'true' }}
         env:
@@ -162,6 +226,22 @@ jobs:
 
       - name: Dry run (no API call, no key needed)
         run: python -m binding_gate.cli dry-run --config "$CONFIG" --model "${SELECTED_MODELS:-$MODEL}"
+
+      - name: Cache the MiniCheck weights and NLTK data (faithfulness checker)
+        if: ${{ needs.plan.outputs.faithfulness_checker == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub
+            ~/nltk_data
+          key: minicheck-${{ needs.plan.outputs.faithfulness_weights }}-punkt_tab
+
+      - name: Prepare and verify the faithfulness checker (pinned MiniCheck weights; no model API)
+        if: ${{ needs.plan.outputs.faithfulness_checker == 'true' }}
+        timeout-minutes: 60
+        run: |
+          python -m binding_gate.arms.faithfulness_checker prepare
+          python -m binding_gate.arms.faithfulness_checker verify
 
       - name: Preflight (free check that the model ids and the search account exist)
         id: preflight

@@ -2,9 +2,15 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.3 (2026-11-22, PR 11)
+**Document version:** 0.4 (2026-11-22, PR 12)
 
-**Changelog.** 0.3 (2026-11-22, PR 11): open items consolidated into one
+**Changelog.** 0.4 (2026-11-22, PR 12): engineering items 31, 32, 33, 38 and 40
+of section 17 closed, and the accounting part of item 13 (budget-cap comments
+corrected; the caps of `configs/dev_baselines.toml` and the placeholders of
+`configs/test_layer1.toml` re-derived with judge and decomposer calls; the
+judge's own cap per model under test). No threshold, gate parameter, sample
+size or other experimental value changed; the changed caps remain PROPOSED.
+0.3 (2026-11-22, PR 11): open items consolidated into one
 checklist (section 17); split-unit wording of section 4 per layer; layer-3
 cluster unit in section 8 corrected to the question; state paragraph updated. No
 PROPOSED value and no rule changed. 0.2 (2026-11-22, PR 2): layer-1 facts from
@@ -17,8 +23,10 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project at version 0.3 (PR 11):** all ten planned pull requests
-are merged; no model has been called and no result of any kind exists. The
+**State of the project at version 0.4 (PR 12):** all ten planned pull requests
+and the housekeeping PR 11 are merged, and PR 12 closes the engineering items
+named in the changelog; no model has been called and no result of any kind
+exists. The
 Deceptive Grounding benchmark has been cloned at a pinned commit and its files
 inspected for structure (section 3); the structural statistics quoted there were
 computed over all 264 triple files, because the split is applied by code that
@@ -1658,13 +1666,20 @@ changed on dev data before the freeze.
 13. Budget caps of every paid config (section 9; section 3, layer 3, item 8;
     section 7; `configs/*.toml`, `configs/rescore/dev_llm_judge.toml`), to be
     lowered after the smoke run has measured real usage. Since PR 8 the runner
-    charges decomposer and LLM-judge calls to the cap of the record's model;
-    the headers of `configs/dev_baselines.toml` and `configs/dev_ablation_*.toml`
-    still say these calls are not counted. In `configs/dev_baselines.toml` the
-    judge calls (up to one per item and repeat) therefore count against each
-    model's cap in addition to the arm's own `judge_max_usd`, and its caps must
-    be re-derived from a dry run. The caps in `configs/test_layer1.toml` are
-    placeholders.
+    charges decomposer and LLM-judge calls to the cap of the record's model.
+    The caps in `configs/test_layer1.toml` are placeholders (the test split
+    cannot be dry-run). *Accounting part closed in version 0.4 (PR 12): the
+    config headers now say that judge and decomposer calls count; the caps were
+    re-derived from dry runs that include them (cap = HIGH estimate per model
+    job rounded up to the next 10 USD): `configs/dev_baselines.toml`
+    12 / 220 / 12 / 220 / 34 / 200 (sum 698) → 130 / 330 / 130 / 330 / 150 /
+    310 (sum 1,380); `configs/dev_ablation_*.toml` unchanged (6 / 110 / 6 / 110
+    / 17 / 100; the decomposer adds at most 0.06 USD per model job);
+    `configs/test_layer1.toml` placeholders 21 / 380 / 21 / 380 / 59 / 345 →
+    210 / 560 / 210 / 560 / 250 / 520 (dev estimate of the same arms × 2,505 /
+    1,455). `judge_max_usd` now applies per model under test, like the runner
+    caps (dev: 670 for all models of a process → 110 per model; test
+    placeholder 190). The owner's approval of every cap remains open.*
 
 **(B) Owner decisions.** Closed by the owner's decision recorded in the section
 named.
@@ -1736,12 +1751,21 @@ owner in the repository settings).
 
 31. Decomposer cache preload on resume: a resumed run may decompose a question
     again (`DecompositionCache.preload` exists; the runner does not call it)
-    (section 7).
+    (section 7). *Closed in version 0.4 (PR 12): on resume the runner seeds
+    each decomposer's cache from the decompose calls in the trace, so no
+    question is decomposed twice in a run and all segments use the same
+    constraints.*
 32. Seeding a new run's response cache from an earlier trace, so that the
     `no_gate` answers are not paid again in `dev_gated`, the ablations and the
-    comparison baselines (section 5; ARCHITECTURE.md section 8a).
+    comparison baselines (section 5; ARCHITECTURE.md section 8a). *Closed in
+    version 0.4 (PR 12): opt-in `[runner] seed_responses_from` loads answer
+    responses of earlier dev runs under the live cache key, refuses seeds of
+    another split, dataset pin, model spec or request format (never test ↔
+    dev), and records them as cost-free cache hits with `seeded_from`.*
 33. A public, read-only lock check in `testlock` instead of the private
-    `_unlock_refusals` used by `frozen_run.py` (section 12).
+    `_unlock_refusals` used by `frozen_run.py` (section 12). *Closed in version
+    0.4 (PR 12): `testlock.check_unlock` reports the unlock conditions without
+    logging an access; `frozen_run.py` uses it.*
 34. `cli analyze` for layer 3. *Closed in version 0.3 (PR 11): `cli analyze`
     recognises SealQA run directories from their manifests and applies the
     `sealqa_answer` rule; mixed layers are refused.*
@@ -1754,7 +1778,10 @@ owner in the repository settings).
     checker and gate parameters as in the dev configs; TODO markers), make the
     ablation labels agree with the dev configs (`gated_minus_<check>` there,
     `gated-minus-<check>` here), and dry-run the same arms on dev (sections 8
-    and 12).
+    and 12). *Closed in version 0.4 (PR 12): every arm has its dev
+    counterpart's options (judge budget aside, scaled to the test split),
+    ablations are labelled `gated_minus_<check>`, and the same arms dry-run on
+    dev (tested).*
 39. No frozen test configuration or frozen analysis path exists for layers 2
     and 3: `frozen_run.py` analyses with the layer-1 rule (section 12 plans one
     frozen run per layer).
@@ -1762,6 +1789,9 @@ owner in the repository settings).
     `python -m binding_gate.arms.faithfulness_checker prepare`, so a config with
     the `faithfulness_checker` arm stops in the workflow before its first paid
     call; add a prepare step or run it locally (section 5; docs/RUNNING.md).
+    *Closed in version 0.4 (PR 12): the workflow prepares and verifies the
+    pinned MiniCheck weights (cached) before the preflight when a config has
+    that arm.*
 41. Repository secrets created by the owner: `OPENAI_API_KEY`,
     `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` (optional, item 14),
     `MOONSHOT_API_KEY`, `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`

@@ -174,6 +174,36 @@ class ModelDecomposer:
             rebuild_error=_rebuild_cached_failure,
         )
 
+    def preload_from_call(self, question: str, call: ModelCall) -> str | None:
+        """Seed the process cache from a decompose call recorded earlier in the same run (resume).
+
+        ``call`` is a ``ModelCall`` read back from the run's trace. It is used only
+        if it is a decompose call of THIS decomposer for ``question``: same
+        client label, and a request identical to :meth:`request_for` (which
+        covers the prompt version), with a response. Its reply is parsed again
+        with the same deterministic parser, so the cached constraints are exactly
+        those the earlier segment used; a reply that did not parse is cached as
+        the same :class:`DecompositionFailed` (never asked again, as in one
+        process). Cache-hit copies are accepted: they carry the original reply.
+
+        Returns ``"constraints"`` or ``"failure"`` when the cache was seeded,
+        ``None`` when the call does not belong to this decomposer and question
+        or the cache is disabled (``cache = "none"``). The first call seeded for
+        a question wins.
+        """
+        if self.cache is None or call.purpose != PURPOSE or call.response is None:
+            return None
+        if call.client != self.client.name or call.request != self.request_for(question):
+            return None
+        text = call.response.text
+        parsed = parse_decomposition(text, question)
+        if parsed.constraints is None:
+            failure = DecompositionFailed(parsed.reason or "unparseable", raw=text, model_calls=(call,))
+            self.cache.preload_failure(question, failure)
+            return "failure"
+        self.cache.preload(Decomposition(constraints=parsed.constraints, model_calls=(call,)))
+        return "constraints"
+
     def _decompose_now(self, question: str) -> Decomposition:
         request = self.request_for(question)
         response, calls = call_model(self.client, request, PURPOSE, sleep=self._sleep)

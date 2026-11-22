@@ -45,8 +45,12 @@ Commands
     What the workflow needs for a config, one ``key=value`` per line:
     ``extras`` (optional dependency groups to install), ``secrets`` (API keys
     the run reads), ``layer``, ``private_outputs`` (true when the run stores
-    third-party page text, so its artifacts must not be published) and
-    ``baseline_report`` (whether the PR 2 stop-rule report applies).
+    third-party page text, so its artifacts must not be published),
+    ``baseline_report`` (whether the PR 2 stop-rule report applies),
+    ``faithfulness_checker`` and ``faithfulness_weights`` (PR 12: whether the
+    MiniCheck preparation step runs, and the pinned checkpoint@revision used as
+    the cache key of its weights) and ``seed_runs`` (PR 12: run directories the
+    workflow must download, ``[runner] seed_responses_from``).
 
 Exit codes: 0 success; 1 failure; 2 bad command line; 3 budget cap reached (run
 left unfinished and resumable); 4 a required API key is not set.
