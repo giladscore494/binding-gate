@@ -318,6 +318,12 @@ def analyse(
         global_reasons.append(f"unfinished run(s): {list(unfinished)}")
     if not as_preregistered:
         global_reasons.append("bootstrap parameters differ from the pre-registration")
+    subsampled = sorted(
+        {m.run_id for m in manifests if isinstance(m.config, dict) and m.config.get("sample") is not None}
+    )
+    if subsampled:
+        # PR 13: a run on a pre-registered subsample (mid-tier check, judges, repeats) is exploratory
+        global_reasons.append(f"run(s) on a pre-registered item subsample (exploratory only): {subsampled}")
 
     by_model: dict[str, list[TraceRecord]] = {}
     for record in records:

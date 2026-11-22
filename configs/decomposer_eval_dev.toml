@@ -46,12 +46,14 @@ prompt_version = 1
 [decomposer.options.model]
 # Slot "Dec" of PREREGISTRATION.md section 9 (provisional): the same id and the
 # same sampling settings as slot A in configs/dev_baseline.toml. No temperature is
-# sent (provider default), no reasoning option is sent ("as deployed").
+# sent (provider default); reasoning at the lowest setting (PR 13, section 9;
+# the value "none" is UNVERIFIED for this id, see configs/dev_baseline.toml).
 name = "openai_responses"
 label = "decomposer"
 [decomposer.options.model.options]
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
+reasoning = { effort = "none" }
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -60,8 +62,11 @@ max_backoff_seconds = 60.0
 [runner]
 prices = "configs/prices.toml"
 # Hard budget cap in US dollars for the whole measurement (135 calls).
-# Dry-run estimate with the pinned benchmark: $0.03 (low) to $0.16 (high), ceiling $0.29.
-max_usd = 0.5
+# Dry-run estimate with the pinned benchmark (PR 13, lowest reasoning setting, 500
+# hidden tokens per call at most): $0.03 (low) to $0.06 (high), ceiling $0.29.
+# configs/budget.toml plans this measurement and up to three revisions (section 7):
+# four invocations at this cap. PROPOSED.
+max_usd = 0.1
 
 [thresholds]
 # PROPOSED - require owner approval before freeze. Rates are fractions of all

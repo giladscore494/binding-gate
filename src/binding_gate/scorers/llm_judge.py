@@ -436,7 +436,9 @@ class LlmJudgeScorer:
 # --------------------------------------------------------------------------- #
 
 RESCORE_VERSION = 1
-_RESCORE_KEYS = {"rescore_version", "name", "description", "scorer", "prices", "max_usd", "concurrency", "judges"}
+_RESCORE_KEYS = {
+    "rescore_version", "name", "description", "scorer", "prices", "max_usd", "concurrency", "judges", "sample",
+}
 
 
 class RescoreError(RuntimeError):
@@ -453,6 +455,9 @@ class RescoreConfig:
     concurrency: int
     judges: tuple[JudgeSpec, ...]
     description: str = ""
+    sample: dict[str, int] | None = None
+    """PR 13: optional ``[sample]`` (``per_stratum``, ``seed``): only records of the items of this
+    pre-registered stratified subsample of the run's items are judged (``binding_gate.sampling``)."""
 
     @property
     def judge_hash(self) -> str:
@@ -490,6 +495,14 @@ class RescoreConfig:
             judges = parse_judges("judges", raw.get("judges"))
         except ValueError as exc:
             raise RescoreError(str(exc)) from None
+        sample = None
+        if raw.get("sample") is not None:
+            from binding_gate.config import ConfigError, _sample_table
+
+            try:
+                sample = _sample_table(raw["sample"])
+            except ConfigError as exc:
+                raise RescoreError(str(exc)) from None
         return cls(
             name=name,
             prices=prices,
@@ -497,6 +510,7 @@ class RescoreConfig:
             concurrency=concurrency,
             judges=judges,
             description=str(raw.get("description", "")),
+            sample=sample,
         )
 
     @classmethod
@@ -593,6 +607,21 @@ def _selected(records: Iterable[Any], arm: str, model: str) -> list[Any]:
     ]
 
 
+def _in_sample(config: RescoreConfig, run: LoadedRun, records: list[Any]) -> list[Any]:
+    """The records whose item is in the config's subsample of the run's items (all records without one)."""
+    if config.sample is None:
+        return records
+    from binding_gate.sampling import stratified_sample
+
+    kept = {
+        item.id
+        for item in stratified_sample(
+            list(run.items.values()), per_stratum=config.sample["per_stratum"], seed=config.sample["seed"]
+        )
+    }
+    return [r for r in records if r.item_id in kept]
+
+
 # --------------------------------------------------------------------------- #
 # Dry run and paid re-scoring
 # --------------------------------------------------------------------------- #
@@ -639,7 +668,7 @@ def estimate(
     from binding_gate.pricing import load_prices
 
     book = load_prices(Path(repo_root) / config.prices)
-    records_by_run = {run.run_dir: _selected(run.records, arm, model) for run in runs}
+    records_by_run = {run.run_dir: _in_sample(config, run, _selected(run.records, arm, model)) for run in runs}
     chosen = _choose_for_models(config, runs, records_by_run)
     per_judge: dict[str, RescoreEstimate] = {}
     for run in runs:
@@ -666,7 +695,7 @@ def estimate(
         price = book.get(entry.judge_model_id)
         visible = book.assumptions.visible_output_tokens
         entry.cost_low = price.cost(entry.input_tokens, entry.calls * (visible + book.assumptions.reasoning_tokens_low))
-        entry.cost_high = price.cost(entry.input_tokens, entry.calls * (visible + book.assumptions.reasoning_tokens_high))
+        entry.cost_high = price.cost(entry.input_tokens, entry.calls * (visible + book.reasoning_high(entry.judge_model_id)))
         max_output = int(getattr(client, "max_output_tokens", 0) or 0)
         entry.cost_ceiling = price.cost(entry.input_tokens, entry.calls * max_output)
     return list(per_judge.values())
@@ -718,7 +747,7 @@ def rescore(
                 f"judge {entry.judge}: even the low estimate (${entry.cost_low:.2f}) exceeds the cap "
                 f"(${entry.cap:.2f}); raise max_usd in the rescore config or re-score fewer records"
             )
-    records_by_run = {run.run_dir: _selected(run.records, arm, model) for run in runs}
+    records_by_run = {run.run_dir: _in_sample(config, run, _selected(run.records, arm, model)) for run in runs}
     chosen = _choose_for_models(config, runs, records_by_run)
 
     budgets: dict[str, JudgeBudget] = {}
@@ -847,6 +876,7 @@ def agreement_rows(records: Sequence[Any], scores: Mapping[Key, Mapping[str, Any
         pairs: list[tuple[str, str]] = []
         unscored = judge_failures = judge_positive_all = 0
         non_null = judge_positive_non_null = ours_positive_non_null = 0
+        scored_non_null = scored_ours_positive_non_null = 0
         for record in group:
             outcome = record_outcome(record)
             entry = scores.get(record_key(record))
@@ -858,6 +888,8 @@ def agreement_rows(records: Sequence[Any], scores: Mapping[Key, Mapping[str, Any
             if entry is None:
                 unscored += 1
                 continue
+            scored_non_null += is_non_null
+            scored_ours_positive_non_null += is_non_null and outcome == "wrong_entity"
             judge_positive_all += label == LABEL_EAF_OR_SUBSTITUTION
             judge_positive_non_null += is_non_null and label == LABEL_EAF_OR_SUBSTITUTION
             if label in JUDGE_FAILURE_LABELS:
@@ -888,6 +920,13 @@ def agreement_rows(records: Sequence[Any], scores: Mapping[Key, Mapping[str, Any
                 "judge_rate_all_records": judge_positive_all / n_records if n_records else None,
                 "judge_rate_non_null_control": (judge_positive_non_null / non_null) if non_null else None,
                 "R_non_null_control": (ours_positive_non_null / non_null) if non_null else None,
+                # PR 13: when only a subsample was judged, compare on the judged records only
+                "judge_rate_non_null_control_scored": (
+                    (judge_positive_non_null / scored_non_null) if scored_non_null else None
+                ),
+                "R_non_null_control_scored": (
+                    (scored_ours_positive_non_null / scored_non_null) if scored_non_null else None
+                ),
                 "crosstab": {f"{o} | {lab}": n for (o, lab), n in sorted(crosstab.items())},
             }
         )

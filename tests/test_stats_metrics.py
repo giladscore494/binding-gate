@@ -108,7 +108,9 @@ def test_spread_across_repeats_and_conditions_in_the_analysis():
     assert model["conditions"]["absent/null_control"]["gated"]["wrong_all"] == 0.0
     assert set(model["factors"]["x_document"]) == {"absent", "complete"}
     assert model["outcome_counts"]["no_gate"][W] == 6 and model["outcome_counts"]["gated"]["abstention"] == 6
-    assert model["n_groups"] == 2 and model["complete"]
+    # PR 13: three repeats differ from the pre-registered one (as in configs/dev_repeats.toml), so the
+    # data are not "complete" in the confirmatory sense, while every per-repeat figure is computed
+    assert model["n_groups"] == 2 and not model["complete"] and model["repeats"] == [0, 1, 2]
 
 
 def test_recovery_rate_m4_counts_first_attempt_research():

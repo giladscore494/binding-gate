@@ -11,6 +11,7 @@ import pytest
 import audit_helpers as ah
 import html_check
 import stats_helpers as sh
+from binding_gate.stats import prereg
 from binding_gate.audit_tool.analysis import analyse_audit
 from binding_gate.audit_tool.labels import new_labels
 from binding_gate.audit_tool.sampling import draw_sample, load_runs, write_sample
@@ -41,7 +42,7 @@ PNG = bytes.fromhex(
 )
 
 
-def records(*, split=Split.TEST, repeats=3, groups=8, gated_errors=0, gated_like_reference=False, with_faith=True):
+def records(*, split=Split.TEST, repeats=prereg.REPEATS, groups=8, gated_errors=0, gated_like_reference=False, with_faith=True):
     out = []
     for k in range(groups):
         for r in range(repeats):

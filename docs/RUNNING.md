@@ -5,10 +5,79 @@ in order. Hebrew version: [below](#הוראות-הפעלה-בעברית-הרצף
 
 **Nothing here has been run against a live API yet.** The model clients, the web
 search client and the page fetcher were tested against recorded-shape fixtures
-only. The smoke runs (steps 3 and 8) exist to find out cheaply whether the live
+only. The smoke runs (steps 3 and 7) exist to find out cheaply whether the live
 services behave as coded. All costs below are dry-run estimates or budget caps
 from the configs, not measurements; every cap is a PROPOSED value
-(PREREGISTRATION.md section 17, item 13).
+(PREREGISTRATION.md section 17, items 13 and 43).
+
+## The USD 50 budget at a glance
+
+The owner's total budget for every paid API and search call of the study is
+**USD 50, hard**. Every paid run is listed in `configs/budget.toml`
+(PREREGISTRATION.md section 9, "Budget plan"); the caps in the configs are hard
+limits in the runner, and together they are at most 50 USD.
+
+| Step | Run (config) | Low | High | Cap |
+|---|---|---|---|---|
+| 3 | smoke, all seven models (`configs/dev_smoke.toml`) | 0.21 | 0.46 | 0.85 |
+| 4 | dev baseline, four primary models (`configs/dev_baseline.toml`) | 2.40 | 5.09 | 5.45 |
+| 4 | secondary judge on 60 dev items × 4 models (`configs/rescore/dev_llm_judge.toml`) | 1.22 | 6.02 | 6.35 |
+| 5 | decomposer measurement, up to 4 times (`configs/decomposer_eval_dev.toml`) | 0.11 | 0.24 | 0.40 |
+| 6 | gated arm (`configs/dev_gated.toml`; answers reused) | 0.00 | 0.08 | 0.40 |
+| 6 | five ablations (`configs/dev_ablation_*.toml`; answers reused) | 0.00 | 0.40 | 2.00 |
+| 6 | nondeterminism check (`configs/dev_repeats.toml`) | 0.25 | 0.52 | 0.65 |
+| 6 | comparison baselines, 300 dev items (`configs/dev_baselines.toml`) | 0.53 | 1.08 | 1.25 |
+| 6 | LLM-judge arm, 60 dev items (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
+| 7 | layer 3 smoke (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
+| 7 | layer 3 dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
+| 8 | layer 2 cost side (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
+| 10 | **layer 1 test, confirmatory** (`configs/test_layer1.toml`) | 8.53 | 17.93 | 19.00 |
+| 10 | mid-tier check, 225 test items (`configs/test_layer1_midtier.toml`) | 2.82 | 6.14 | 6.50 |
+| later | layer 3 test and layer 2 test (configs not written yet; section 17, item 39) | 0.73 | 2.19 | 2.40 |
+| | **Total** | **17.35** | **43.24** | **48.65** |
+
+What makes it fit: four low-cost primary models (`openai-low`, `anthropic-low`,
+`google-low`, `deepseek-low`) on every item with one repeat, at their lowest
+reasoning setting; every gate arm reuses the answer `no_gate` already paid for;
+every dev run after the baseline reuses the baseline's answers (seed runs,
+below); the mid-tier models (`openai-mid`, `anthropic-mid`, `google-mid`), the
+judges and the nondeterminism check run on fixed subsamples; web search uses
+SerpApi's free plan. The full-scale design of earlier versions is kept, not
+run, under `configs/extended/` ("if funding becomes available").
+
+**DeepSeek is cheaper off-peak.** `configs/prices.toml` holds DeepSeek's peak
+price, so the caps hold at any hour. Off-peak (every hour outside 01:00-04:00
+and 06:00-10:00 UTC, Monday to Friday, and all weekend; Chinese public holidays
+too) DeepSeek bills half. In Israel time that is outside about 03:00-06:00 and
+08:00-12:00 on weekdays (one hour later during Israeli summer time): start the
+`deepseek-low` jobs on a Saturday, or in the Israeli afternoon or evening on a
+weekday, to halve their real cost.
+
+**If a cap stops a run.** A run whose model reaches its cap stops that model and
+stays unfinished. It can be resumed only with the same config (a changed cap
+changes the config). On dev: re-derive the cap from the reserve in a pull
+request and start a new run that reuses the stopped run's answers (seed runs).
+The test configs' caps are re-derived from the usage measured by the smoke run
+and the dev baseline before the freeze, so that a test run is never stopped.
+
+## Provider spending limits (outer safety net)
+
+Set, once, a monthly spending limit in every provider's dashboard, so that no
+bug can spend more than planned. Suggested values (the planned HIGH spend of the
+whole study at that provider, rounded up; together 46 USD, under the 50):
+
+| Provider | Suggested limit | Where (menu paths **unverified**: not read on the providers' official pages in PR 13) |
+|---|---|---|
+| OpenAI (slots A, B, decomposer) | 9 USD | platform.openai.com → Settings → Organization → Limits (monthly budget / usage limit) |
+| Anthropic (slots C, D) | 6 USD | console.anthropic.com → Settings → Limits (spend limit) |
+| Google Gemini (slots E, F) | 14 USD | Google Cloud console → Billing → Budgets & alerts (a budget alerts but does not stop spending; for a hard stop use a prepaid balance or disable billing after the run) |
+| DeepSeek (slot G) | 9 USD | platform.deepseek.com: prepaid balance; top up only this amount |
+| Moonshot (judge J) | 8 USD | platform.moonshot.ai: prepaid balance; top up only this amount |
+| SerpApi (web search) | 0 USD | stay on the Free plan (250 searches per month); never enter a payment method |
+
+With a prepaid balance the top-up itself is the hard limit. The runner's caps
+remain the primary control; these limits only catch what the runner cannot
+(a bug, a wrong price in `configs/prices.toml`).
 
 Two kinds of step:
 
@@ -36,11 +105,13 @@ the two boxes. The dialog shows these fields:
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | `seed_run_id` |
 
 A paid run happens only with "Dry run" unchecked **and** the confirmation box
-checked. Model labels in every config: `openai-low`, `openai-mid`,
-`anthropic-low`, `anthropic-mid`, `google-low`, `google-mid` (the layer-3
-smoke config has `openai-low` only). With `all`, each model runs as its own
-parallel job, except live-web configs (layer 3), which run as one job over every
-model whose API key is set.
+checked. Model labels: primary `openai-low`, `anthropic-low`, `google-low`,
+`deepseek-low`; mid-tier `openai-mid`, `anthropic-mid`, `google-mid` (only in
+the smoke run and the mid-tier test run). `configs/dev_llm_judge_checks.toml`,
+`configs/dev_live_smoke.toml` and `configs/dev_grab_rag_supportive.toml` have
+`openai-low` only; `configs/dev_live.toml` has `openai-low` and `google-low`.
+With `all`, each model runs as its own parallel job, except live-web configs
+(layer 3), which run as one job over every model whose API key is set.
 
 Results of a workflow run are on the run's page under **Artifacts**:
 `runs-<model label>` (manifest, traces, per-model baseline report) and
@@ -61,8 +132,8 @@ git clone https://github.com/CedricCaruzzo/deceptive-grounding-benchmark data/ra
 git -C data/raw/deceptive-grounding-benchmark checkout 61b0281d8d3897f53bef3f7402727c905614c1e4
 ```
 
-`runs/`, `data/raw/` and `.venv/` are git-ignored. CLI steps that make paid
-calls read the API keys from environment variables of your shell (the same
+`runs/`, `seeds/`, `data/raw/` and `.venv/` are git-ignored. CLI steps that make
+paid calls read the API keys from environment variables of your shell (the same
 names as the repository secrets of step 1, e.g. `export OPENAI_API_KEY=...`);
 nothing else is read from the environment. Steps without paid calls
 (calibration, analysis, audit, report, snapshot check) need no key.
@@ -76,9 +147,10 @@ repository secret**. Name exactly as below, value = the key.
 |---|---|---|
 | `OPENAI_API_KEY` | OpenAI | slots A, B; the decomposer (slot Dec, `gpt-6-luna`) in every gated config |
 | `GEMINI_API_KEY` | Google Gemini | slots E, F |
-| `ANTHROPIC_API_KEY` | Anthropic (optional) | slots C, D; without it they are skipped and the study proceeds with A, B, E, F (PREREGISTRATION.md section 9) |
-| `MOONSHOT_API_KEY` | Moonshot / Kimi | the judge (slot J): `configs/dev_baselines.toml` and the judge re-scoring |
-| `SERPAPI_API_KEY` | SerpApi (web search) | layer 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
+| `ANTHROPIC_API_KEY` | Anthropic (optional) | slots C, D; without it they are skipped (PREREGISTRATION.md section 9) |
+| `DEEPSEEK_API_KEY` | DeepSeek (optional) | slot G (`deepseek-flash`); without it it is skipped |
+| `MOONSHOT_API_KEY` | Moonshot / Kimi | the judge (slot J): `configs/dev_llm_judge_checks.toml` and the judge re-scoring |
+| `SERPAPI_API_KEY` | SerpApi (web search, Free plan) | layer 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | a long passphrase you choose and keep | layer 3: the run artifacts are encrypted with it; a paid live-web run refuses without it |
 
 A model whose key is missing is **skipped with a warning**; the other models
@@ -106,9 +178,9 @@ A red job means a model id was not found or a key is invalid; it cost nothing.
 This closes PREREGISTRATION.md section 17, item 22 for the ids that pass. A
 wrong id is fixed through the configs and section 9 (a pull request), not in
 the dialog. Do the same dry run for any other config before its first paid run
-(only "Run config" changes).
+(only "Run config" changes, and for configs that reuse answers also "Seed runs").
 
-## 3. Smoke run (estimate 1-6 USD in total; cap 2.50 USD per model)
+## 3. Smoke run (estimate 0.21-0.46 USD; caps 0.85 USD in total)
 
 Workflow.
 
@@ -121,14 +193,18 @@ Workflow.
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
 
-75 calls per model (2 dev (X, C) pairs, 5 triples, 1 repeat). Check per model in
-the `baseline-report` artifact and the job log: no `error` records and no HTTP
-400 (a 400 that mentions `temperature` means the provider rejects that setting;
-section 17, item 24); a small "unparseable share"; the real reasoning-token
-usage, from which the caps of later configs are lowered (item 13). The smoke
-numbers are not a result.
+15 calls per model (the first dev (X, C) pair: 1 triple × 15 conditions,
+1 repeat), all seven models. Check per model in the `baseline-report` artifact
+and the job log: no `error` records and no HTTP 400 (a 400 that mentions
+`temperature`, `reasoning`, `thinkingLevel` or `thinking` means the provider
+rejects that setting; section 17, item 24: for OpenAI change `effort = "none"`
+to `"minimal"`, then `"low"`; for Gemini `"minimal"` to `"low"`, in every
+config, in a pull request); a small "unparseable share"; and the reasoning
+tokens actually reported, against the 500 per call assumed in
+`configs/prices.toml` (if they are higher, the caps of later configs are
+re-derived from the reserve before step 4). The smoke numbers are not a result.
 
-## 4. Full dev baseline and stop-rule report (caps 349 USD in total)
+## 4. Dev baseline, stop-rule report and secondary judge (caps 5.45 + 6.35 USD)
 
 Workflow.
 
@@ -141,29 +217,36 @@ Workflow.
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
 
-4,365 calls per model (dry-run estimate 59-334 USD in total). To re-run one
-model, enter its label instead of `all`. The final job **baseline report**
-prints the stop-rule outcome (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK)
-per model and overall on the run's summary page and uploads
-`baseline-report/baseline_report.json` (keep it: it is the `--baseline` input of
-step 11). The same report locally, CLI:
+1,455 calls per primary model (one repeat). **Keep the number at the end of
+this workflow run's URL** (`.../actions/runs/<number>`): it is the "Seed runs"
+value of steps 6. To re-run one model, enter its label instead of `all`. The
+final job **baseline report** prints the stop-rule outcome (CONTINUE / STOP /
+IN-BETWEEN / MEASUREMENT-CHECK) per model and overall on the run's summary page
+and uploads `baseline-report/baseline_report.json` (keep it: it is the
+`--baseline` input of step 11). The same report locally, CLI:
 
 ```bash
 python -m binding_gate.cli report runs/<run_id> [runs/<run_id> ...] --json baseline.json
 ```
 
 STOP ends the study (PREREGISTRATION.md section 10). Models below 5% are carried
-no further: remove them from the later configs in a pull request. If the outcome
-is MEASUREMENT-CHECK, run the secondary judge on the baseline traces (CLI only;
-needs `MOONSHOT_API_KEY`; cap 100 USD per judge model and invocation):
+no further: remove them from the later configs in a pull request.
+
+Then the secondary judge on the pre-registered 60-item subsample of the four
+baseline runs (CLI only; needs `MOONSHOT_API_KEY`; one invocation over the four
+run directories; cap 6.35 USD). Download the four `runs-<label>` artifacts into
+`runs/` first:
 
 ```bash
-python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml runs/<run_id>
-python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml runs/<run_id>
-python -m binding_gate.scorers.llm_judge agreement runs/<run_id> --json judge_agreement.json
+python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G>
+python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G>
+python -m binding_gate.scorers.llm_judge agreement runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G> --json judge_agreement.json
 ```
 
-## 5. Decomposer evaluation (CLI only; estimate 0.03-0.16 USD, cap 0.50 USD)
+Read the `_scored` rates in the agreement output: they compare the judge and our
+scorer on the judged records only.
+
+## 5. Decomposer evaluation (CLI only; estimate 0.03-0.06 USD, cap 0.10 USD)
 
 Not in the workflow. Needs `OPENAI_API_KEY` in your shell and the benchmark in
 `data/raw/` (local setup).
@@ -175,11 +258,34 @@ python -m binding_gate.evaluation.decomposer report runs/<run_id> --json decompo
 ```
 
 The report compares the result with the thresholds of PREREGISTRATION.md
-section 7 (section 17, item 29).
+section 7 (section 17, item 29). The budget allows up to three revisions.
 
-## 6. Gated arm on dev, then calibration (caps 349 USD in total)
+## 6. Dev runs that reuse the baseline's answers
 
-Gated run: workflow.
+### Seed runs (how the answers are reused)
+
+`dev_gated.toml`, the five ablation configs, `dev_repeats.toml`,
+`dev_baselines.toml` and `dev_llm_judge_checks.toml` contain
+`seed_responses_from = ["seeds/*"]`. In the dialog, "Seed runs" =
+**the number of the step-4 workflow run** (the number at the end of its URL).
+The workflow then downloads the step-4 run directories into `seeds/`, and the
+runner takes every answer the baseline already received from its traces
+instead of paying for it again; each reused answer is recorded in the new trace
+with `cache_hit` and `seeded_from` and costs nothing. Only the other calls are
+paid (decomposer, judge, `prompt_entity_check`, repeats 1-2 of
+`dev_repeats.toml`; MiniCheck runs on the CPU for free). The dry run with the
+same "Seed runs" value shows, per model, how many answer calls are seeded
+(`SEEDED RESPONSES`) and leaves them out of its estimate. A paid run refuses if
+no seed run was downloaded (so nothing is paid twice by mistake), and refuses a
+seed that is not a dev run, that used another dataset pin, another model spec
+for the same label (timeouts and retries aside) or another answer prompt, a
+live-web run, or a seed trace modified after its run closed; a test run never
+uses seeds. Locally: `gh run download <number> -n runs-openai-low -D seeds/`
+(one per model label), then run the CLI as usual.
+
+### 6a. Gated arm, then calibration (cap 0.40 USD; re-runs after calibration cost the same)
+
+Workflow.
 
 | Field | Value |
 |---|---|
@@ -188,12 +294,10 @@ Gated run: workflow.
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | unchecked |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty, or the number of the step-4 workflow run if you added seed runs to the config (see "Reuse the step-4 answers") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
 
-Without seed runs this is a new run and the `no_gate` answers of step 4 are paid
-again. To avoid that, reuse them first (below). Calibration (CLI only, no key, no
-model call; reads the downloaded `runs-<label>` artifacts of this run and the dev
-data):
+Calibration (CLI only, no key, no model call; reads the downloaded
+`runs-<label>` artifacts of this run and the dev data):
 
 ```bash
 python -m binding_gate.gates.calibration runs/<run_id> [runs/<run_id> ...] \
@@ -208,55 +312,26 @@ connected (section 17, item 30: the open risk for H2). Any parameter changed
 because of it is changed in the configs and in PREREGISTRATION.md section 5.1
 through a pull request, before the freeze. Dev analyses are exploratory.
 
+### 6b. Nondeterminism check (estimate 0.25-0.52 USD, cap 0.65 USD)
 
-### Reuse the step-4 answers (optional, saves the answer-call cost of steps 6 and 7)
+Workflow.
 
-`dev_gated.toml`, the five ablation configs and `dev_baselines.toml` send exactly
-the `no_gate` answer request of step 4 for every item, model and repeat. With
-`seed_responses_from` in the config's `[runner]` table, the runner takes those
-answers from the step-4 traces instead of paying for them again; each reused
-answer is recorded in the new trace with `cache_hit` and `seeded_from` (the step-4
-run id) and costs nothing. Only the other calls (decomposer, judge,
-`prompt_entity_check`, MiniCheck on CPU) are paid. Steps, once per config:
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_repeats.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | unchecked |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
 
-1. Open the step-4 run in Actions. The number at the end of its URL
-   (`.../actions/runs/<number>`) is the value of the field "Seed runs" in the
-   dialog. Its artifacts `runs-<model label>` each contain one folder named by
-   the run id of that model's job (`20261201T101500Z-...`); see it in the
-   artifact, or locally with
-   `gh run download <number> -n runs-openai-low -D seeds/` and `ls seeds/`.
-2. In a pull request, add to `[runner]` of the config one entry per model of
-   step 4 (paths always start with `seeds/`, where the workflow downloads them):
+75 dev items (5 per condition), 3 repeats; repeat 0 comes from step 4.
+Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> [...] --out analysis-dev-repeats`
+(its "Spread across repeats" table; labelled not confirmatory).
 
-   ```toml
-   seed_responses_from = ["seeds/<run id of openai-low>", "seeds/<run id of openai-mid>", "seeds/<run id of anthropic-low>", "seeds/<run id of anthropic-mid>", "seeds/<run id of google-low>", "seeds/<run id of google-mid>"]
-   ```
+### 6c. Comparison baselines (estimate 0.53-1.08 USD, cap 1.25 USD)
 
-3. Run the dry run of the config with "Seed runs" = that number. Its log lists,
-   per model, how many answer calls are seeded (`SEEDED RESPONSES`); the cost
-   estimate above it does not subtract them. Then the paid run with the same
-   value.
-
-The run refuses (before any paid call) a seed that is not a dev run, that used
-another dataset pin, another model spec for the same label (timeouts and retries
-aside) or another answer prompt, a live-web run, or a seed trace modified after
-its run closed; a test run never uses seeds. A model with no seeded answer is
-paid normally (warning in the log). Locally, put each seed folder under `seeds/`
-with the `gh run download` command above (one per model label) and run the CLI
-as usual.
-## 7. Comparison baselines and per-check ablations
-
-**Comparison baselines** (`configs/dev_baselines.toml`: `no_gate`,
-`prompt_entity_check`, `faithfulness_checker`, `llm_judge_checks`): workflow
-(caps 1,380 USD in total; each model's cap covers its answer calls and the judge
-calls made for its candidates; dry-run estimate 123-1,332 USD in total, the
-judge's share being at most 110 USD per model because only answered candidates are
-judged). The judge's own cap, `judge_max_usd = 110`, applies per model. Print the
-judge's upper bound, in total and per model job (CLI, no key):
-
-```bash
-python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml
-```
+Workflow.
 
 | Field | Value |
 |---|---|
@@ -265,16 +340,15 @@ python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_basel
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | unchecked |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty, or the number of the step-4 workflow run if you added seed runs to the config (see "Reuse the step-4 answers") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
 
-Needs `MOONSHOT_API_KEY` (the judge). Before the preflight each job downloads the
+300 dev items (20 per condition): `no_gate` (reused), `prompt_entity_check`
+(paid) and `faithfulness_checker`. Before the preflight each job downloads the
 pinned MiniCheck weights (about 3 GB, cached between runs), runs
 `python -m binding_gate.arms.faithfulness_checker prepare` and `verify`, and stops
 if the weights are not the pinned revision or the two test examples are not
 labelled as expected; nothing is paid by then. `verify` prints the time per check
-in the job log (section 17, item 27); a dry run of this config already does all
-of this, for free. The same locally (CLI; all model keys and `MOONSHOT_API_KEY` in
-your shell; CPU only):
+in the job log (section 17, item 27). The same locally (CLI; CPU only):
 
 ```bash
 python -m pip install -e ".[faithfulness]"
@@ -286,8 +360,9 @@ python -m binding_gate.cli run --config configs/dev_baselines.toml --confirm-spe
 
 An interrupted run is continued with `--resume runs/<run_id>`.
 
-**Per-check ablations**: workflow, five runs, one per file (caps 349 USD per
-file). Run each with:
+### 6d. Per-check ablations (cap 0.40 USD per file)
+
+Workflow, five runs, one per file:
 
 | Field | Value |
 |---|---|
@@ -296,17 +371,39 @@ file). Run each with:
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | unchecked |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty, or the number of the step-4 workflow run if you added seed runs to the config (see "Reuse the step-4 answers") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
 
 Analysis of each, CLI: `python -m binding_gate.cli analyze runs/<run_id> [...] --out analysis-<name>`.
 
-## 8. Layer 3 (live web): smoke, then dev
+### 6e. LLM-judge arm (estimate up to 1.51 USD, cap 1.60 USD)
 
-Needs `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE` and `OPENAI_API_KEY`
-(slot A and the decomposer). The workflow downloads SealQA at its pinned
-revision itself (`cli dataset-prepare`).
+Workflow. Needs `MOONSHOT_API_KEY`. Its upper bound first (CLI, no key):
+`python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_llm_judge_checks.toml`.
 
-Smoke (5 dev questions, slot A, 1 repeat; estimate 0.13-0.28 USD, cap 1 USD):
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_llm_judge_checks.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | unchecked |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
+
+60 dev items (4 per condition), slot A; the judge-only cap `judge_max_usd` is
+1.60 USD.
+
+## 7. Layer 3 (live web): smoke, then dev, in the same month
+
+Needs `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (slot A
+and the decomposer) and `GEMINI_API_KEY` (slot E). The workflow downloads SealQA
+at its pinned revision itself (`cli dataset-prepare`). SerpApi's Free plan
+allows 250 searches per month and 50 per hour: the smoke run uses at most 10,
+the dev run at most 240 (`[runner] max_searches`), and searches are spaced 72 s
+apart. Each run also stops by itself when the account reports fewer searches
+left; it is then resumed (CLI, `--resume runs/<run_id>`, same config) after the
+monthly quota renews.
+
+Smoke (5 dev questions, slot A, 1 repeat; estimate 0.01-0.02 USD, cap 0.10 USD):
 
 | Field | Value |
 |---|---|
@@ -317,8 +414,9 @@ Smoke (5 dev questions, slot A, 1 repeat; estimate 0.13-0.28 USD, cap 1 USD):
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
 
-Dev run (every dev question, 6 models, 3 repeats, one job; caps 165 USD in
-total; run a dry run of the same config first):
+Dev run (every dev question, slots A and E, 1 repeat, one job; estimate
+0.45-1.20 USD, caps 1.30 USD; about 108 questions at 72 s per search: up to
+about 4.5 hours; run a dry run of the same config first):
 
 | Field | Value |
 |---|---|
@@ -348,19 +446,34 @@ writes `data/raw/sealqa/conversion.json`, whose dev-split counts go into
 PREREGISTRATION.md section 3 (section 17, item 25). Decrypted page text is
 third-party material: never commit or publish it.
 
-Layer 2 (GRAB-RAG) is not in this sequence: its configs stop until the
-misleading-context export exists, and its role is an open owner decision
-(section 17, item 17).
+## 8. Layer 2, cost side (estimate 0.09-0.36 USD, cap 0.40 USD)
+
+Workflow. GRAB-RAG's supportive items (394 dev questions, slot A, `no_gate` and
+`gated`); no export is needed. The misleading condition is not run (its configs
+are under `configs/extended/`; section 17, item 17).
+
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_grab_rag_supportive.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | unchecked |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | empty |
+
+Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> --out analysis-dev-grab-rag`.
 
 ## 9. Freeze
 
 1. Close every item of PREREGISTRATION.md section 17 that applies to the layer
-   being frozen (owner approvals and decisions recorded with their date).
-2. In one pull request: approve `configs/test_layer1.toml` (its arms are those of
-   the dev configs since PR 12; its caps are placeholders, item 13), update
-   `PARAMETERS_STATUS` in `src/binding_gate/mcp/core.py` (item 42), change the
-   status line of PREREGISTRATION.md to `**Status:** FROZEN` and its version.
-   Merge it into `main`; the tests must pass.
+   being frozen (owner approvals and decisions recorded with their date),
+   including the budget plan (item 43) and the caps re-derived from the
+   measured dev usage (item 13).
+2. In one pull request: approve `configs/test_layer1.toml` and
+   `configs/test_layer1_midtier.toml`, update `PARAMETERS_STATUS` in
+   `src/binding_gate/mcp/core.py` (item 42), change the status line of
+   PREREGISTRATION.md to `**Status:** FROZEN` and its version. Merge it into
+   `main`; the tests must pass.
 3. Tag exactly that merge commit `prereg-freeze-1` (later layers: `-2`, `-3`).
    In GitHub: **Releases → Draft a new release → Choose a tag**, type
    `prereg-freeze-1`, **Create new tag on publish**, Target `main`, **Publish
@@ -374,7 +487,7 @@ misleading-context export exists, and its role is an open owner decision
 4. From now on PREREGISTRATION.md changes only through its amendment log
    (section 18).
 
-## 10. Frozen test run, layer 1 (CLI only)
+## 10. Frozen test runs, layer 1 (CLI only)
 
 Not in the workflow. On your computer, in a clean checkout of the tag:
 
@@ -383,28 +496,38 @@ git fetch --tags && git checkout prereg-freeze-1
 git status                                   # must show a clean tree
 python -m pip install -e ".[dev,plots,faithfulness]"
 python -m binding_gate.arms.faithfulness_checker prepare
-# benchmark in data/raw/ as in "Local setup"; all model keys and MOONSHOT_API_KEY in the shell
+# benchmark in data/raw/ as in "Local setup"; OPENAI, ANTHROPIC, GEMINI and DEEPSEEK keys in the shell
 python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml \
     --tag prereg-freeze-1 --purpose "layer-1 confirmatory test run" --confirm-spend
 ```
 
-It refuses (and logs the refusal) unless the tag, a clean tree and the FROZEN
-status hold; then it runs every arm on the test split and writes
-`runs/<run_id>/analysis/` (`analysis.json`, `report.md`, figures). If the
-Anthropic key is absent, pass the other labels with `--model
-openai-low,openai-mid,google-low,google-mid` (one access for those models;
-whether to use one access per model is section 17, item 18). A run stopped by a
-budget cap is continued with `--resume runs/<run_id>` (a further logged
-access). Then commit the access log:
+Estimate 8.53-17.93 USD, caps 19.00 USD (the confirmatory run: four primary
+models, 2,505 test items, one repeat). It refuses (and logs the refusal) unless
+the tag, a clean tree and the FROZEN status hold; then it runs every arm on the
+test split and writes `runs/<run_id>/analysis/` (`analysis.json`, `report.md`,
+figures). If a key is absent, pass the other labels, e.g. `--model
+openai-low,google-low,deepseek-low` (one access for those models; whether to
+use one access per model is section 17, item 18). To halve DeepSeek's real cost,
+start it off-peak (above). Then the exploratory mid-tier check (estimate
+2.82-6.14 USD, caps 6.50 USD; a second logged access):
+
+```bash
+python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.toml \
+    --tag prereg-freeze-1 --purpose "layer-1 mid-tier exploratory subsample" --confirm-spend
+```
+
+A run stopped by a budget cap is continued with `--resume runs/<run_id>` (a
+further logged access). Then commit the access log:
 
 ```bash
 git switch -c test-access-log-1
 git add audit/test_access_log.jsonl
-git commit -m "Test-split access log after the layer-1 frozen test run"
+git commit -m "Test-split access log after the layer-1 frozen test runs"
 git push -u origin test-access-log-1          # open and merge a pull request
 ```
 
-Layers 2 and 3 have no frozen test configuration yet (section 17, item 39).
+Layers 2 and 3 have no frozen test configuration yet (section 17, item 39); the
+budget plan reserves 2.40 USD of caps for them.
 
 ## 11. Human audit and public report (CLI only, no key)
 
@@ -417,16 +540,62 @@ python -m binding_gate.report build --analysis runs/<test_run_id>/analysis --run
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```
 
-The sample draws 50 blocked and 50 accepted gate decisions with the fixed seed
-(PREREGISTRATION.md section 13); who audits is section 17, item 19. The report
-(`public-report/report.md`, `public-report/report.html`) refuses an analysis
-that marks a result confirmatory while the pre-registration is not FROZEN.
+`<test_run_id>` is the run of `configs/test_layer1.toml` (the mid-tier run is
+not in the audit population; PREREGISTRATION.md section 13). The sample draws 50
+blocked and 50 accepted gate decisions with the fixed seed; who audits is
+section 17, item 19. The report (`public-report/report.md`,
+`public-report/report.html`) refuses an analysis that marks a result
+confirmatory while the pre-registration is not FROZEN.
 
 ---
 
 ## הוראות הפעלה בעברית: הרצף המלא
 
-**שום דבר כאן עדיין לא הורץ מול API אמיתי.** הלקוחות של המודלים, של החיפוש ושל הורדת הדפים נבדקו רק מול תשובות לדוגמה. כל העלויות הן הערכות dry run או תקרות מהקונפיגים, לא מדידות; כל תקרה היא ערך PROPOSED (סעיף 17, פריט 13 ב-PREREGISTRATION.md).
+**שום דבר כאן עדיין לא הורץ מול API אמיתי.** הלקוחות של המודלים, של החיפוש ושל הורדת הדפים נבדקו רק מול תשובות לדוגמה. כל העלויות הן הערכות dry run או תקרות מהקונפיגים, לא מדידות; כל תקרה היא ערך PROPOSED (סעיף 17, פריטים 13 ו-43 ב-PREREGISTRATION.md).
+
+### התקציב: 50 דולר, בקצרה
+
+התקציב הכולל שלך לכל קריאה בתשלום (מודלים וחיפוש) בכל המחקר הוא **50 דולר, קשיח**. כל ריצה בתשלום רשומה ב-`configs/budget.toml` (סעיף 9, "Budget plan"); התקרות בקונפיגים הן גבולות קשיחים ב-runner, וביחד הן לכל היותר 50 דולר.
+
+| שלב | ריצה (קונפיג) | נמוך | גבוה | תקרה |
+|---|---|---|---|---|
+| 3 | smoke, כל שבעת המודלים (`configs/dev_smoke.toml`) | 0.21 | 0.46 | 0.85 |
+| 4 | baseline על dev, ארבעת המודלים הראשיים (`configs/dev_baseline.toml`) | 2.40 | 5.09 | 5.45 |
+| 4 | שופט משני על 60 פריטי dev × 4 מודלים (`configs/rescore/dev_llm_judge.toml`) | 1.22 | 6.02 | 6.35 |
+| 5 | מדידת ה-decomposer, עד 4 פעמים (`configs/decomposer_eval_dev.toml`) | 0.11 | 0.24 | 0.40 |
+| 6 | ה-gate (`configs/dev_gated.toml`; תשובות משוחזרות) | 0.00 | 0.08 | 0.40 |
+| 6 | חמישה ablations (`configs/dev_ablation_*.toml`; תשובות משוחזרות) | 0.00 | 0.40 | 2.00 |
+| 6 | בדיקת אי-דטרמיניזם (`configs/dev_repeats.toml`) | 0.25 | 0.52 | 0.65 |
+| 6 | השוואות, 300 פריטי dev (`configs/dev_baselines.toml`) | 0.53 | 1.08 | 1.25 |
+| 6 | זרוע שופט LLM, 60 פריטי dev (`configs/dev_llm_judge_checks.toml`) | 0.00 | 1.51 | 1.60 |
+| 7 | smoke של שכבה 3 (`configs/dev_live_smoke.toml`) | 0.01 | 0.02 | 0.10 |
+| 7 | שכבה 3 על dev (`configs/dev_live.toml`) | 0.45 | 1.20 | 1.30 |
+| 8 | שכבה 2, צד העלות (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
+| 10 | **test של שכבה 1, מאשש** (`configs/test_layer1.toml`) | 8.53 | 17.93 | 19.00 |
+| 10 | בדיקת מודלי הביניים, 225 פריטי test (`configs/test_layer1_midtier.toml`) | 2.82 | 6.14 | 6.50 |
+| בהמשך | test של שכבות 3 ו-2 (הקונפיגים עוד לא נכתבו; פריט 39) | 0.73 | 2.19 | 2.40 |
+| | **סך הכול** | **17.35** | **43.24** | **48.65** |
+
+למה זה נכנס: ארבעה מודלים ראשיים זולים (`openai-low`, `anthropic-low`, `google-low`, `deepseek-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `anthropic-mid`, `google-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בתוכנית החינמית של SerpApi. התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
+
+**DeepSeek זול בחצי מחוץ לשעות השיא.** ב-`configs/prices.toml` רשום מחיר השיא של DeepSeek, כך שהתקרות מחזיקות בכל שעה. מחוץ לשעות השיא (כל שעה מחוץ ל-01:00–04:00 ו-06:00–10:00 UTC בימים שני עד שישי, וכל סוף השבוע; גם חגים בסין) המחיר הוא חצי. בשעון ישראל: מחוץ לבערך 03:00–06:00 ו-08:00–12:00 בימי חול (שעה אחת מאוחר יותר בשעון קיץ). כדי לחצות את העלות האמיתית, להפעיל את ה-jobs של `deepseek-low` בשבת, או אחר הצהריים / בערב בימי חול.
+
+**אם תקרה עוצרת ריצה.** ריצה שמודל בה הגיע לתקרה עוצרת את המודל הזה ונשארת לא גמורה. אפשר להמשיך אותה רק עם אותו קונפיג (שינוי תקרה משנה את הקונפיג). ב-dev: לחשב תקרה מחדש מהרזרבה ב-pull request ולהתחיל ריצה חדשה שמשתמשת שוב בתשובות של הריצה שנעצרה (seed runs). התקרות של קונפיגי ה-test מחושבות מחדש לפני ההקפאה לפי השימוש שנמדד ב-smoke וב-baseline, כדי שריצת test לעולם לא תיעצר.
+
+### מגבלות הוצאה אצל הספקים (רשת ביטחון חיצונית)
+
+פעם אחת: להגדיר מגבלת הוצאה חודשית בלוח הבקרה של כל ספק, כדי שאף באג לא יוכל להוציא יותר מהמתוכנן. ערכים מומלצים (ההוצאה הגבוהה המתוכננת של כל המחקר אצל אותו ספק, מעוגלת למעלה; ביחד 46 דולר, מתחת ל-50):
+
+| ספק | מגבלה מומלצת | איפה (הנתיבים בתפריטים **לא אומתו**: לא נקראו בדפים הרשמיים של הספקים ב-PR 13) |
+|---|---|---|
+| OpenAI (סלוטים A, B, ה-decomposer) | 9 דולר | platform.openai.com ← Settings ← Organization ← Limits (תקציב חודשי / usage limit) |
+| Anthropic (סלוטים C, D) | 6 דולר | console.anthropic.com ← Settings ← Limits (spend limit) |
+| Google Gemini (סלוטים E, F) | 14 דולר | Google Cloud console ← Billing ← Budgets & alerts (תקציב שולח התראה אבל לא עוצר; לעצירה קשיחה — יתרה משולמת מראש, או לכבות billing אחרי הריצה) |
+| DeepSeek (סלוט G) | 9 דולר | platform.deepseek.com: יתרה משולמת מראש; להטעין רק את הסכום הזה |
+| Moonshot (השופט J) | 8 דולר | platform.moonshot.ai: יתרה משולמת מראש; להטעין רק את הסכום הזה |
+| SerpApi (חיפוש) | 0 דולר | להישאר בתוכנית Free (250 חיפושים בחודש); לא להזין אמצעי תשלום |
+
+ביתרה משולמת מראש, ההטענה עצמה היא הגבול הקשיח. התקרות של ה-runner נשארות הבקרה הראשית; המגבלות האלה רק תופסות מה שה-runner לא יכול (באג, מחיר שגוי ב-`configs/prices.toml`).
 
 שני סוגי שלבים:
 
@@ -435,9 +604,9 @@ that marks a result confirmatory while the pre-registration is not FROZEN.
 
 ### איפה לוחצים (בכל שלב workflow)
 
-GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלית **baseline** ← כפתור **Run workflow** מימין ← למלא את השדות בדיוק לפי הטבלה של השלב ← הכפתור הירוק **Run workflow**. "מסומן" / "לא מסומן" מתייחס לשתי תיבות הסימון. ריצה בתשלום קורית רק כש-"Dry run" לא מסומן **וגם** תיבת האישור מסומנת. השדה החמישי, "Seed runs" (`seed_run_id`), נשאר ריק, חוץ מבשלבים 6 ו-7 כשהוספת לקונפיג seed runs (ראו "שימוש חוזר בתשובות של שלב 4").
+GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלית **baseline** ← כפתור **Run workflow** מימין ← למלא את השדות בדיוק לפי הטבלה של השלב ← הכפתור הירוק **Run workflow**. "מסומן" / "לא מסומן" מתייחס לשתי תיבות הסימון. ריצה בתשלום קורית רק כש-"Dry run" לא מסומן **וגם** תיבת האישור מסומנת. השדה השישי, "Seed runs" (`seed_run_id`), נשאר ריק, חוץ מבשלב 6, שבו כותבים בו את המספר של ריצת ה-workflow של שלב 4.
 
-תוויות המודלים בכל קונפיג: `openai-low`, `openai-mid`, `anthropic-low`, `anthropic-mid`, `google-low`, `google-mid` (בקונפיג ה-smoke של שכבה 3 יש רק `openai-low`). עם `all` כל מודל רץ כ-job נפרד במקביל, חוץ מקונפיגים של web חי (שכבה 3) שרצים כ-job אחד על כל המודלים שיש להם מפתח.
+תוויות המודלים: ראשיים `openai-low`, `anthropic-low`, `google-low`, `deepseek-low`; מודלי ביניים `openai-mid`, `anthropic-mid`, `google-mid` (רק ב-smoke ובריצת ה-test של מודלי הביניים). ב-`configs/dev_llm_judge_checks.toml`, `configs/dev_live_smoke.toml` ו-`configs/dev_grab_rag_supportive.toml` יש רק `openai-low`; ב-`configs/dev_live.toml` יש `openai-low` ו-`google-low`. עם `all` כל מודל רץ כ-job נפרד במקביל, חוץ מקונפיגים של web חי (שכבה 3) שרצים כ-job אחד על כל המודלים שיש להם מפתח.
 
 התוצאות נמצאות בעמוד הריצה תחת **Artifacts**: `runs-<תווית מודל>` (manifest, traces, דוח לכל מודל) ו-`baseline-report` (תוצאת כלל העצירה לכל המודלים). בריצות web חי: `runs-encrypted-all-models` (תיקיית הריצה, מוצפנת) ו-`snapshot-manifest-all-models` (כתובות, זמנים, hash; בלי טקסט של דפים). לניתוח מקומי לפרוס כל `runs-<תווית>` לתוך `runs/`: `unzip runs-openai-low.zip -d runs/`, או `gh run download <מזהה הריצה> -n runs-openai-low -D runs/`.
 
@@ -461,9 +630,10 @@ GitHub ← הריפו ← **Settings ← Secrets and variables ← Actions ← N
 |---|---|---|
 | `OPENAI_API_KEY` | OpenAI | סלוטים A, B; ה-decomposer (`gpt-6-luna`) בכל קונפיג עם gate |
 | `GEMINI_API_KEY` | Google Gemini | סלוטים E, F |
-| `ANTHROPIC_API_KEY` | Anthropic (אופציונלי) | סלוטים C, D; בלעדיו הם מדולגים והמחקר ממשיך עם A, B, E, F |
-| `MOONSHOT_API_KEY` | Moonshot / Kimi | השופט (סלוט J): `configs/dev_baselines.toml` וה-re-scoring של השופט |
-| `SERPAPI_API_KEY` | SerpApi (חיפוש) | שכבה 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
+| `ANTHROPIC_API_KEY` | Anthropic (אופציונלי) | סלוטים C, D; בלעדיו הם מדולגים |
+| `DEEPSEEK_API_KEY` | DeepSeek (אופציונלי) | סלוט G (`deepseek-flash`); בלעדיו הוא מדולג |
+| `MOONSHOT_API_KEY` | Moonshot / Kimi | השופט (סלוט J): `configs/dev_llm_judge_checks.toml` וה-re-scoring של השופט |
+| `SERPAPI_API_KEY` | SerpApi (חיפוש, תוכנית Free) | שכבה 3: `configs/dev_live_smoke.toml`, `configs/dev_live.toml` |
 | `RUNS_ENCRYPTION_PASSPHRASE` | סיסמה ארוכה שבוחרים ושומרים | שכבה 3: ה-artifacts מוצפנים בה; ריצה בתשלום של web חי מסרבת בלעדיה |
 
 מודל שהמפתח שלו חסר מדולג עם אזהרה, והשאר ממשיכים. מפתח חסר של רכיב עזר (מפתח OpenAI של ה-decomposer, מפתח Moonshot של השופט, מפתח SerpApi) מדלג על כל המודלים של קונפיג שמשתמש ברכיב הזה.
@@ -481,9 +651,9 @@ Workflow.
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | לא מסומן |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
 
-מה יוצא: מספר הקבוצות, הפריטים והקריאות, הערכת עלות לכל מודל, ובדיקת preflight חינמית שמזהה המודל קיים אצל הספק. Job אדום = מזהה מודל לא נמצא או מפתח לא תקין; לא עלה כסף. מזהה שגוי מתקנים ב-pull request (קונפיגים וסעיף 9), לא בדיאלוג. לפני ריצה ראשונה בתשלום של כל קונפיג אחר עושים אותו dry run (משנים רק את "Run config").
+מה יוצא: מספר הקבוצות, הפריטים והקריאות, הערכת עלות לכל מודל, ובדיקת preflight חינמית שמזהה המודל קיים אצל הספק. Job אדום = מזהה מודל לא נמצא או מפתח לא תקין; לא עלה כסף. מזהה שגוי מתקנים ב-pull request (קונפיגים וסעיף 9), לא בדיאלוג. לפני ריצה ראשונה בתשלום של כל קונפיג אחר עושים אותו dry run (משנים רק את "Run config", ובקונפיגים שמשתמשים שוב בתשובות גם את "Seed runs").
 
-### שלב 3 — Smoke (הערכה 1 עד 6 דולר בסך הכול; תקרה 2.50 דולר למודל)
+### שלב 3 — Smoke (הערכה 0.21 עד 0.46 דולר; תקרות 0.85 דולר בסך הכול)
 
 Workflow.
 
@@ -496,9 +666,9 @@ Workflow.
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
 
-75 קריאות למודל. לבדוק לכל מודל ב-artifact `baseline-report` וביומן: אין רשומות `error` ואין HTTP 400 (400 שמזכיר `temperature` = הספק דוחה את ההגדרה; סעיף 17, פריט 24); שיעור `unparseable` נמוך; כמה טוקני reasoning דווחו בפועל — לפי זה מורידים את התקרות של הקונפיגים הבאים (פריט 13). מספרי ה-smoke אינם תוצאה.
+15 קריאות למודל (זוג ה-(X, C) הראשון של dev: שלישייה אחת × 15 תנאים, חזרה אחת), כל שבעת המודלים. לבדוק לכל מודל ב-artifact `baseline-report` וביומן: אין רשומות `error` ואין HTTP 400 (400 שמזכיר `temperature`, `reasoning`, `thinkingLevel` או `thinking` = הספק דוחה את ההגדרה; פריט 24: ב-OpenAI להחליף `effort = "none"` ל-`"minimal"` ואז ל-`"low"`; ב-Gemini `"minimal"` ל-`"low"`, בכל הקונפיגים, ב-pull request); שיעור `unparseable` נמוך; וכמה טוקני reasoning דווחו בפועל, מול ה-500 לקריאה שמונחים ב-`configs/prices.toml` (אם יותר — מחשבים מחדש את התקרות של הקונפיגים הבאים מהרזרבה לפני שלב 4). מספרי ה-smoke אינם תוצאה.
 
-### שלב 4 — Baseline מלא ודוח כלל העצירה (תקרות: 349 דולר בסך הכול)
+### שלב 4 — Baseline על dev, דוח כלל העצירה ושופט משני (תקרות 5.45 + 6.35 דולר)
 
 Workflow.
 
@@ -511,17 +681,21 @@ Workflow.
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
 
-4,365 קריאות למודל (הערכה 59 עד 334 דולר בסך הכול). להרצה חוזרת של מודל אחד כותבים את התווית שלו במקום `all`. ה-job האחרון, **baseline report**, מדפיס בעמוד הסיכום את התוצאה (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) ומעלה את `baseline-report/baseline_report.json` — לשמור, זה הקלט `--baseline` של שלב 11. אותו דוח מקומית: `python -m binding_gate.cli report runs/<run_id> [...] --json baseline.json`.
+1,455 קריאות לכל מודל ראשי (חזרה אחת). **לשמור את המספר בסוף ה-URL של ריצת ה-workflow הזאת** (`.../actions/runs/<מספר>`): זה הערך של "Seed runs" בשלב 6. להרצה חוזרת של מודל אחד כותבים את התווית שלו במקום `all`. ה-job האחרון, **baseline report**, מדפיס בעמוד הסיכום את התוצאה (CONTINUE / STOP / IN-BETWEEN / MEASUREMENT-CHECK) ומעלה את `baseline-report/baseline_report.json` — לשמור, זה הקלט `--baseline` של שלב 11. אותו דוח מקומית: `python -m binding_gate.cli report runs/<run_id> [...] --json baseline.json`.
 
-STOP מסיים את המחקר. מודלים מתחת ל-5% לא ממשיכים: מוציאים אותם מהקונפיגים הבאים ב-pull request. אם התוצאה MEASUREMENT-CHECK, מריצים את השופט המשני על ה-traces (CLI בלבד; צריך `MOONSHOT_API_KEY`; תקרה 100 דולר):
+STOP מסיים את המחקר. מודלים מתחת ל-5% לא ממשיכים: מוציאים אותם מהקונפיגים הבאים ב-pull request.
+
+אחר כך השופט המשני על המדגם הקבוע של 60 פריטים מתוך ארבע ריצות ה-baseline (CLI בלבד; צריך `MOONSHOT_API_KEY`; הפעלה אחת על ארבע תיקיות הריצה; תקרה 6.35 דולר). קודם להוריד את ארבעת ה-artifacts `runs-<תווית>` לתוך `runs/`:
 
 ```bash
-python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml runs/<run_id>
-python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml runs/<run_id>
-python -m binding_gate.scorers.llm_judge agreement runs/<run_id> --json judge_agreement.json
+python -m binding_gate.scorers.llm_judge dry-run --config configs/rescore/dev_llm_judge.toml runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G>
+python -m binding_gate.scorers.llm_judge run --confirm-spend --config configs/rescore/dev_llm_judge.toml runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G>
+python -m binding_gate.scorers.llm_judge agreement runs/<run_id A> runs/<run_id C> runs/<run_id E> runs/<run_id G> --json judge_agreement.json
 ```
 
-### שלב 5 — מדידת ה-decomposer (CLI בלבד; הערכה 0.03 עד 0.16 דולר, תקרה 0.50)
+בפלט ההסכמה לקרוא את השיעורים עם `_scored`: הם משווים בין השופט לבין ה-scorer שלנו רק על הרשומות שנשפטו.
+
+### שלב 5 — מדידת ה-decomposer (CLI בלבד; הערכה 0.03 עד 0.06 דולר, תקרה 0.10)
 
 אין workflow. צריך `OPENAI_API_KEY` ב-shell ואת הבנצ'מרק ב-`data/raw/`.
 
@@ -531,9 +705,15 @@ python -m binding_gate.evaluation.decomposer run --config configs/decomposer_eva
 python -m binding_gate.evaluation.decomposer report runs/<run_id> --json decomposer_report.json
 ```
 
-הדוח משווה לספים של סעיף 7 (סעיף 17, פריט 29).
+הדוח משווה לספים של סעיף 7 (פריט 29). התקציב מאפשר עד שלושה תיקונים.
 
-### שלב 6 — ה-gate על dev, ואז כיול (תקרות: 349 דולר בסך הכול)
+### שלב 6 — ריצות dev שמשתמשות שוב בתשובות של ה-baseline
+
+#### Seed runs (איך התשובות משוחזרות)
+
+ב-`dev_gated.toml`, בחמשת קונפיגי ה-ablation, ב-`dev_repeats.toml`, ב-`dev_baselines.toml` וב-`dev_llm_judge_checks.toml` כתוב `seed_responses_from = ["seeds/*"]`. בדיאלוג, "Seed runs" = **המספר של ריצת ה-workflow של שלב 4** (המספר בסוף ה-URL שלה). ה-workflow מוריד את תיקיות הריצה של שלב 4 לתוך `seeds/`, וה-runner לוקח כל תשובה שה-baseline כבר קיבל מה-traces שלו במקום לשלם עליה שוב; כל תשובה כזאת נרשמת ב-trace החדש עם `cache_hit` ו-`seeded_from` ועולה 0. משלמים רק על שאר הקריאות (decomposer, שופט, `prompt_entity_check`, חזרות 1-2 של `dev_repeats.toml`; MiniCheck רץ על CPU בחינם). ה-dry run עם אותו ערך "Seed runs" מראה לכל מודל כמה קריאות תשובה נלקחות מה-seed (`SEEDED RESPONSES`) ולא כולל אותן בהערכה. ריצה בתשלום מסרבת אם לא הורדה אף ריצת seed (כדי ששום דבר לא ישולם פעמיים בטעות), ומסרבת ל-seed שאינו ריצת dev, שהשתמש בגרסת נתונים אחרת, ב-spec מודל אחר לאותה תווית (חוץ מ-timeouts ו-retries) או ב-prompt תשובה אחר, לריצת web חי, או ל-trace של seed ששונה אחרי שהריצה נסגרה; ריצת test אף פעם לא משתמשת ב-seeds. מקומית: `gh run download <מספר> -n runs-openai-low -D seeds/` (אחת לכל תווית מודל), ואז להריץ את ה-CLI כרגיל.
+
+#### 6א — ה-gate, ואז כיול (תקרה 0.40 דולר; הרצה חוזרת אחרי כיול עולה אותו דבר)
 
 Workflow.
 
@@ -544,9 +724,9 @@ Workflow.
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | לא מסומן |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק — או, אם הוספת לקונפיג seed runs, המספר של ריצת ה-workflow של שלב 4 (ראו "שימוש חוזר בתשובות של שלב 4") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
 
-בלי seed runs זו ריצה חדשה, והתשובות של `no_gate` משלב 4 משולמות שוב; כדי לחסוך — קודם שימוש חוזר בהן (למטה). כיול — CLI בלבד, בלי מפתח ובלי קריאה למודל, על ה-artifacts של הריצה הזאת ועל נתוני ה-dev:
+כיול — CLI בלבד, בלי מפתח ובלי קריאה למודל, על ה-artifacts של הריצה הזאת ועל נתוני ה-dev:
 
 ```bash
 python -m binding_gate.gates.calibration runs/<run_id> [runs/<run_id> ...] \
@@ -557,28 +737,24 @@ python -m binding_gate.cli analyze runs/<run_id> [runs/<run_id> ...] --out analy
 
 השורה עם הערכים המוגדרים חייבת להראות `changed_vs_recorded = 0`. זה הניתוח הראשון אחרי חיבור המפתחות (פריט 30: הסיכון הפתוח ל-H2). פרמטר שמשתנה בעקבותיו משתנה בקונפיגים ובסעיף 5.1 ב-pull request, לפני ההקפאה. ניתוחי dev הם גישושיים.
 
-#### שימוש חוזר בתשובות של שלב 4 (אופציונלי; חוסך את עלות קריאות התשובה בשלבים 6 ו-7)
+#### 6ב — בדיקת אי-דטרמיניזם (הערכה 0.25 עד 0.52 דולר, תקרה 0.65)
 
-`dev_gated.toml`, חמשת קונפיגי ה-ablation ו-`dev_baselines.toml` שולחים בדיוק את בקשת התשובה של `no_gate` משלב 4 לכל פריט, מודל וחזרה. עם `seed_responses_from` בטבלת `[runner]` של הקונפיג, ה-runner לוקח את התשובות האלה מה-traces של שלב 4 במקום לשלם עליהן שוב; כל תשובה כזאת נרשמת ב-trace החדש עם `cache_hit` ו-`seeded_from` (מזהה הריצה של שלב 4) ועולה 0. משלמים רק על שאר הקריאות (decomposer, שופט, `prompt_entity_check`, MiniCheck על CPU). פעם אחת לכל קונפיג:
+Workflow.
 
-1. לפתוח ב-Actions את הריצה של שלב 4. המספר בסוף ה-URL שלה (`.../actions/runs/<מספר>`) הוא הערך של השדה "Seed runs" בדיאלוג. בכל artifact `runs-<תווית מודל>` שלה יש תיקייה אחת ששמה מזהה הריצה של ה-job של אותו מודל (`20261201T101500Z-...`); רואים אותה ב-artifact, או מקומית: `gh run download <מספר> -n runs-openai-low -D seeds/` ואז `ls seeds/`.
-2. ב-pull request, להוסיף ל-`[runner]` של הקונפיג רשומה לכל מודל של שלב 4 (הנתיב תמיד מתחיל ב-`seeds/`, לשם ה-workflow מוריד אותן):
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_repeats.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | לא מסומן |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
 
-   ```toml
-   seed_responses_from = ["seeds/<run id של openai-low>", "seeds/<run id של openai-mid>", "seeds/<run id של anthropic-low>", "seeds/<run id של anthropic-mid>", "seeds/<run id של google-low>", "seeds/<run id של google-mid>"]
-   ```
+75 פריטי dev (5 לכל תנאי), 3 חזרות; חזרה 0 באה משלב 4. ניתוח (CLI): `python -m binding_gate.cli analyze runs/<run_id> [...] --out analysis-dev-repeats` (הטבלה "Spread across repeats"; מסומן לא מאשש).
 
-3. להריץ dry run של הקונפיג עם "Seed runs" = אותו מספר. ביומן יופיע לכל מודל כמה קריאות תשובה נלקחות מה-seed (`SEEDED RESPONSES`); הערכת העלות שמעליו לא מורידה אותן. אחר כך הריצה בתשלום עם אותו ערך.
+#### 6ג — השוואות (הערכה 0.53 עד 1.08 דולר, תקרה 1.25)
 
-הריצה מסרבת (לפני כל קריאה בתשלום) ל-seed שאינו ריצת dev, שהשתמש בגרסת נתונים אחרת, ב-spec מודל אחר לאותה תווית (חוץ מ-timeouts ו-retries) או ב-prompt תשובה אחר, לריצת web חי, או ל-trace של seed ששונה אחרי שהריצה נסגרה; ריצת test אף פעם לא משתמשת ב-seeds. מודל בלי אף תשובה מה-seed משלם כרגיל (אזהרה ביומן). מקומית: לשים כל תיקיית seed תחת `seeds/` עם פקודת `gh run download` שלמעלה (אחת לכל תווית מודל) ולהריץ את ה-CLI כרגיל.
-
-### שלב 7 — השוואות ו-ablations
-
-**השוואות** (`configs/dev_baselines.toml`): workflow (תקרות 1,380 דולר בסך הכול; התקרה של כל מודל כוללת את קריאות התשובה שלו ואת קריאות השופט על התשובות שלו; הערכת dry run 123 עד 1,332 דולר בסך הכול, מתוכם השופט לכל היותר 110 דולר למודל, כי נשפטות רק תשובות שניתנו). גם התקרה של השופט עצמו, `judge_max_usd = 110`, היא לכל מודל. החסם העליון של השופט, בסך הכול ולכל job של מודל (CLI, בלי מפתח):
-
-```bash
-python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml
-```
+Workflow.
 
 | שדה | ערך |
 |---|---|
@@ -587,9 +763,9 @@ python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_basel
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | לא מסומן |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק — או, אם הוספת לקונפיג seed runs, המספר של ריצת ה-workflow של שלב 4 (ראו "שימוש חוזר בתשובות של שלב 4") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
 
-צריך `MOONSHOT_API_KEY` (השופט). לפני ה-preflight כל job מוריד את המשקולות המוצמדות של MiniCheck (כ-3GB, נשמרות ב-cache בין ריצות), מריץ `python -m binding_gate.arms.faithfulness_checker prepare` ו-`verify`, ונעצר אם המשקולות אינן הגרסה המוצמדת או ששתי דוגמאות הבדיקה לא סווגו כצפוי; עד אז לא שולם כלום. `verify` מדפיס ביומן את הזמן לבדיקה (פריט 27); כבר dry run של הקונפיג הזה עושה את כל זה, בחינם. אותו דבר מקומית (CLI; כל מפתחות המודלים ו-`MOONSHOT_API_KEY` ב-shell; CPU בלבד):
+300 פריטי dev (20 לכל תנאי): `no_gate` (משוחזר), `prompt_entity_check` (בתשלום) ו-`faithfulness_checker`. לפני ה-preflight כל job מוריד את המשקולות המוצמדות של MiniCheck (כ-3GB, נשמרות ב-cache בין ריצות), מריץ `python -m binding_gate.arms.faithfulness_checker prepare` ו-`verify`, ונעצר אם המשקולות אינן הגרסה המוצמדת או ששתי דוגמאות הבדיקה לא סווגו כצפוי; עד אז לא שולם כלום. `verify` מדפיס ביומן את הזמן לבדיקה (פריט 27). אותו דבר מקומית (CLI; CPU בלבד):
 
 ```bash
 python -m pip install -e ".[faithfulness]"
@@ -601,7 +777,9 @@ python -m binding_gate.cli run --config configs/dev_baselines.toml --confirm-spe
 
 ריצה שנקטעה ממשיכים עם `--resume runs/<run_id>`.
 
-**Ablations** — workflow, חמש ריצות, אחת לכל קובץ (תקרות 349 דולר לקובץ):
+#### 6ד — Ablations (תקרה 0.40 דולר לקובץ)
+
+Workflow, חמש ריצות, אחת לכל קובץ:
 
 | שדה | ערך |
 |---|---|
@@ -610,15 +788,30 @@ python -m binding_gate.cli run --config configs/dev_baselines.toml --confirm-spe
 | Model label from the config, or "all" (one parallel job per model) | `all` |
 | Dry run: count calls and estimate cost; no model API is called | לא מסומן |
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
-| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק — או, אם הוספת לקונפיג seed runs, המספר של ריצת ה-workflow של שלב 4 (ראו "שימוש חוזר בתשובות של שלב 4") |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
 
 ניתוח של כל אחד (CLI): `python -m binding_gate.cli analyze runs/<run_id> [...] --out analysis-<name>`.
 
-### שלב 8 — שכבה 3 (web חי): smoke ואז dev
+#### 6ה — זרוע שופט LLM (הערכה עד 1.51 דולר, תקרה 1.60)
 
-צריך `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE` ו-`OPENAI_API_KEY` (סלוט A וה-decomposer). ה-workflow מוריד את SealQA בגרסה המוצמדת בעצמו.
+Workflow. צריך `MOONSHOT_API_KEY`. קודם החסם העליון (CLI, בלי מפתח): `python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_llm_judge_checks.toml`.
 
-Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.13 עד 0.28 דולר, תקרה 1 דולר):
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_llm_judge_checks.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | לא מסומן |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
+
+60 פריטי dev (4 לכל תנאי), סלוט A; התקרה של השופט עצמו, `judge_max_usd`, היא 1.60 דולר.
+
+### שלב 7 — שכבה 3 (web חי): smoke ואז dev, באותו חודש
+
+צריך `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (סלוט A וה-decomposer) ו-`GEMINI_API_KEY` (סלוט E). ה-workflow מוריד את SealQA בגרסה המוצמדת בעצמו. תוכנית Free של SerpApi מאפשרת 250 חיפושים בחודש ו-50 בשעה: ה-smoke משתמש בלכל היותר 10, ריצת ה-dev בלכל היותר 240 (`[runner] max_searches`), והחיפושים במרווח של 72 שניות. כל ריצה גם נעצרת לבד כשהחשבון מדווח שנשארו פחות חיפושים; אז ממשיכים אותה (CLI, `--resume runs/<run_id>`, אותו קונפיג) אחרי שהמכסה החודשית מתחדשת.
+
+Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.01 עד 0.02 דולר, תקרה 0.10):
 
 | שדה | ערך |
 |---|---|
@@ -629,7 +822,7 @@ Smoke (5 שאלות dev, סלוט A, חזרה אחת; הערכה 0.13 עד 0.28 
 | I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
 | Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
 
-ריצת dev (כל שאלות ה-dev, 6 מודלים, 3 חזרות, job אחד; תקרות 165 דולר בסך הכול; קודם dry run של אותו קונפיג):
+ריצת dev (כל שאלות ה-dev, סלוטים A ו-E, חזרה אחת, job אחד; הערכה 0.45 עד 1.20 דולר, תקרות 1.30; כ-108 שאלות ב-72 שניות לחיפוש: עד כ-4.5 שעות; קודם dry run של אותו קונפיג):
 
 | שדה | ערך |
 |---|---|
@@ -652,12 +845,25 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 
 `cli analyze` מזהה ריצת SealQA ומפעיל את כלל שכבה 3 (`sealqa_answer`). `dataset-prepare` כותב את `data/raw/sealqa/conversion.json`; את הספירות של ה-dev split מכניסים לסעיף 3 (פריט 25). טקסט של דפים אחרי פענוח הוא חומר של צד שלישי: לא לעשות לו commit ולא לפרסם.
 
-שכבה 2 (GRAB-RAG) לא ברצף: הקונפיגים שלה נעצרים עד שיש export של ההקשרים המטעים, והתפקיד שלה הוא החלטה פתוחה שלך (פריט 17).
+### שלב 8 — שכבה 2, צד העלות (הערכה 0.09 עד 0.36 דולר, תקרה 0.40)
+
+Workflow. הפריטים התומכים של GRAB-RAG (394 שאלות dev, סלוט A, `no_gate` ו-`gated`); לא צריך export. התנאי המטעה לא רץ (הקונפיגים שלו תחת `configs/extended/`; פריט 17).
+
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_grab_rag_supportive.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | לא מסומן |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | ריק |
+
+ניתוח (CLI): `python -m binding_gate.cli analyze runs/<run_id> --out analysis-dev-grab-rag`.
 
 ### שלב 9 — הקפאה
 
-1. לסגור כל פריט בסעיף 17 שנוגע לשכבה שמוקפאת (אישורים והחלטות עם תאריך).
-2. ב-pull request אחד: לאשר את `configs/test_layer1.toml` (הזרועות שלו זהות לקונפיגי ה-dev מאז PR 12; התקרות שלו placeholders, פריט 13), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
+1. לסגור כל פריט בסעיף 17 שנוגע לשכבה שמוקפאת (אישורים והחלטות עם תאריך), כולל תוכנית התקציב (פריט 43) והתקרות שחושבו מחדש לפי השימוש שנמדד ב-dev (פריט 13).
+2. ב-pull request אחד: לאשר את `configs/test_layer1.toml` ואת `configs/test_layer1_midtier.toml`, לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
 3. לתייג בדיוק את ה-merge commit בשם `prereg-freeze-1` (לשכבות הבאות `-2`, `-3`). ב-GitHub: **Releases ← Draft a new release ← Choose a tag** ← להקליד `prereg-freeze-1` ← **Create new tag on publish** ← Target: `main` ← **Publish release**. או ב-CLI:
 
    ```bash
@@ -667,7 +873,7 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 
 4. מעכשיו PREREGISTRATION.md משתנה רק דרך יומן התיקונים (סעיף 18).
 
-### שלב 10 — ריצת ה-test המוקפאת, שכבה 1 (CLI בלבד)
+### שלב 10 — ריצות ה-test המוקפאות, שכבה 1 (CLI בלבד)
 
 אין workflow. על המחשב שלך, ב-checkout נקי של התג:
 
@@ -676,21 +882,28 @@ git fetch --tags && git checkout prereg-freeze-1
 git status                                   # חייב להיות נקי
 python -m pip install -e ".[dev,plots,faithfulness]"
 python -m binding_gate.arms.faithfulness_checker prepare
-# הבנצ'מרק ב-data/raw/ כמו ב"הכנה מקומית"; כל מפתחות המודלים ו-MOONSHOT_API_KEY ב-shell
+# הבנצ'מרק ב-data/raw/ כמו ב"הכנה מקומית"; מפתחות OPENAI, ANTHROPIC, GEMINI ו-DEEPSEEK ב-shell
 python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml \
     --tag prereg-freeze-1 --purpose "layer-1 confirmatory test run" --confirm-spend
 ```
 
-הפקודה מסרבת (ורושמת את הסירוב) אם התג, העץ הנקי או הסטטוס FROZEN לא מתקיימים; אחרת מריצה את כל הזרועות על ה-test וכותבת `runs/<run_id>/analysis/`. אם אין מפתח Anthropic: `--model openai-low,openai-mid,google-low,google-mid` (גישה אחת לכל המודלים האלה; האם גישה לכל מודל בנפרד — פריט 18). ריצה שנעצרה בתקרה ממשיכים עם `--resume runs/<run_id>` (גישה נוספת שנרשמת). אחר כך commit ליומן הגישה:
+הערכה 8.53 עד 17.93 דולר, תקרות 19.00 (הריצה המאששת: ארבעת המודלים הראשיים, 2,505 פריטי test, חזרה אחת). הפקודה מסרבת (ורושמת את הסירוב) אם התג, העץ הנקי או הסטטוס FROZEN לא מתקיימים; אחרת מריצה את כל הזרועות על ה-test וכותבת `runs/<run_id>/analysis/`. אם מפתח חסר, לתת את שאר התוויות, למשל `--model openai-low,google-low,deepseek-low` (גישה אחת לכל המודלים האלה; האם גישה לכל מודל בנפרד — פריט 18). כדי לחצות את העלות האמיתית של DeepSeek, להפעיל מחוץ לשעות השיא (למעלה). אחר כך בדיקת מודלי הביניים הגישושית (הערכה 2.82 עד 6.14 דולר, תקרות 6.50; גישה שנייה שנרשמת):
+
+```bash
+python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.toml \
+    --tag prereg-freeze-1 --purpose "layer-1 mid-tier exploratory subsample" --confirm-spend
+```
+
+ריצה שנעצרה בתקרה ממשיכים עם `--resume runs/<run_id>` (גישה נוספת שנרשמת). אחר כך commit ליומן הגישה:
 
 ```bash
 git switch -c test-access-log-1
 git add audit/test_access_log.jsonl
-git commit -m "Test-split access log after the layer-1 frozen test run"
+git commit -m "Test-split access log after the layer-1 frozen test runs"
 git push -u origin test-access-log-1          # לפתוח pull request ולמזג
 ```
 
-לשכבות 2 ו-3 עדיין אין קונפיג test מוקפא (פריט 39).
+לשכבות 2 ו-3 עדיין אין קונפיג test מוקפא (פריט 39); תוכנית התקציב שומרת להן 2.40 דולר של תקרות.
 
 ### שלב 11 — audit אנושי ודוח ציבורי (CLI בלבד, בלי מפתח)
 
@@ -703,4 +916,4 @@ python -m binding_gate.report build --analysis runs/<test_run_id>/analysis --run
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```
 
-המדגם: 50 החלטות חסומות ו-50 מאושרות עם seed קבוע (סעיף 13); מי מתייג — פריט 19. הדוח (`public-report/report.md`, `public-report/report.html`) מסרב לניתוח שמסמן תוצאה כמאששת כל עוד ה-pre-registration לא FROZEN.
+`<test_run_id>` הוא הריצה של `configs/test_layer1.toml` (ריצת מודלי הביניים לא באוכלוסיית ה-audit; סעיף 13). המדגם: 50 החלטות חסומות ו-50 מאושרות עם seed קבוע; מי מתייג — פריט 19. הדוח (`public-report/report.md`, `public-report/report.html`) מסרב לניתוח שמסמן תוצאה כמאששת כל עוד ה-pre-registration לא FROZEN.

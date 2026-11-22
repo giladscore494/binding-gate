@@ -1,0 +1,104 @@
+# PR 13 nondeterminism check (PREREGISTRATION.md section 8, "Repeats"; configs/budget.toml, run
+# "dev_repeats"): with ONE repeat in every other run, the spread across repeats is measured
+# here instead, on a pre-registered stratified dev subsample: 5 items per condition (75 items;
+# binding_gate.sampling, seed 20261122), arm no_gate, the four primary models, 3 repeats.
+# Repeat 0 is the dev baseline's answer (seeded, free); repeats 1 and 2 are paid. The analysis
+# reports, per model, the share of items whose outcome category differs between repeats and
+# the per-repeat wrong-entity rates. Exploratory; it decides nothing.
+#
+# Models and sampling: identical to configs/dev_baseline.toml (section 9; a seed must have the
+# same model spec). Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-repeats"
+description = "PR 13 nondeterminism check: no_gate, 75-item stratified dev subsample, 3 repeats (repeat 0 seeded), primary models."
+split = "dev"
+repeats = 3
+
+[sample]                                 # PROPOSED (section 8): 5 items per condition
+per_stratum = 5
+seed = 20261122
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 0.65 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+seed_responses_from = ["seeds/*"]      # PR 13: every run of the workflow run given in seed_run_id
+max_usd = 0.1
+[runner.max_usd_by_model]
+google-low = 0.25
+deepseek-low = 0.2
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot G
+name = "deepseek_chat"
+label = "deepseek-low"
+[models.options]
+model_id = "deepseek-flash"
+max_output_tokens = 4096
+temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
+thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

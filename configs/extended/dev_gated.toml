@@ -1,0 +1,181 @@
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# This is the full-scale configuration as it stood before PR 13 (6 models, 3 repeats,
+# every arm on every item, reasoning at the provider default), kept so that nothing is
+# lost: run it only "if funding becomes available", after an amendment
+# (PREREGISTRATION.md section 9, "Extended design"). It is priced with
+# configs/extended/prices.toml (2,000 hidden reasoning tokens per call at the provider
+# default). tests/test_budget_plan.py checks that every paid config outside
+# configs/extended/ is in configs/budget.toml.
+#
+# PR 4 dev run of the gated arm (PREREGISTRATION.md sections 5 and 5.1).
+# Same dataset, models, sampling, repeats and scorer as configs/dev_baseline.toml;
+# only the arms differ. Dev split only.
+#
+# Arms:
+#   no_gate  - the baseline, listed first.
+#   gated    - the SAME candidate (identical answer request, so the runner's response
+#              cache returns no_gate's reply; no second answer call is made), then the
+#              decomposer (A), the five deterministic checks (C, D) and the verdict (E).
+#              RESEARCH counts as an abstention in this layer (no search).
+# Ablations are pure config: copy the [[arms]] block of "gated", give it another
+# label and delete one name from "checks" (ARCHITECTURE.md section 3).
+#
+# Cost: the answer calls cost the same as the dev baseline (one call per item, model
+# and repeat), unless the dev baseline's answers are reused: add
+#   seed_responses_from = ["seeds/<baseline run id>", ...]
+# to [runner] (PR 12; docs/RUNNING.md step 6), and every answer request the baseline
+# already made for the same model label and repeat is taken from its trace at no cost
+# (recorded with cache_hit and seeded_from in this run's trace). The
+# decomposer is called at most once per distinct question for the whole run (45 dev
+# questions) and only for answered candidates; its calls are logged in the trace and,
+# since PR 8, priced by the model id in the response and charged to the [runner] budget
+# cap of the record's model (the dry run lists them as auxiliary calls).
+#
+# Gate parameters below are PROPOSED values (PREREGISTRATION.md section 5.1) and
+# require owner approval before the freeze. They may be changed on dev only, with
+# `python -m binding_gate.gates.calibration <dev run dirs>` (reads traces; no model calls).
+#
+# DECOMPOSER: PR 3's registered "model_decomposer" with the same nested model spec as
+# configs/decomposer_eval_dev.toml. A dry run never builds or calls it (the decomposer
+# is only created for an answered candidate, and a dry run produces none).
+#
+# Nothing in this file is read from environment variables; only API keys are.
+
+config_version = 1
+name = "extended-dev-gated"
+description = "PR 4: no_gate and gated (all five checks) on the dev split, 3 repeats, 6 models."
+split = "dev"
+repeats = 3
+
+[runner]
+concurrency = 8
+prices = "configs/extended/prices.toml"
+# Hard budget cap in US dollars PER MODEL for this run (reported usage x
+# configs/prices.toml). Each cap is set just above the HIGH dry-run estimate of
+# its model (2,000 hidden reasoning tokens per call), so that a legitimate run is
+# not cut off half-way. The worst case for the whole run is the sum of the caps:
+# 6 + 110 + 6 + 110 + 17 + 100 = 349 USD. The low estimate is about 59 USD. After
+# the smoke run has shown the real reasoning-token usage, lower these caps.
+max_usd = 6.0
+[runner.max_usd_by_model]
+openai-mid = 110.0
+anthropic-mid = 110.0
+google-low = 17.0
+google-mid = 100.0
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot B
+name = "openai_responses"
+label = "openai-mid"
+[models.options]
+model_id = "gpt-6.1-sol"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot C
+name = "anthropic_messages"
+label = "anthropic-low"
+[models.options]
+model_id = "claude-haiku-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot D
+name = "anthropic_messages"
+label = "anthropic-mid"
+[models.options]
+model_id = "claude-sonnet-5-5"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot F
+name = "google_gemini"
+label = "google-mid"
+[models.options]
+model_id = "gemini-3.5-flash"
+max_output_tokens = 4096
+temperature = 0.0
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "gated"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

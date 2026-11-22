@@ -1,0 +1,91 @@
+# PR 5 / PR 13: the LLM-judge arm llm_judge_checks (PREREGISTRATION.md section 5; configs/budget.toml,
+# run "dev_llm_judge_checks"), dev split, 1 repeat, on a pre-registered stratified dev subsample:
+# 4 items per condition (60 items; binding_gate.sampling, seed 20261122; the same items
+# as the secondary judge's subsample in configs/rescore/dev_llm_judge.toml). Exploratory.
+#
+# Arms, in ONE run:
+#   no_gate           the reference, seeded from the dev baseline (free)
+#   llm_judge_checks  the no_gate candidate checked (checks C, D) by an LLM judge: slot J of
+#                     section 9, kimi-k3.1-pro (Moonshot), a family different from every model
+#                     under test (judge-family rule, section 5)
+#
+# Cost: only the judge is paid, at most one call per item for answered candidates. Since PR 8 every
+# judge call is charged to the [runner] cap of the record's model; judge_max_usd is the judge-only
+# limit per model label. The judge runs at its provider default reasoning (no option is sent), so
+# configs/prices.toml gives it its own high assumption (2,000 hidden tokens per call).
+# Upper bound: python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_llm_judge_checks.toml
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-llm-judge-checks"
+description = "PR 13: no_gate (seeded) and llm_judge_checks on a 60-item dev subsample, 1 repeat."
+split = "dev"
+repeats = 1
+
+[sample]                                 # PROPOSED (section 9): 4 items per condition
+per_stratum = 4
+seed = 20261122
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 1.6 USD. PROPOSED.
+concurrency = 4
+prices = "configs/prices.toml"
+seed_responses_from = ["seeds/*"]      # PR 13: every run of the workflow run given in seed_run_id
+max_usd = 1.6
+
+[dataset]
+name = "deceptive_grounding"
+[dataset.options]
+root = "data/raw/deceptive-grounding-benchmark"
+repository = "https://github.com/CedricCaruzzo/deceptive-grounding-benchmark"
+commit = "61b0281d8d3897f53bef3f7402727c905614c1e4"
+data_sha256 = "1feb80b85717ada1b48114b2dc1922ad5cfa694f4444888669ebc716f8653123"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+
+[[arms]]
+name = "llm_judge_checks"
+label = "llm_judge_checks"
+[arms.options]
+presentation = "deceptive_grounding_doc_injection"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+prices = "configs/prices.toml"
+# Judge-only cap in US dollars PER MODEL UNDER TEST (per model label), PROPOSED: just above the
+# per-model HIGH bound of the estimate command.
+judge_max_usd = 1.6
+[[arms.options.judges]]
+name = "moonshot_chat"
+label = "judge-kimi-k3.1-pro"
+[arms.options.judges.options]
+model_id = "kimi-k3.1-pro"
+max_output_tokens = 4096
+temperature = 0.0                        # UNVERIFIED on Moonshot's API; if rejected, delete (provider default)
+timeout_seconds = 300
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5

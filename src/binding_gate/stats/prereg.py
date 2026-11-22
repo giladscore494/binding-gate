@@ -28,8 +28,10 @@ BOOTSTRAP_RESAMPLES = 10_000
 BOOTSTRAP_SEED = 20261122
 """Seed of ``random.Random`` for the cluster bootstrap (fixed before any result)."""
 
-REPEATS = 3
-"""Pre-registered runs per (item, arm, model). Fewer makes an analysis non-confirmatory."""
+REPEATS = 1
+"""Pre-registered runs per (item, arm, model). A different number makes an analysis non-confirmatory.
+PR 13 (USD 50 budget): one repeat; nondeterminism is measured separately on a dev subsample
+(configs/dev_repeats.toml)."""
 
 # --------------------------------------------------------------------------- #
 # Section 6.4 item 6: validity guard

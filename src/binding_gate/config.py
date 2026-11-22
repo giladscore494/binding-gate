@@ -13,6 +13,10 @@ File format (``config_version = 1``)::
     repeats = 3                      # runs per item x arm x model
     limit = 20                       # optional, dev only: first N groups (smoke runs)
 
+    [sample]                         # optional (PR 13): pre-registered stratified subsample
+    per_stratum = 20                 # items kept per stratum (layer 1: per condition)
+    seed = 20261122                  # see binding_gate.sampling
+
     [dataset]
     name = "deceptive_grounding"     # registry name of a dataset adapter
     [dataset.options]                # passed to the adapter factory
@@ -37,6 +41,11 @@ The ``[runner]`` table is opaque here (any JSON-compatible values) and is
 interpreted by ``binding_gate.runner.RunnerSettings``. It is part of the hashed
 config only when present and non-empty, so configs written before it existed
 keep their hash.
+
+The ``[sample]`` table (PR 13) selects a deterministic, stratified subsample of
+the split's items (``binding_gate.sampling``). Unlike ``limit`` it is allowed on
+the test split: it is a pre-registered item set, not a partial run. It cannot be
+combined with ``limit``. Like ``[runner]`` it is hashed only when present.
 
 The config hash is the SHA-256 of the canonical JSON of the *parsed and
 normalised* config (defaults filled in), so comments, key order and whitespace do
@@ -69,7 +78,9 @@ _TOP_LEVEL_KEYS = {
     "arms",
     "scorers",
     "runner",
+    "sample",
 }
+_SAMPLE_KEYS = {"per_stratum", "seed"}
 _COMPONENT_KEYS = {"name", "label", "options"}
 
 
@@ -108,12 +119,15 @@ class RunConfig:
     limit: int | None = None
     description: str = ""
     runner: dict[str, Any] = field(default_factory=dict)
+    sample: dict[str, int] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The normalised config; this exact structure is what gets hashed."""
         data = self._base_dict()
         if self.runner:
             data["runner"] = self.runner
+        if self.sample is not None:
+            data["sample"] = dict(self.sample)
         return data
 
     def _base_dict(self) -> dict[str, Any]:
@@ -189,6 +203,20 @@ def _runner_table(raw: Any) -> dict[str, Any]:
     return json.loads(canonical_json(raw))
 
 
+def _sample_table(raw: Any) -> dict[str, int] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ConfigError("sample must be a table ([sample])")
+    if set(raw) != _SAMPLE_KEYS:
+        raise ConfigError(f"[sample] must have exactly the keys {sorted(_SAMPLE_KEYS)}")
+    per_stratum = _positive_int("sample.per_stratum", raw["per_stratum"])
+    seed = raw["seed"]
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ConfigError("sample.seed must be an integer >= 0")
+    return {"per_stratum": per_stratum, "seed": seed}
+
+
 def _positive_int(where: str, value: Any) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ConfigError(f"{where} must be an integer >= 1")
@@ -220,6 +248,9 @@ def parse_config(raw: Mapping[str, Any]) -> RunConfig:
         limit = _positive_int("limit", limit)
         if split is Split.TEST:
             raise ConfigError("limit is not allowed on the test split: test runs are always complete")
+    sample = _sample_table(raw.get("sample"))
+    if sample is not None and limit is not None:
+        raise ConfigError("[sample] and limit cannot be combined: a subsample is drawn from the whole split")
     if "dataset" not in raw:
         raise ConfigError("a [dataset] table is required")
     return RunConfig(
@@ -233,6 +264,7 @@ def parse_config(raw: Mapping[str, Any]) -> RunConfig:
         arms=_components("arms", raw.get("arms"), required=True),
         scorers=_components("scorers", raw.get("scorers"), required=False),
         runner=_runner_table(raw.get("runner")),
+        sample=sample,
     )
 
 

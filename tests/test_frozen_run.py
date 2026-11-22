@@ -80,7 +80,8 @@ def test_layer1_test_config_has_the_preregistered_shape():
     config = load_config(REAL_REPO / "configs" / "test_layer1.toml")
     assert config.split is Split.TEST and config.repeats == prereg.REPEATS and config.limit is None
     labels = [arm.label for arm in config.arms]
-    assert labels[:5] == ["no_gate", "prompt_entity_check", "faithfulness_checker", "llm_judge_checks", "gated"]
+    # PR 13: llm_judge_checks runs on a dev subsample only (configs/dev_llm_judge_checks.toml)
+    assert labels[:4] == ["no_gate", "prompt_entity_check", "faithfulness_checker", "gated"]
     assert {arm.name for arm in config.arms} <= RESERVED_ARMS
     gated = {arm.label: arm for arm in config.arms if arm.name == "gated"}
     assert gated["gated"].options["checks"] == RESERVED_CHECKS
@@ -102,7 +103,7 @@ def test_layer1_test_config_has_the_preregistered_shape():
 # -- a synthetic repository ------------------------------------------------------------ #
 
 
-def frozen_repo(tmp_path: Path, *, status: str = "FROZEN", tag: bool = True, arms=None, repeats: int = 3):
+def frozen_repo(tmp_path: Path, *, status: str = "FROZEN", tag: bool = True, arms=None, repeats: int = prereg.REPEATS):
     repo = h.make_repo(tmp_path, prereg_status=status)
     options = dg_fixture.write_checkout(tmp_path / "dg")
     raw = h.raw_config(
@@ -202,7 +203,7 @@ def test_granted_when_every_condition_holds_runs_and_analyses(tmp_path):
     manifest = read_manifest(result.run_dir)
     assert manifest.test_unlock_tag == TAG and manifest.ended_at is not None and not manifest.git_dirty
     records = list(read_traces(result.run_dir))
-    assert {r.split for r in records} == {Split.TEST} and len(records) == 2 * 15 * 3 * 2 * 2
+    assert {r.split for r in records} == {Split.TEST} and len(records) == 2 * 15 * prereg.REPEATS * 2 * 2
 
     analysis = json.loads((result.analysis_dir / "analysis.json").read_text(encoding="utf-8"))
     assert analysis["split"] == "test" and analysis["layer"] == 1

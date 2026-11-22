@@ -20,7 +20,10 @@ SLOTS = {
     "anthropic-mid": ("anthropic_messages", "claude-sonnet-5-5", (2.00, 10.00)),
     "google-low": ("google_gemini", "gemini-3.1-flash-lite", (0.25, 1.50)),
     "google-mid": ("google_gemini", "gemini-3.5-flash", (1.50, 9.00)),
+    "deepseek-low": ("deepseek_chat", "deepseek-flash", (0.30, 1.20)),  # PR 13, slot G (peak price)
 }
+PRIMARY = ("openai-low", "anthropic-low", "google-low", "deepseek-low")
+"""PR 13: the four primary low-cost models (A, C, E, G); the mid-tier B, D, F run on a test subsample."""
 BASE = {
     "prices_version": 1,
     "assumptions": {"chars_per_token": 4.0, "visible_output_tokens": 250, "reasoning_tokens_low": 0, "reasoning_tokens_high": 2000},
@@ -67,12 +70,15 @@ def test_committed_price_file_has_a_sourced_dated_price_for_every_selected_model
     assert (judge.input_per_mtok, judge.output_per_mtok) == (2.00, 10.00)
 
 
-@pytest.mark.parametrize("name,repeats,limit", [("dev_baseline.toml", 3, None), ("dev_smoke.toml", 1, 2)])
-def test_committed_dev_configs_encode_the_preregistered_selection(name, repeats, limit):
+@pytest.mark.parametrize(
+    "name,repeats,limit,labels",
+    [("dev_baseline.toml", 1, None, PRIMARY), ("dev_smoke.toml", 1, 1, tuple(SLOTS))],
+)
+def test_committed_dev_configs_encode_the_preregistered_selection(name, repeats, limit, labels):
     config = load_config(REPO_ROOT / "configs" / name)
     assert config.split is Split.DEV and (config.repeats, config.limit) == (repeats, limit)
     assert {m.label: (m.name, m.options["model_id"]) for m in config.models} == {
-        label: (component, model_id) for label, (component, model_id, _price) in SLOTS.items()
+        label: SLOTS[label][:2] for label in labels
     }
     assert [a.name for a in config.arms] == ["no_gate"] and [s.name for s in config.scorers] == ["provenance"]
     assert config.dataset.options["commit"] == dg.PINNED_COMMIT
@@ -93,8 +99,38 @@ def test_committed_dev_configs_encode_the_preregistered_selection(name, repeats,
 def test_smoke_and_baseline_differ_only_in_size_and_budget():
     baseline = load_config(REPO_ROOT / "configs" / "dev_baseline.toml").to_dict()
     smoke = load_config(REPO_ROOT / "configs" / "dev_smoke.toml").to_dict()
-    for key in ("dataset", "models", "arms", "scorers", "split"):
+    for key in ("dataset", "arms", "scorers", "split"):
         assert baseline[key] == smoke[key]
+    # PR 13: the smoke run adds the mid-tier models; the primary models have the same specs
+    smoke_models = {m["label"]: m for m in smoke["models"]}
+    assert all(smoke_models[m["label"]] == m for m in baseline["models"])
+
+
+def test_every_model_under_test_runs_at_its_lowest_reasoning_setting():
+    """PR 13 (section 9): identical policy, config only."""
+    smoke = load_config(REPO_ROOT / "configs" / "dev_smoke.toml")
+    for spec in smoke.models:
+        options = spec.options
+        if spec.name == "openai_responses":
+            assert options["reasoning"] == {"effort": "none"}
+        elif spec.name == "google_gemini":
+            assert options["thinking_config"] == {"thinkingLevel": "minimal"}
+        elif spec.name == "anthropic_messages":
+            assert "thinking" not in options  # the Messages API thinks only when enabled
+        elif spec.name == "deepseek_chat":
+            assert options["thinking"] == {"type": "disabled"}
+        else:  # pragma: no cover
+            raise AssertionError(spec.name)
+
+
+def test_per_model_reasoning_assumption_overrides_the_file_wide_one():
+    book = parse_prices({**BASE, "price": [{**BASE["price"][0], "reasoning_tokens_high": 9000}, {**BASE["price"][0], "model_id": "n"}]})
+    assert book.reasoning_high("m") == 9000 and book.reasoning_high("n") == 2000 and book.reasoning_high(None) == 2000
+    with pytest.raises(PricingError):
+        parse_prices({**BASE, "price": [{**BASE["price"][0], "reasoning_tokens_high": -1}]})
+    committed = load_prices(REPO_ROOT / "configs" / "prices.toml")
+    assert committed.assumptions.reasoning_tokens_high == 500  # lowest reasoning setting (PR 13)
+    assert committed.reasoning_high("kimi-k3.1-pro") == 2000  # the judge runs at its provider default
 
 
 def test_no_api_key_or_machine_path_is_committed_in_configs():
@@ -107,7 +143,7 @@ def test_preregistration_section_9_lists_the_same_ids_and_prices():
     prereg = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
     section = prereg.split("## 9. Models", 1)[1].split("## 10.", 1)[0]
     rows = [line for line in section.splitlines() if line.startswith("| ") and "model under test" in line]
-    assert len(rows) == 6
+    assert len(rows) == 7
     for _component, model_id, (price_in, price_out) in SLOTS.values():
         (row,) = [line for line in rows if f"`{model_id}`" in line]
         assert f"{price_in:.2f} / {price_out:.2f}" in row

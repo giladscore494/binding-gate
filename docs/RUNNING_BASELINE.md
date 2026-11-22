@@ -6,6 +6,15 @@
 > in English and Hebrew. This file covers its first steps (dry run, smoke run,
 > dev baseline) and stays as written for PR 2; the secrets table below lists
 > only the PR 2 keys.
+>
+> **Superseded numbers (PR 13).** The study now has a hard total budget of USD 50
+> (`configs/budget.toml`): the smoke run covers one dev group for seven models,
+> the dev baseline runs four primary models with one repeat (1,455 calls per
+> model), and the caps and estimates quoted below (2.50 USD per model, 4,365
+> calls, 349 USD) are those of PR 2, kept as `configs/extended/`. Use the
+> numbers and tables in [RUNNING.md](RUNNING.md). / **מספרים שהוחלפו (PR 13):**
+> למחקר יש עכשיו תקציב כולל קשיח של 50 דולר; המספרים והטבלאות העדכניים נמצאים
+> ב-[RUNNING.md](RUNNING.md), והמספרים בקובץ הזה הם של PR 2.
 
 The baseline is started from GitHub, by choosing a config file. Nothing is
 configured through environment variables; API keys are repository secrets.

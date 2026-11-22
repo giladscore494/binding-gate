@@ -13,7 +13,12 @@ and let `cli analyze` handle layer-3 runs. PR 12 closed engineering gaps before
 the keys are connected: decomposer cache preload on resume, seeding a run's
 response cache from earlier dev runs (section 8a), a public read-only lock
 check (section 6), the complete `configs/test_layer1.toml`, the MiniCheck
-preparation step of the workflow, and per-model judge budgets. "PR n" below
+preparation step of the workflow, and per-model judge budgets. PR 13 fitted the
+paid plan into a hard USD 50 budget (`configs/budget.toml`; PREREGISTRATION.md
+section 9): pre-registered stratified subsamples (`sampling.py`, `[sample]`
+table), the `seeds/*` seed wildcard and seed-aware dry-run estimates, a web
+search quota (`[runner] max_searches`), per-model reasoning assumptions in the
+price file, and a DeepSeek client (`models/deepseek_chat.py`). "PR n" below
 names the PR that added a part. No model has been run yet; the pre-registration
 is still DRAFT.
 
@@ -398,10 +403,26 @@ These are fixed here because every later PR relies on them.
   manifest hash; the run seeding itself. The dry run lists the seeded responses
   per model; the `started`/`resumed` entries of `invocations.jsonl` record each
   seed. The workflow downloads seed runs into `seeds/` from the `runs-*`
-  artifacts of the workflow run named in its `seed_run_id` input.
+  artifacts of the workflow run named in its `seed_run_id` input. PR 13: the
+  entry `"seeds/*"` (alone) stands for every directory under `seeds/` with a
+  `manifest.json`, so the committed dev configs name their seeds before the run
+  ids exist; a paid run refuses when it matches nothing; the dry run leaves the
+  seeded answer calls out of its call counts and estimates (and therefore out of
+  the low-estimate check against the cap) and says so when no seed was found.
+- **Subsamples (PR 13).** The optional top-level `[sample]` table (`per_stratum`,
+  `seed`; hashed when present; allowed on the test split, not combined with
+  `limit`) keeps, after the split has been selected, the `per_stratum` items with
+  the smallest SHA-256(`"<seed>\n<item id>"`) in every stratum
+  (`binding_gate.sampling`). The analysis labels a run with a subsample
+  exploratory. Re-scoring configs accept the same table.
+- **Search quota (PR 13).** `[runner] max_searches` caps the non-cached `search`
+  calls of one invocation, lowered to the searches the SerpApi account check
+  reports as left; a unit that could exceed it (counted at the sum of
+  `max_attempts` of the live-web arms, units in flight included) is not started
+  and the run stays unfinished and resumable (`RunSummary.search_limit_reached`).
 - **`[runner]` config table** (optional, hashed when present): `concurrency`,
   `max_usd` (hard cap per model label), `max_usd_by_model`, `prices`,
-  `seed_responses_from` (PR 12).
+  `seed_responses_from` (PR 12), `max_searches` (PR 13).
   `config.py` passes it through; `runner.RunnerSettings` validates it.
 - **Run directory** additionally holds `invocations.jsonl` (one line per start,
   resume and end of the runner: selected models, dataset fingerprint, price
@@ -454,4 +475,7 @@ are as in PR 1, `SCHEMA_VERSION` is 1 and the fingerprint is unchanged. New
 names (arms, scorers, purposes, gold keys; section 3), new files written
 beside a run (`scores.<scorer>.jsonl`, `snapshots/`, `frozen_run.jsonl`,
 `analysis/`), the PR 12 response flag `raw["seeded_from"]` and the PR 12
-`[runner]` key `seed_responses_from` are conventions, not data contracts.
+`[runner]` key `seed_responses_from` are conventions, not data contracts. PR 13
+changed no contract either: the `[sample]` table, `[runner] max_searches`, the
+optional per-price `reasoning_tokens_high` and the `deepseek_chat` client are
+config and component additions.

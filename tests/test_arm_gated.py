@@ -211,7 +211,10 @@ def test_dev_gated_config_reuses_the_baseline_and_lists_all_checks_with_proposed
     baseline = load_config(REPO_ROOT / "configs" / "dev_baseline.toml")
     assert config.split.value == "dev" and config.repeats == baseline.repeats and config.limit is None
     assert config.models == baseline.models and config.dataset == baseline.dataset
-    assert config.scorers == baseline.scorers and config.runner == baseline.runner
+    assert config.scorers == baseline.scorers
+    # PR 13: it reuses the baseline's answers (seeded), so its caps cover the decomposer only
+    assert config.runner["seed_responses_from"] == ["seeds/*"]
+    assert config.runner["prices"] == baseline.runner["prices"]
     assert [a.name for a in config.arms] == ["no_gate", "gated"]
     options = config.arms[1].options
     assert options["checks"] == list(ALL_CHECKS)

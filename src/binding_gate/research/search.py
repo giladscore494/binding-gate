@@ -169,6 +169,7 @@ class SerpApiSearchClient:
         self._monotonic = monotonic
         self._next_allowed = 0.0
         self._lock = threading.Lock()
+        self.searches_left: int | None = None  # set by preflight() (PR 13: runner search quota)
 
     def describe(self) -> dict[str, Any]:
         """Everything that changes what a search returns (part of the search cache key). No secret."""
@@ -259,6 +260,8 @@ class SerpApiSearchClient:
         except ModelError as exc:
             return PreflightResult(self.name, self.model_id, False, f"SerpApi account check failed: {exc}")
         left = data.get("total_searches_left")
+        # PR 13: read by the runner's search quota ([runner] max_searches) after the preflight
+        self.searches_left = left if isinstance(left, int) and not isinstance(left, bool) else None
         detail = (
             f"SerpApi account {data.get('account_status')!r}, plan {data.get('plan_name')!r}, "
             f"{left} searches left, hourly limit {data.get('account_rate_limit_per_hour')}"

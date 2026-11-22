@@ -1,0 +1,100 @@
+# PR 13 layer 2, cost side only (PREREGISTRATION.md section 3, layer 2; configs/budget.toml, run
+# "dev_grab_rag_supportive"): GRAB-RAG's SUPPORTIVE condition (gold passages only) for every dev
+# question (394), slot A, 1 repeat, arms no_gate and gated, dev split only. Exploratory.
+#
+# Why only this: the misleading contexts are not shipped and need a GPU export with GRAB-RAG's
+# own code (section 17, item 17), and the misleading condition is a scope boundary, not a test of
+# H1. The supportive items measure layer-2 M2 (correct answers blocked by the gate) on natural
+# questions, which needs no export (dataset option conditions = ["supportive"],
+# supportive_questions = "all"). The paired misleading configs are kept as
+# configs/extended/dev_grab_rag_*.toml.
+#
+# Models and sampling: slot A as in configs/dev_baseline.toml (lowest reasoning setting); gate
+# parameters and decomposer as in configs/dev_gated.toml. Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "dev-grab-rag-supportive"
+description = "PR 13 layer-2 cost side: no_gate and gated on GRAB-RAG supportive items, dev split, 1 repeat, slot A."
+split = "dev"
+repeats = 1
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 0.4 USD. PROPOSED.
+concurrency = 8
+prices = "configs/prices.toml"
+max_usd = 0.4
+
+[dataset]
+name = "grab_rag"
+[dataset.options]
+root = "data/raw/grab-rag"
+repository = "https://github.com/andre44s/grab-rag"
+commit = "2006561476b39a6cd1ebc0ab5df1b09af01dbcab"
+data_sha256 = "d11d48acb7d30cd7033db39b909d8d2d5c0af1c925191ae9e7bc25c7549d14b0"
+conditions = ["supportive"]
+source_datasets = ["natural_questions", "hotpotqa"]
+supportive_questions = "all"
+seed = 42
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate"
+label = "no_gate"
+[arms.options]
+presentation = "grab_rag_context"
+
+[[arms]]
+name = "gated"
+label = "gated"
+[arms.options]
+presentation = "grab_rag_context"
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]          # PROPOSED - requires owner approval before freeze
+window_tokens = 40                 # tokens between quote and mention, at most
+min_quote_tokens = 5               # same as the provenance scorer (section 6.3)
+lead_max_tokens = 4                # longest lead term considered a document subject
+lead_min_repeats = 2               # a lead term must recur in its document
+premise_scope = "document"         # key terms looked up in the whole cited document
+competitor_tie = "fail"            # equal distance of entity and competitor blocks
+[arms.options.decomposer]
+name = "model_decomposer"          # PR 3; slot "Dec" of PREREGISTRATION.md section 9 (provisional)
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }    # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+# provenance: supportive gold passages are role target. grab_rag_answer: whether the value carries
+# a gold answer (layer-2 M2 uses its `correct` label).
+[[scorers]]
+name = "provenance"
+[scorers.options]
+min_quote_tokens = 5
+
+[[scorers]]
+name = "grab_rag_answer"
+[scorers.options]
+min_quote_tokens = 5

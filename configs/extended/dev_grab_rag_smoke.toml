@@ -1,3 +1,12 @@
+# EXTENDED DESIGN - NOT PART OF THE USD 50 STUDY; NOT RUN (PR 13).
+# This is the full-scale configuration as it stood before PR 13 (6 models, 3 repeats,
+# every arm on every item, reasoning at the provider default), kept so that nothing is
+# lost: run it only "if funding becomes available", after an amendment
+# (PREREGISTRATION.md section 9, "Extended design"). It is priced with
+# configs/extended/prices.toml (2,000 hidden reasoning tokens per call at the provider
+# default). tests/test_budget_plan.py checks that every paid config outside
+# configs/extended/ is in configs/budget.toml.
+#
 # PR 7 smoke run on GRAB-RAG: same models, arm, scorers and sampling as
 # configs/dev_grab_rag_baseline.toml, but only the first 2 dev questions (each with
 # its misleading and supportive item) and 1 repeat = 4 calls per model. Its purpose
@@ -18,7 +27,7 @@
 # environment variables; only API keys are (src/binding_gate/secrets.py).
 
 config_version = 1
-name = "dev-grab-rag-smoke"
+name = "extended-dev-grab-rag-smoke"
 description = "PR 7 smoke run: no_gate on the first 2 GRAB-RAG dev questions, 1 repeat, 6 models."
 split = "dev"
 repeats = 1
@@ -26,7 +35,7 @@ limit = 2
 
 [runner]
 concurrency = 4
-prices = "configs/prices.toml"
+prices = "configs/extended/prices.toml"
 # Hard budget cap in US dollars PER MODEL. Worst case for the whole smoke run: 6 x 1 = 6 USD.
 max_usd = 1.0
 

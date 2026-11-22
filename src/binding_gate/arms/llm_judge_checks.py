@@ -465,7 +465,7 @@ def estimate_judge_cost(config_path: str | Path, repo_root: str | Path = ".") ->
         def costs(calls: int, tokens: int) -> dict[str, float]:
             return {
                 "cost_low": price.cost(tokens, calls * (visible + book.assumptions.reasoning_tokens_low)),
-                "cost_high": price.cost(tokens, calls * (visible + book.assumptions.reasoning_tokens_high)),
+                "cost_high": price.cost(tokens, calls * (visible + book.reasoning_high(model_id))),
                 "cost_ceiling": price.cost(tokens, calls * max_output),
             }
 

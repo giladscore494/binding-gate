@@ -1,67 +1,44 @@
-# PR 5 comparison baselines (PREREGISTRATION.md section 5), dev split, 3 repeats.
+# PR 5 comparison baselines (PREREGISTRATION.md section 5; configs/budget.toml, run
+# "dev_baselines"), dev split, 1 repeat, the four primary models, on a pre-registered stratified
+# dev subsample: 20 items per condition (300 items; binding_gate.sampling, seed 20261122).
 #
 # Arms, all in ONE run:
-#   no_gate               the reference; its answer request is also used by the two
-#                         checker arms below, so the runner answers it once per item,
-#                         model and repeat and hands all three the SAME candidate
-#                         ("same candidate, different gate")
-#   prompt_entity_check   a different prompt (no_gate + a fixed entity-check
-#                         instruction), hence its own model call and its own sample
+#   no_gate               the reference; seeded from the dev baseline (free) and shared with
+#                         faithfulness_checker ("same candidate, different gate")
+#   prompt_entity_check   a different prompt (no_gate + a fixed entity-check instruction), hence
+#                         its own, PAID model call - the reason for the subsample on dev (on the
+#                         test split it runs on every item: configs/test_layer1.toml)
 #   faithfulness_checker  the no_gate candidate accepted or blocked by MiniCheck
-#                         (MiniCheck-Flan-T5-Large, pinned; section 5). Runs locally on
-#                         CPU and needs the optional extra: pip install -e ".[faithfulness]"
-#                         and python -m binding_gate.arms.faithfulness_checker prepare
-#   llm_judge_checks      the no_gate candidate checked (checks C, D) by an LLM judge:
-#                         slot J of section 9, kimi-k3.1-pro (Moonshot), a family
-#                         different from every model under test
+#                         (MiniCheck-Flan-T5-Large, pinned; section 5), locally on CPU, free
+# The LLM-judge arm llm_judge_checks runs in configs/dev_llm_judge_checks.toml (smaller judge
+# subsample; the judge is the most expensive model of the study).
 #
-# Cost. Per model and repeat the provider is asked twice per item (no_gate, shared by
-# the checker arms, and prompt_entity_check), so model cost is about twice the PR 2
-# baseline. The judge (at most one call per item and repeat, only for answered
-# candidates) IS counted: since PR 8 the runner prices every judge call by the model
-# id in the response and charges it to the [runner] cap of the model whose record it
-# is in, so each model's cap below covers its answer calls AND the judge calls made
-# for its candidates (the dry run lists them as auxiliary calls). llm_judge_checks
-# also enforces its own judge-only cap, judge_max_usd, which since PR 12 applies per
-# model under test (per model label), like the runner caps. Print the judge's upper
-# bound, in total and per model job, with
-#   python -m binding_gate.arms.llm_judge_checks estimate --config configs/dev_baselines.toml
-# All caps are PROPOSED and require owner approval before any paid run; they should
-# be lowered after the smoke run has measured real reasoning-token usage.
-#
-# Models, dataset, sampling and retries are copied from configs/dev_baseline.toml
-# (section 9). The section 10 stop rule decides which models continue; models that
-# stop must be removed here before a paid run. Nothing here is read from
-# environment variables (only keys are, through src/binding_gate/secrets.py).
+# Models, dataset, sampling and retries are those of configs/dev_baseline.toml (section 9). The
+# section 10 stop rule decides which models continue; models that stop must be removed here
+# before a paid run. Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
 
 config_version = 1
 name = "dev-baselines"
-description = "PR 5 comparison baselines: no_gate, prompt_entity_check, faithfulness_checker, llm_judge_checks; dev split, 3 repeats."
+description = "PR 5/13 comparison baselines on a 300-item dev subsample: no_gate (seeded), prompt_entity_check, faithfulness_checker; 1 repeat, primary models."
 split = "dev"
-repeats = 3
+repeats = 1
+
+[sample]                                 # PROPOSED (section 9): 20 items per condition
+per_stratum = 20
+seed = 20261122
 
 [runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml, just above its HIGH estimate; sum of caps 1.25 USD. PROPOSED.
 concurrency = 8
 prices = "configs/prices.toml"
-# Hard cap in US dollars PER MODEL LABEL, covering that model's answer calls (two
-# prompts: no_gate and prompt_entity_check) and the judge calls charged to its
-# records. Re-derived in PR 12 from the dry run (python -m binding_gate.cli dry-run
-# --config configs/dev_baselines.toml, 2026-11-22): HIGH estimate per model job,
-# auxiliary judge calls included = answer calls + judge 109.90 USD:
-#   openai-low 10.73 + 109.90 = 120.62    openai-mid 214.52 + 109.90 = 324.41
-#   anthropic-low 120.62                  anthropic-mid 324.41
-#   google-low 31.73 + 109.90 = 141.62    google-mid 190.35 + 109.90 = 300.25
-# Each cap is that HIGH estimate rounded up to the next 10 USD. The PR 5 caps
-# (12 / 220 / 12 / 220 / 34 / 200 = 698) did not include the judge calls and would
-# have stopped every model part-way. Sum: 130 + 330 + 130 + 330 + 150 + 310 = 1,380.
-# The low estimate is about 123 USD in total (the judge's low bound is 0: it is
-# called only for answered candidates). PROPOSED; lower after the smoke run.
-max_usd = 130.0
+seed_responses_from = ["seeds/*"]      # PR 13: every run of the workflow run given in seed_run_id
+max_usd = 0.2
 [runner.max_usd_by_model]
-openai-mid = 330.0
-anthropic-mid = 330.0
-google-low = 150.0
-google-mid = 310.0
+google-low = 0.45
+deepseek-low = 0.4
 
 [dataset]
 name = "deceptive_grounding"
@@ -78,18 +55,7 @@ label = "openai-low"
 model_id = "gpt-6-luna"
 max_output_tokens = 4096
 # temperature: not sent (provider default); see the header
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
-[[models]]                               # slot B
-name = "openai_responses"
-label = "openai-mid"
-[models.options]
-model_id = "gpt-6.1-sol"
-max_output_tokens = 4096
-# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -102,18 +68,7 @@ label = "anthropic-low"
 model_id = "claude-haiku-5-5"
 max_output_tokens = 4096
 temperature = 0.0
-timeout_seconds = 180
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
-
-[[models]]                               # slot D
-name = "anthropic_messages"
-label = "anthropic-mid"
-[models.options]
-model_id = "claude-sonnet-5-5"
-max_output_tokens = 4096
-temperature = 0.0
+# thinking: not sent = no extended thinking (the lowest setting; section 9)
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -126,18 +81,20 @@ label = "google-low"
 model_id = "gemini-3.1-flash-lite"
 max_output_tokens = 4096
 temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
 max_backoff_seconds = 60.0
 
-[[models]]                               # slot F
-name = "google_gemini"
-label = "google-mid"
+[[models]]                               # slot G
+name = "deepseek_chat"
+label = "deepseek-low"
 [models.options]
-model_id = "gemini-3.5-flash"
+model_id = "deepseek-flash"
 max_output_tokens = 4096
-temperature = 0.0
+temperature = 0.0                        # UNVERIFIED on DeepSeek's API; see the header
+thinking = { type = "disabled" }        # non-thinking mode (section 9); documented by DeepSeek, read 2026-11-22
 timeout_seconds = 180
 max_retries = 5
 backoff_seconds = 2.0
@@ -156,49 +113,12 @@ label = "prompt_entity_check"
 presentation = "deceptive_grounding_doc_injection"
 
 [[arms]]
-name = "faithfulness_checker"
-label = "faithfulness_checker"
+name = "faithfulness_checker"            # MiniCheck-Flan-T5-Large, pinned (section 5); needs the
+label = "faithfulness_checker"           # faithfulness extra and `faithfulness_checker prepare`
 [arms.options]
 presentation = "deceptive_grounding_doc_injection"
 backend = "minicheck"
 evidence = "all_documents"
-
-[[arms]]
-name = "llm_judge_checks"
-label = "llm_judge_checks"
-[arms.options]
-presentation = "deceptive_grounding_doc_injection"
-checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
-prices = "configs/prices.toml"
-# Hard cap in US dollars for the judge calls made for ONE model under test (all its
-# repeats), in one process; since PR 12 each model label has its own judge budget, as
-# for the runner caps (a workflow job runs one model). PROPOSED. Upper bound from the
-# estimate command on 2026-11-22, every candidate answered: per model job 4,365 judge
-# calls, $22.62 low, $109.92 high, $190.50 ceiling (all six models: 26,190 calls,
-# $136 / $660 / $1,143; the dry run's auxiliary row rounds tokens per job: $109.90).
-# The cap is the per-model HIGH bound rounded up to the next 10 USD; the real cost is
-# lower because only answered candidates are judged. The runner cap of each model
-# above already includes these calls; this is a judge-only limit. (PR 5: 670 USD
-# shared by all models of one process.)
-judge_max_usd = 110.0
-
-# Ordered list of judges; the first whose family differs from the model under test is
-# used. Only slot J is listed: if it ever clashed with a model under test, the arm
-# would refuse rather than substitute a judge (add a fallback here by amendment).
-[[arms.options.judges]]
-name = "moonshot_chat"
-label = "judge-kimi-k3.1-pro"
-[arms.options.judges.options]
-model_id = "kimi-k3.1-pro"
-max_output_tokens = 4096
-# temperature 0.0 follows section 9 ("0 where the API allows it"); UNVERIFIED for
-# this model on Moonshot's API. If it is rejected, delete the line (provider default)
-# and record the change in PREREGISTRATION.md section 9.
-temperature = 0.0
-timeout_seconds = 300
-max_retries = 5
-backoff_seconds = 2.0
-max_backoff_seconds = 60.0
 
 [[scorers]]
 name = "provenance"
