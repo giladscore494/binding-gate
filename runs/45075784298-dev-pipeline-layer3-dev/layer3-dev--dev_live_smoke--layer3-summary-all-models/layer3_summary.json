@@ -1,0 +1,1943 @@
+{
+  "allowed_fields_doc": "binding_gate.layer3_summary (module docstring): no page text, no quotes, no prompts",
+  "generated_at": "2026-11-22T22:08:23+00:00",
+  "kind": "layer3-summary",
+  "metrics": {
+    "analysis_version": 1,
+    "confirmatory_blockers": [
+      "split is 'dev', not 'test' (exploratory only)"
+    ],
+    "dataset": "sealqa",
+    "inputs": {
+      "n_records": 10,
+      "run_dirs": [
+        "runs/20261122T220747Z-d18c37e7-d2b8"
+      ],
+      "runs": [
+        {
+          "config_hash": "d18c37e73eecf206853332e3c954f0e95d015f9038eebaf9802136400e7f53c3",
+          "finished": true,
+          "git_commit": "10a749a5dcb67605e5d175cbeee158bfadb2156c",
+          "git_dirty": false,
+          "run_id": "20261122T220747Z-d18c37e7-d2b8",
+          "test_unlock_tag": null,
+          "trace_count": 10,
+          "traces_sha256": "fb2dbf49da2b2537155524de3671042e6cffda393f25d433143c7bbdbb795495"
+        }
+      ],
+      "unfinished_runs": []
+    },
+    "layer": 3,
+    "models": {
+      "openai-low": {
+        "arms": [
+          "no_gate",
+          "gated_research"
+        ],
+        "complete": true,
+        "conditions": {
+          "seal_0/fast-changing": {
+            "gated_research": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "m2": null,
+              "n_items": 1,
+              "wrong_all": 0.0
+            },
+            "no_gate": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "n_items": 1,
+              "wrong_all": 0.0
+            }
+          },
+          "seal_hard/fast-changing": {
+            "gated_research": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "m2": 1.0,
+              "n_items": 4,
+              "wrong_all": 0.0
+            },
+            "no_gate": {
+              "correct_all": 0.75,
+              "failed_all": 0.0,
+              "m1": 0.25,
+              "n_items": 4,
+              "wrong_all": 0.25
+            }
+          }
+        },
+        "controlled_layer_claim": "not evaluable",
+        "cost": {
+          "gated_research": {
+            "cached_calls": 45,
+            "input_tokens": 2925,
+            "output_tokens": 446,
+            "paid_calls": 4
+          },
+          "no_gate": {
+            "input_tokens": 29450,
+            "output_tokens": 306,
+            "paid_calls": 45
+          }
+        },
+        "dataset": "sealqa",
+        "estimates": {
+          "arm/gated_research/abstained_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 1.0,
+              "low": 1.0,
+              "undefined": 0
+            },
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "arm/gated_research/answered_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          },
+          "arm/gated_research/correct_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          },
+          "arm/gated_research/failed_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          },
+          "arm/gated_research/m1": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "arm/gated_research/m2": {
+            "ci": {
+              "defined": 9911,
+              "high": 1.0,
+              "low": 1.0,
+              "undefined": 89
+            },
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "arm/gated_research/m4": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "arm/gated_research/wrong_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          },
+          "arm/no_gate/abstained_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.6,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "1/5",
+            "value": 0.2
+          },
+          "arm/no_gate/answered_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 1.0,
+              "low": 0.4,
+              "undefined": 0
+            },
+            "exact": "4/5",
+            "value": 0.8
+          },
+          "arm/no_gate/correct_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 1.0,
+              "low": 0.2,
+              "undefined": 0
+            },
+            "exact": "3/5",
+            "value": 0.6
+          },
+          "arm/no_gate/failed_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          },
+          "arm/no_gate/m1": {
+            "ci": {
+              "defined": 9997,
+              "high": 0.75,
+              "low": 0.0,
+              "undefined": 3
+            },
+            "exact": "1/4",
+            "value": 0.25
+          },
+          "arm/no_gate/m4": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "arm/no_gate/wrong_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.6,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "1/5",
+            "value": 0.2
+          },
+          "cmp/gated_research/no_gate/diff_correct_all": {
+            "ci": {
+              "defined": 10000,
+              "high": -0.2,
+              "low": -1.0,
+              "undefined": 0
+            },
+            "exact": "-3/5",
+            "value": -0.6
+          },
+          "cmp/gated_research/no_gate/diff_m1": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "cmp/gated_research/no_gate/diff_m1_worst": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "cmp/gated_research/no_gate/diff_wrong_all": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": -0.6,
+              "undefined": 0
+            },
+            "exact": "-1/5",
+            "value": -0.2
+          },
+          "cmp/gated_research/no_gate/diff_wrong_all_worst": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": -0.6,
+              "undefined": 0
+            },
+            "exact": "-1/5",
+            "value": -0.2
+          },
+          "cmp/gated_research/no_gate/m1_worst": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "cmp/gated_research/no_gate/ref_m1_best": {
+            "ci": {
+              "defined": 9997,
+              "high": 0.75,
+              "low": 0.0,
+              "undefined": 3
+            },
+            "exact": "1/4",
+            "value": 0.25
+          },
+          "cmp/gated_research/no_gate/relred_m1": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "cmp/gated_research/no_gate/relred_m1_worst": {
+            "ci": {
+              "defined": 0,
+              "high": null,
+              "low": null,
+              "undefined": 10000
+            },
+            "exact": null,
+            "value": null
+          },
+          "cmp/gated_research/no_gate/wrong_all_worst": {
+            "ci": {
+              "defined": 10000,
+              "high": 0.0,
+              "low": 0.0,
+              "undefined": 0
+            },
+            "exact": "0/1",
+            "value": 0.0
+          }
+        },
+        "factors": {
+          "competing_document": {
+            "fast-changing": {
+              "gated_research": {
+                "correct_all": 0.0,
+                "failed_all": 0.0,
+                "m1": null,
+                "m2": 1.0,
+                "n_items": 5,
+                "wrong_all": 0.0
+              },
+              "no_gate": {
+                "correct_all": 0.6,
+                "failed_all": 0.0,
+                "m1": 0.25,
+                "n_items": 5,
+                "wrong_all": 0.2
+              }
+            }
+          },
+          "x_document": {
+            "seal_0": {
+              "gated_research": {
+                "correct_all": 0.0,
+                "failed_all": 0.0,
+                "m1": null,
+                "m2": null,
+                "n_items": 1,
+                "wrong_all": 0.0
+              },
+              "no_gate": {
+                "correct_all": 0.0,
+                "failed_all": 0.0,
+                "m1": null,
+                "n_items": 1,
+                "wrong_all": 0.0
+              }
+            },
+            "seal_hard": {
+              "gated_research": {
+                "correct_all": 0.0,
+                "failed_all": 0.0,
+                "m1": null,
+                "m2": 1.0,
+                "n_items": 4,
+                "wrong_all": 0.0
+              },
+              "no_gate": {
+                "correct_all": 0.75,
+                "failed_all": 0.0,
+                "m1": 0.25,
+                "n_items": 4,
+                "wrong_all": 0.25
+              }
+            }
+          }
+        },
+        "hypotheses": {
+          "H1": {
+            "arms": [],
+            "confirmatory": false,
+            "criteria": [],
+            "hypothesis": "H1",
+            "non_confirmatory_reasons": [
+              "split is 'dev', not 'test' (exploratory only)"
+            ],
+            "notes": [
+              "H1 is evaluated on layers 1 and 2; these traces are layer 3"
+            ],
+            "sensitivity": null,
+            "status": "NOT EVALUABLE"
+          },
+          "H2": {
+            "arms": [],
+            "confirmatory": false,
+            "criteria": [],
+            "hypothesis": "H2",
+            "non_confirmatory_reasons": [
+              "split is 'dev', not 'test' (exploratory only)"
+            ],
+            "notes": [
+              "H2 is evaluated on layers 1 and 2; these traces are layer 3"
+            ],
+            "sensitivity": null,
+            "status": "NOT EVALUABLE"
+          },
+          "H3": {
+            "arms": [],
+            "confirmatory": false,
+            "criteria": [],
+            "hypothesis": "H3",
+            "non_confirmatory_reasons": [
+              "split is 'dev', not 'test' (exploratory only)"
+            ],
+            "notes": [
+              "H3 is evaluated on layer 1; these traces are layer 3"
+            ],
+            "sensitivity": null,
+            "status": "NOT EVALUABLE"
+          },
+          "H4": {
+            "arms": [
+              "gated_research",
+              "no_gate"
+            ],
+            "confirmatory": false,
+            "criteria": [
+              {
+                "name": "net_correct_not_lower",
+                "observed": "M3(arm) = 0.0000 (0), M3(reference) = 0.6000 (3/5), difference = -0.6000 (-3/5)",
+                "passed": false,
+                "rule": "M3(arm) - M3(reference) >= 0 (point estimate)"
+              }
+            ],
+            "hypothesis": "H4",
+            "non_confirmatory_reasons": [
+              "split is 'dev', not 'test' (exploratory only)"
+            ],
+            "notes": [
+              "interval of M3(arm) - M3(reference): [-1.0000, -0.2000] (reported, not part of the rule)"
+            ],
+            "sensitivity": null,
+            "status": "NOT SUPPORTED"
+          }
+        },
+        "n_groups": 5,
+        "n_items": 5,
+        "n_records": 10,
+        "outcome_counts": {
+          "gated_research": {
+            "abstention": 5,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 0,
+            "ungrounded": 0,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "no_gate": {
+            "abstention": 1,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 3,
+            "ungrounded": 0,
+            "unparseable": 0,
+            "wrong_entity": 1
+          }
+        },
+        "outcome_counts_by_condition": {
+          "gated_research": {
+            "seal_0/fast-changing": {
+              "abstention": 1,
+              "ambiguous": 0,
+              "error": 0,
+              "target_grounded": 0,
+              "ungrounded": 0,
+              "unparseable": 0,
+              "wrong_entity": 0
+            },
+            "seal_hard/fast-changing": {
+              "abstention": 4,
+              "ambiguous": 0,
+              "error": 0,
+              "target_grounded": 0,
+              "ungrounded": 0,
+              "unparseable": 0,
+              "wrong_entity": 0
+            }
+          },
+          "no_gate": {
+            "seal_0/fast-changing": {
+              "abstention": 1,
+              "ambiguous": 0,
+              "error": 0,
+              "target_grounded": 0,
+              "ungrounded": 0,
+              "unparseable": 0,
+              "wrong_entity": 0
+            },
+            "seal_hard/fast-changing": {
+              "abstention": 0,
+              "ambiguous": 0,
+              "error": 0,
+              "target_grounded": 3,
+              "ungrounded": 0,
+              "unparseable": 0,
+              "wrong_entity": 1
+            }
+          }
+        },
+        "reference": "no_gate",
+        "repeat_spread": {
+          "gated_research": {
+            "correct_all": {
+              "max": 0.0,
+              "min": 0.0,
+              "per_repeat": {
+                "0": 0.0
+              }
+            },
+            "m1": {
+              "max": null,
+              "min": null,
+              "per_repeat": {
+                "0": null
+              }
+            },
+            "m2": {
+              "max": 1.0,
+              "min": 1.0,
+              "per_repeat": {
+                "0": 1.0
+              }
+            },
+            "wrong_all": {
+              "max": 0.0,
+              "min": 0.0,
+              "per_repeat": {
+                "0": 0.0
+              }
+            }
+          },
+          "no_gate": {
+            "correct_all": {
+              "max": 0.6,
+              "min": 0.6,
+              "per_repeat": {
+                "0": 0.6
+              }
+            },
+            "m1": {
+              "max": 0.25,
+              "min": 0.25,
+              "per_repeat": {
+                "0": 0.25
+              }
+            },
+            "wrong_all": {
+              "max": 0.2,
+              "min": 0.2,
+              "per_repeat": {
+                "0": 0.2
+              }
+            }
+          }
+        },
+        "repeats": [
+          0
+        ],
+        "scale": 1,
+        "unpaired_records": 0,
+        "validity_guard": {
+          "gated_research": {
+            "exceeded": false,
+            "failed_rate": 0.0,
+            "limit": 0.05
+          },
+          "no_gate": {
+            "exceeded": false,
+            "failed_rate": 0.0,
+            "limit": 0.05
+          }
+        }
+      }
+    },
+    "outcome_rule": {
+      "correct": "correct",
+      "decision": "H4 (PREREGISTRATION.md section 11)",
+      "m3": "correct final answers / all records (estimate arm/<arm>/correct_all)",
+      "m4": null,
+      "mapping": {
+        "abstained": "abstention",
+        "correct": "target_grounded",
+        "incorrect": "wrong_entity",
+        "unparseable": "unparseable"
+      },
+      "rule_version": 1,
+      "scorer": "sealqa_answer"
+    },
+    "package_version": "0.1.0",
+    "parameters": {
+      "as_preregistered": true,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20261122,
+      "ci_level": "19/20",
+      "cluster": "group_id",
+      "correct_outcomes": [
+        "target_grounded"
+      ],
+      "correct_rule_is_placeholder": false,
+      "faithfulness_arm": "faithfulness_checker",
+      "gated_arm": "gated",
+      "h1_min_relative_reduction": "1/2",
+      "h2_max_correct_blocked": "1/10",
+      "h4_min_net_difference": "0",
+      "reference_arm": "no_gate",
+      "repeats": 1,
+      "research_arm": "gated_research",
+      "status": "PROPOSED - requires owner approval before freeze",
+      "used": {
+        "bootstrap_resamples": 10000,
+        "bootstrap_seed": 20261122,
+        "ci_level": "19/20"
+      },
+      "validity_max_failed_rate": "1/20"
+    },
+    "pooled_descriptive": {
+      "arms": {
+        "gated_research": {
+          "correct_all": 0.0,
+          "failed_all": 0.0,
+          "m1": null,
+          "m2": 1.0,
+          "wrong_all": 0.0
+        },
+        "no_gate": {
+          "correct_all": 0.6,
+          "failed_all": 0.0,
+          "m1": 0.25,
+          "m2": null,
+          "wrong_all": 0.2
+        }
+      },
+      "models": [
+        "openai-low"
+      ],
+      "note": "descriptive only; no hypothesis uses pooled numbers"
+    },
+    "split": "dev",
+    "summary": {
+      "H1": {
+        "evaluated": [],
+        "supported": [],
+        "supported_confirmatory": [],
+        "trade_off": []
+      },
+      "H2": {
+        "evaluated": [],
+        "supported": [],
+        "supported_confirmatory": [],
+        "trade_off": []
+      },
+      "H3": {
+        "evaluated": [],
+        "supported": [],
+        "supported_confirmatory": [],
+        "trade_off": []
+      },
+      "H4": {
+        "evaluated": [
+          "openai-low"
+        ],
+        "supported": [],
+        "supported_confirmatory": [],
+        "trade_off": []
+      }
+    }
+  },
+  "runs": [
+    {
+      "arms": [
+        "no_gate",
+        "gated_research"
+      ],
+      "closed": true,
+      "config_hash": "d18c37e73eecf206853332e3c954f0e95d015f9038eebaf9802136400e7f53c3",
+      "config_name": "dev-live-smoke",
+      "dataset": "sealqa",
+      "ended_at": "2026-11-22T22:08:23+00:00",
+      "git_commit": "10a749a5dcb67605e5d175cbeee158bfadb2156c",
+      "models": [
+        "openai-low"
+      ],
+      "pages": [
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:08:00+00:00",
+          "final_url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 966043,
+          "raw_sha256": "f3bb077c3d92f0ebe070118752f08835305106875c863b3dfad898af15cfbf94",
+          "snapshot_id": "snap-1972880bc4216174",
+          "text_chars": 81,
+          "text_sha256": "ae55e99a865cc0fd57c5a188b560f320273ba910a904f808cb10a0c6c86fd8d5",
+          "url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:07:56+00:00",
+          "final_url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 802371,
+          "raw_sha256": "58cbfd07d09bcff3296db7bf7ae5e0578e565dda18edc28d0093e637d401e417",
+          "snapshot_id": "snap-216b233ef52187fd",
+          "text_chars": 212,
+          "text_sha256": "7201e48b10fc93498ace4703191cae1b1819b9a6c5a1590bf744487679f1f061",
+          "url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:08:17+00:00",
+          "final_url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 135003,
+          "raw_sha256": "0645943d812be2bf48e466b6689f41b2424fa7e547e326e6ba132e3768632958",
+          "snapshot_id": "snap-2d110ebc222f54de",
+          "text_chars": 6060,
+          "text_sha256": "2d8f37909d3b70d4afa1da178082870a866a22cf50488080960621d918da0c15",
+          "url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:07:51+00:00",
+          "final_url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 837222,
+          "raw_sha256": "54c8b82c0153366f63ad1aa5034c648276c263e66459ddea415fc1e59faddf32",
+          "snapshot_id": "snap-2d53e7a728697d5c",
+          "text_chars": 236,
+          "text_sha256": "0a40ce906d39e2e8471ae750da1439e9aa6e9de3b6e0b0d53a9173604a9388b9",
+          "url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:07:49+00:00",
+          "final_url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 1053130,
+          "raw_sha256": "786816d598b5c3792f47e346aeb0780f1b29d15c51f921dab2d68aed01b60a56",
+          "snapshot_id": "snap-34520558c09a33f6",
+          "text_chars": 51106,
+          "text_sha256": "fcd48923da98cec9606f3e38ab5be9a68733917c57ffbb69c38b9f581d315ffb",
+          "url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:03+00:00",
+          "final_url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 311887,
+          "raw_sha256": "d5a3a44b42ae5ee01cfd7f2155b9d577ee279bcd4c781910bf6017760a59a9ad",
+          "snapshot_id": "snap-43883bcde0f0ac25",
+          "text_chars": 10070,
+          "text_sha256": "f0cac07f6455b70822a85c8022e5c0dfcb89163bf686a880f57f0347dd5147c8",
+          "url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:07:55+00:00",
+          "final_url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 1402845,
+          "raw_sha256": "02707c142345b9e14311dc903389da570103143c411bc2455c787f866e15b98f",
+          "snapshot_id": "snap-443385c474dd8914",
+          "text_chars": 162,
+          "text_sha256": "7dbed08cba78da32542b4429ac3dd7085121d1ffa2e00a6474010d854c4e0299",
+          "url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:08:00+00:00",
+          "final_url": "https://en.wikipedia.org/wiki/Android_version_history",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 1486412,
+          "raw_sha256": "5fb5606e3a1cc29ef744474f35946547302fb9782a5dcb59c00b20fffd464b94",
+          "snapshot_id": "snap-44f568e4d3fdaa5e",
+          "text_chars": 138706,
+          "text_sha256": "8f88a2c621b0ae43d2525c2c4883aac85e7687347a4ddca7e2767969a7a70487",
+          "url": "https://en.wikipedia.org/wiki/Android_version_history"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:07:51+00:00",
+          "final_url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 892400,
+          "raw_sha256": "18dd145aab24002f34631ec98b5eef787157a0ffeacc320dca84103302c93d4a",
+          "snapshot_id": "snap-46307a8224895891",
+          "text_chars": 387,
+          "text_sha256": "489601b240bfd4125858591fe6cc2b49c383d4f46aa8d26878de9f8cb69b5eb7",
+          "url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:08:16+00:00",
+          "final_url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 973244,
+          "raw_sha256": "7707b4b3196c83714feafcd4d2fab341606aa05226ea42a83d1309d5dcabe569",
+          "snapshot_id": "snap-49fa58c9c533b879",
+          "text_chars": 148,
+          "text_sha256": "1a05cc4d779d85edcdc921b2be77fca29276ffe7dc456a2b12320eb7122c74b4",
+          "url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:08:07+00:00",
+          "final_url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 423902,
+          "raw_sha256": "0918aa8fed473921225044e7d9be7476ebe69ffc47aefce821816a788185a4fc",
+          "snapshot_id": "snap-503814c8b365f1c2",
+          "text_chars": 22001,
+          "text_sha256": "49cc45c3362a917e32b0cb1bb45034d260cafae947e90f938344feaab7012a5c",
+          "url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:04+00:00",
+          "final_url": "https://androidversion.github.io/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 24660,
+          "raw_sha256": "175b4379eeffc62683fed25f7b02bb7bd0e1d1309d522529ebb37fcd6b26ccd7",
+          "snapshot_id": "snap-5643b426860e1a47",
+          "text_chars": 5243,
+          "text_sha256": "cc8800d4a4086bf08650b64bb6a4dbb385b9026f0d779036f59bbb0436e2b2f6",
+          "url": "https://androidversion.github.io/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:14+00:00",
+          "final_url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 555808,
+          "raw_sha256": "6035a6ac32f400ed7c15f537ac15a000f255ed4b43a5e1ce3053622894806eae",
+          "snapshot_id": "snap-6289062d559a49cb",
+          "text_chars": 9594,
+          "text_sha256": "ac423074556f05443dfcfbf6b185f94d67fa3e644098f70eec6a80b59c27579e",
+          "url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:08:09+00:00",
+          "final_url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 791329,
+          "raw_sha256": "50eacad2628c272602198fc192b6a621b40c7ce9519792cae74fd9d491cd63b5",
+          "snapshot_id": "snap-9e1053b359836f6a",
+          "text_chars": 59,
+          "text_sha256": "1a63900c394642ee7f6e925f2bf79512b7a1b03d48ddab0c299d9b16906b9fe6",
+          "url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:07:50+00:00",
+          "final_url": "https://physics.berkeley.edu/welcome/nobel-laureates",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 48119,
+          "raw_sha256": "58ec6fa4e7ae3312c63c55cbe92cfcb90fe7ce885a3ae59a5930461dac6ffc86",
+          "snapshot_id": "snap-a01c65aec5a65eb6",
+          "text_chars": 7916,
+          "text_sha256": "ff126b1234f8e0ae0f8c0ac58075898fde6fa410f0049232dac3e2dc6cd7c984",
+          "url": "https://physics.berkeley.edu/welcome/nobel-laureates"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:07+00:00",
+          "final_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 190316,
+          "raw_sha256": "e4e5d4b8c1b77f93bc49a225360acbc40d3b0696ed169ab13b4e1cda20fd7149",
+          "snapshot_id": "snap-b9d125acb9a72775",
+          "text_chars": 50070,
+          "text_sha256": "a79ecde5d63170cb6983ceecbc1358317b00998d21ac86ff64ba4619fc628285",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:06+00:00",
+          "final_url": "https://www.drugsandalcohol.ie/43052/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 80821,
+          "raw_sha256": "3865af86c8e811e1c05ca7fc9f4b17066a380c5c42da1443c40d155671625066",
+          "snapshot_id": "snap-c08b32e4f236c0be",
+          "text_chars": 5212,
+          "text_sha256": "8453ae89f5b623f7a9cc6ca4617efba78e907def4a5ac71253b4baf9b631f2e1",
+          "url": "https://www.drugsandalcohol.ie/43052/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:04+00:00",
+          "final_url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 62363,
+          "raw_sha256": "b0ab6955e774b69b700808493c24dfea08d2909f4d6ec8b8a9fa596e79e0cf41",
+          "snapshot_id": "snap-caeb4e9676cc31d7",
+          "text_chars": 6665,
+          "text_sha256": "369fd8bf386ba5666b98c06426a86a00dd253655b9cfcfe0a7ab75c085a3c891",
+          "url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:07:54+00:00",
+          "final_url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 166151,
+          "raw_sha256": "962bcbfdf8b903ae169c461bfac7f195cbff2e9d6ec7e8b90c7a697d52ef03d6",
+          "snapshot_id": "snap-e3dbb2c0a87815d0",
+          "text_chars": 2240,
+          "text_sha256": "3bcd68aef22565e2173d8f5989dcb98fdf3d43034af10f7b42326359f0f7acdf",
+          "url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:07:48+00:00",
+          "final_url": "https://www.forbes.com/lists/athletes/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 670462,
+          "raw_sha256": "613b49d1d521531a2703eee5f5acedc9c6290e7b58a7ccd4f905383cbedcbe47",
+          "snapshot_id": "snap-e98456aa22d27c38",
+          "text_chars": 4193,
+          "text_sha256": "51b7f23aaa24c4187acdaf51f8454e44f47dde8922809515a1e7c663a0624688",
+          "url": "https://www.forbes.com/lists/athletes/"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:07:53+00:00",
+          "final_url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 56041,
+          "raw_sha256": "533f814eb660c5bace83eb4bb4d50672e11d39ac4f0a4cab9a6b94e6f7ac7183",
+          "snapshot_id": "snap-e9e53b19cb2d60ed",
+          "text_chars": 7358,
+          "text_sha256": "b1d0965e1dc072acecf3be5c7976f213585d718bec322ecda1216bf1c018cf48",
+          "url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:07:49+00:00",
+          "final_url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 463305,
+          "raw_sha256": "44fa5fde403ffa6fc5a141566f072591178ad8de6652a8286e98c28865e677ed",
+          "snapshot_id": "snap-f0f0c123c7999cac",
+          "text_chars": 22912,
+          "text_sha256": "a9d61d275f4462521d543098c28d8cd1d7bad9645e2debdcea6a907e7d401760",
+          "url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes"
+        },
+        {
+          "content_type": "text/html; charset=utf-8",
+          "fetched_at": "2026-11-22T22:08:02+00:00",
+          "final_url": "https://www.codenameone.com/blog/android-37-readiness-location-button/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 48558,
+          "raw_sha256": "bcfffe668db619a3692b76ae41cb9c42cd2d890386d736c0aa86a2ec4f302a4d",
+          "snapshot_id": "snap-f5ef2cd72af7763c",
+          "text_chars": 13104,
+          "text_sha256": "8c469f4e6028686a5b7613cd659c6a264b106c8f5a7760085a0561d1c8da5d2d",
+          "url": "https://www.codenameone.com/blog/android-37-readiness-location-button/"
+        },
+        {
+          "content_type": "text/html; charset=\"utf-8\"",
+          "fetched_at": "2026-11-22T22:08:12+00:00",
+          "final_url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 798025,
+          "raw_sha256": "e3a39172cf9d349a9c6587c718e39e0259a0253178a25566940e342a6ee0a14e",
+          "snapshot_id": "snap-fa0e0340c67897fd",
+          "text_chars": 56,
+          "text_sha256": "9a7f7c583bce81aae484e88961352a18f68d24499815b2e2ac97fb6ec23db977",
+          "url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/"
+        },
+        {
+          "content_type": "text/html; charset=UTF-8",
+          "fetched_at": "2026-11-22T22:08:13+00:00",
+          "final_url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles",
+          "http_status": 200,
+          "outcome": "ok",
+          "raw_bytes": 31690,
+          "raw_sha256": "c84f879bae68c40065300327f6d09748fd8cab1f05b635f2fed1430fcabe5bf8",
+          "snapshot_id": "snap-ff2150d7359870d8",
+          "text_chars": 2390,
+          "text_sha256": "f8553262ea9861223252e7a33278149a561dad7387727d55fba9b01f06724607",
+          "url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles"
+        }
+      ],
+      "records": [
+        {
+          "arm": "no_gate",
+          "attempts": [
+            {
+              "answer_status": "abstained",
+              "evidence": [
+                {
+                  "id": "snap-34520558c09a33f6",
+                  "sha256": "0c81231dac876d1c4d5712f7ff6e0017869d0d55025cd8b6b9680434b4432f35",
+                  "url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics"
+                },
+                {
+                  "id": "snap-a01c65aec5a65eb6",
+                  "sha256": "ff126b1234f8e0ae0f8c0ac58075898fde6fa410f0049232dac3e2dc6cd7c984",
+                  "url": "https://physics.berkeley.edu/welcome/nobel-laureates"
+                },
+                {
+                  "id": "snap-46307a8224895891",
+                  "sha256": "489601b240bfd4125858591fe6cc2b49c383d4f46aa8d26878de9f8cb69b5eb7",
+                  "url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/"
+                },
+                {
+                  "id": "snap-e3dbb2c0a87815d0",
+                  "sha256": "3bcd68aef22565e2173d8f5989dcb98fdf3d43034af10f7b42326359f0f7acdf",
+                  "url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/"
+                },
+                {
+                  "id": "snap-443385c474dd8914",
+                  "sha256": "7dbed08cba78da32542b4429ac3dd7085121d1ffa2e00a6474010d854c4e0299",
+                  "url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en"
+                }
+              ],
+              "quote_chars": null,
+              "quote_sha256": null,
+              "source_id": null,
+              "verdict": null
+            }
+          ],
+          "calls": {
+            "answer": {
+              "paid_calls": 1,
+              "usd": 0.0005025
+            },
+            "fetch": {
+              "paid_calls": 5,
+              "usd": 0.0
+            },
+            "search": {
+              "paid_calls": 1,
+              "usd": 0.001
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/c09d74d679a9af7f",
+          "item_id": "sealqa/c09d74d679a9af7f",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard",
+              "seal_0"
+            ]
+          },
+          "stratum": "seal_0/fast-changing"
+        },
+        {
+          "arm": "gated_research",
+          "attempts": [
+            {
+              "answer_status": "abstained",
+              "evidence": [
+                {
+                  "id": "snap-34520558c09a33f6",
+                  "sha256": "0c81231dac876d1c4d5712f7ff6e0017869d0d55025cd8b6b9680434b4432f35",
+                  "url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics"
+                },
+                {
+                  "id": "snap-a01c65aec5a65eb6",
+                  "sha256": "ff126b1234f8e0ae0f8c0ac58075898fde6fa410f0049232dac3e2dc6cd7c984",
+                  "url": "https://physics.berkeley.edu/welcome/nobel-laureates"
+                },
+                {
+                  "id": "snap-46307a8224895891",
+                  "sha256": "489601b240bfd4125858591fe6cc2b49c383d4f46aa8d26878de9f8cb69b5eb7",
+                  "url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/"
+                },
+                {
+                  "id": "snap-e3dbb2c0a87815d0",
+                  "sha256": "3bcd68aef22565e2173d8f5989dcb98fdf3d43034af10f7b42326359f0f7acdf",
+                  "url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/"
+                },
+                {
+                  "id": "snap-443385c474dd8914",
+                  "sha256": "7dbed08cba78da32542b4429ac3dd7085121d1ffa2e00a6474010d854c4e0299",
+                  "url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en"
+                }
+              ],
+              "quote_chars": null,
+              "quote_sha256": null,
+              "source_id": null,
+              "verdict": null
+            }
+          ],
+          "calls": {},
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/c09d74d679a9af7f",
+          "item_id": "sealqa/c09d74d679a9af7f",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard",
+              "seal_0"
+            ]
+          },
+          "stratum": "seal_0/fast-changing"
+        },
+        {
+          "arm": "no_gate",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-e98456aa22d27c38",
+                  "sha256": "51b7f23aaa24c4187acdaf51f8454e44f47dde8922809515a1e7c663a0624688",
+                  "url": "https://www.forbes.com/lists/athletes/"
+                },
+                {
+                  "id": "snap-f0f0c123c7999cac",
+                  "sha256": "716a15aab38c83edfcc8c8e88dea4c18744a249cbc295231f28b3bece29fea8f",
+                  "url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes"
+                },
+                {
+                  "id": "snap-2d53e7a728697d5c",
+                  "sha256": "0a40ce906d39e2e8471ae750da1439e9aa6e9de3b6e0b0d53a9173604a9388b9",
+                  "url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/"
+                },
+                {
+                  "id": "snap-e9e53b19cb2d60ed",
+                  "sha256": "b1d0965e1dc072acecf3be5c7976f213585d718bec322ecda1216bf1c018cf48",
+                  "url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story"
+                },
+                {
+                  "id": "snap-216b233ef52187fd",
+                  "sha256": "7201e48b10fc93498ace4703191cae1b1819b9a6c5a1590bf744487679f1f061",
+                  "url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/"
+                }
+              ],
+              "quote_chars": 95,
+              "quote_sha256": "e63f9cc3cd94e93fe381c76803b8280bd602e5963b36f314ac232c86a7c107c6",
+              "source_id": "web4",
+              "verdict": null
+            }
+          ],
+          "calls": {
+            "answer": {
+              "paid_calls": 1,
+              "usd": 0.0005571
+            },
+            "fetch": {
+              "paid_calls": 8,
+              "usd": 0.0
+            },
+            "search": {
+              "paid_calls": 1,
+              "usd": 0.001
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": 95,
+          "final_quote_sha256": "e63f9cc3cd94e93fe381c76803b8280bd602e5963b36f314ac232c86a7c107c6",
+          "final_quote_tokens": 12,
+          "final_source_id": "web4",
+          "final_status": "answered",
+          "final_value": "Three: Cristiano Ronaldo, Lionel Messi, and Karim Benzema.",
+          "final_value_truncated": false,
+          "group_id": "sealqa/01738fd8b4af59bd",
+          "item_id": "sealqa/01738fd8b4af59bd",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "incorrect",
+            "outcome": "incorrect",
+            "quote_tokens": 12,
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ],
+            "value_exact": false,
+            "value_has_gold": false
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "gated_research",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-e98456aa22d27c38",
+                  "sha256": "51b7f23aaa24c4187acdaf51f8454e44f47dde8922809515a1e7c663a0624688",
+                  "url": "https://www.forbes.com/lists/athletes/"
+                },
+                {
+                  "id": "snap-f0f0c123c7999cac",
+                  "sha256": "716a15aab38c83edfcc8c8e88dea4c18744a249cbc295231f28b3bece29fea8f",
+                  "url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes"
+                },
+                {
+                  "id": "snap-2d53e7a728697d5c",
+                  "sha256": "0a40ce906d39e2e8471ae750da1439e9aa6e9de3b6e0b0d53a9173604a9388b9",
+                  "url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/"
+                },
+                {
+                  "id": "snap-e9e53b19cb2d60ed",
+                  "sha256": "b1d0965e1dc072acecf3be5c7976f213585d718bec322ecda1216bf1c018cf48",
+                  "url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story"
+                },
+                {
+                  "id": "snap-216b233ef52187fd",
+                  "sha256": "7201e48b10fc93498ace4703191cae1b1819b9a6c5a1590bf744487679f1f061",
+                  "url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/"
+                }
+              ],
+              "quote_chars": 95,
+              "quote_sha256": "e63f9cc3cd94e93fe381c76803b8280bd602e5963b36f314ac232c86a7c107c6",
+              "source_id": "web4",
+              "verdict": {
+                "checks": [
+                  {
+                    "check": "quote_verbatim",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "entity_in_window",
+                    "reason": "entity_not_in_document",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "qualifiers_in_window",
+                    "reason": "qualifier_outside_window",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "no_closer_competitor",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "premise_present",
+                    "reason": "key_term_missing",
+                    "status": "fail"
+                  }
+                ],
+                "decision": "abstain"
+              }
+            }
+          ],
+          "calls": {
+            "decompose": {
+              "paid_calls": 1,
+              "usd": 0.0001416
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/01738fd8b4af59bd",
+          "item_id": "sealqa/01738fd8b4af59bd",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ]
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "no_gate",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-44f568e4d3fdaa5e",
+                  "sha256": "cea40c5d44b4a26241c25cd07421f4348879d416d8d49226ca39f1bcf26924dc",
+                  "url": "https://en.wikipedia.org/wiki/Android_version_history"
+                },
+                {
+                  "id": "snap-1972880bc4216174",
+                  "sha256": "ae55e99a865cc0fd57c5a188b560f320273ba910a904f808cb10a0c6c86fd8d5",
+                  "url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/"
+                },
+                {
+                  "id": "snap-f5ef2cd72af7763c",
+                  "sha256": "3fe1e66c8517b86b97a4e49302722635874e3ada5d70500cd11cdda77f876338",
+                  "url": "https://www.codenameone.com/blog/android-37-readiness-location-button/"
+                },
+                {
+                  "id": "snap-5643b426860e1a47",
+                  "sha256": "cc8800d4a4086bf08650b64bb6a4dbb385b9026f0d779036f59bbb0436e2b2f6",
+                  "url": "https://androidversion.github.io/"
+                },
+                {
+                  "id": "snap-503814c8b365f1c2",
+                  "sha256": "1fa235c77a99c788cd66561a60f7512bd259e027046f830245bde24d58c35330",
+                  "url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/"
+                }
+              ],
+              "quote_chars": 39,
+              "quote_sha256": "4ce7840dfa5c8e82061782af0ebd689e3a9a3e9c22a36afd4e1e1e13f4c0c2bd",
+              "source_id": "web1",
+              "verdict": null
+            }
+          ],
+          "calls": {
+            "answer": {
+              "paid_calls": 1,
+              "usd": 0.0008215
+            },
+            "fetch": {
+              "paid_calls": 9,
+              "usd": 0.0
+            },
+            "search": {
+              "paid_calls": 1,
+              "usd": 0.001
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": 39,
+          "final_quote_sha256": "4ce7840dfa5c8e82061782af0ebd689e3a9a3e9c22a36afd4e1e1e13f4c0c2bd",
+          "final_quote_tokens": 7,
+          "final_source_id": "web1",
+          "final_status": "answered",
+          "final_value": "The most recent Android version that is no longer maintained is Android 13, whose internal codename ",
+          "final_value_truncated": true,
+          "group_id": "sealqa/e8bc1860ba322766",
+          "item_id": "sealqa/e8bc1860ba322766",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "correct",
+            "outcome": "correct",
+            "quote_tokens": 7,
+            "rule_version": 1,
+            "search_results": "unhelpful",
+            "subsets": [
+              "seal_hard"
+            ],
+            "value_exact": false,
+            "value_has_gold": true
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "gated_research",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-44f568e4d3fdaa5e",
+                  "sha256": "cea40c5d44b4a26241c25cd07421f4348879d416d8d49226ca39f1bcf26924dc",
+                  "url": "https://en.wikipedia.org/wiki/Android_version_history"
+                },
+                {
+                  "id": "snap-1972880bc4216174",
+                  "sha256": "ae55e99a865cc0fd57c5a188b560f320273ba910a904f808cb10a0c6c86fd8d5",
+                  "url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/"
+                },
+                {
+                  "id": "snap-f5ef2cd72af7763c",
+                  "sha256": "3fe1e66c8517b86b97a4e49302722635874e3ada5d70500cd11cdda77f876338",
+                  "url": "https://www.codenameone.com/blog/android-37-readiness-location-button/"
+                },
+                {
+                  "id": "snap-5643b426860e1a47",
+                  "sha256": "cc8800d4a4086bf08650b64bb6a4dbb385b9026f0d779036f59bbb0436e2b2f6",
+                  "url": "https://androidversion.github.io/"
+                },
+                {
+                  "id": "snap-503814c8b365f1c2",
+                  "sha256": "1fa235c77a99c788cd66561a60f7512bd259e027046f830245bde24d58c35330",
+                  "url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/"
+                }
+              ],
+              "quote_chars": 39,
+              "quote_sha256": "4ce7840dfa5c8e82061782af0ebd689e3a9a3e9c22a36afd4e1e1e13f4c0c2bd",
+              "source_id": "web1",
+              "verdict": {
+                "checks": [
+                  {
+                    "check": "quote_verbatim",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "entity_in_window",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "qualifiers_in_window",
+                    "reason": "qualifier_outside_window",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "no_closer_competitor",
+                    "reason": "no_competitor_candidates",
+                    "status": "not_applicable"
+                  },
+                  {
+                    "check": "premise_present",
+                    "reason": "key_term_missing",
+                    "status": "fail"
+                  }
+                ],
+                "decision": "abstain"
+              }
+            }
+          ],
+          "calls": {
+            "decompose": {
+              "paid_calls": 1,
+              "usd": 0.0001229
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/e8bc1860ba322766",
+          "item_id": "sealqa/e8bc1860ba322766",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "unhelpful",
+            "subsets": [
+              "seal_hard"
+            ]
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "no_gate",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-43883bcde0f0ac25",
+                  "sha256": "204793437d282fa028583a85ba5f3e68e8e4c9c715799e7c8e4c3e1c02b2edff",
+                  "url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/"
+                },
+                {
+                  "id": "snap-caeb4e9676cc31d7",
+                  "sha256": "369fd8bf386ba5666b98c06426a86a00dd253655b9cfcfe0a7ab75c085a3c891",
+                  "url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/"
+                },
+                {
+                  "id": "snap-c08b32e4f236c0be",
+                  "sha256": "8453ae89f5b623f7a9cc6ca4617efba78e907def4a5ac71253b4baf9b631f2e1",
+                  "url": "https://www.drugsandalcohol.ie/43052/"
+                },
+                {
+                  "id": "snap-b9d125acb9a72775",
+                  "sha256": "33a18fdb9b0a9912a76151e1bc40d341011f6fe0933ad0a69ccb898b31ec1174",
+                  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/"
+                },
+                {
+                  "id": "snap-9e1053b359836f6a",
+                  "sha256": "1a63900c394642ee7f6e925f2bf79512b7a1b03d48ddab0c299d9b16906b9fe6",
+                  "url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/"
+                }
+              ],
+              "quote_chars": 110,
+              "quote_sha256": "66e28bf83ccbc5a2860842bc003575e7bbe028871fe38fc461d88718330fcc26",
+              "source_id": "web2",
+              "verdict": null
+            }
+          ],
+          "calls": {
+            "answer": {
+              "paid_calls": 1,
+              "usd": 0.0007202
+            },
+            "fetch": {
+              "paid_calls": 7,
+              "usd": 0.0
+            },
+            "search": {
+              "paid_calls": 1,
+              "usd": 0.001
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": 110,
+          "final_quote_sha256": "66e28bf83ccbc5a2860842bc003575e7bbe028871fe38fc461d88718330fcc26",
+          "final_quote_tokens": 19,
+          "final_source_id": "web2",
+          "final_status": "answered",
+          "final_value": "The number of cases receiving treatment for cocaine as their main problem drug increased by 336% sin",
+          "final_value_truncated": true,
+          "group_id": "sealqa/88c6c783e630f055",
+          "item_id": "sealqa/88c6c783e630f055",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "correct",
+            "outcome": "correct",
+            "quote_tokens": 19,
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ],
+            "value_exact": false,
+            "value_has_gold": true
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "gated_research",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-43883bcde0f0ac25",
+                  "sha256": "204793437d282fa028583a85ba5f3e68e8e4c9c715799e7c8e4c3e1c02b2edff",
+                  "url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/"
+                },
+                {
+                  "id": "snap-caeb4e9676cc31d7",
+                  "sha256": "369fd8bf386ba5666b98c06426a86a00dd253655b9cfcfe0a7ab75c085a3c891",
+                  "url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/"
+                },
+                {
+                  "id": "snap-c08b32e4f236c0be",
+                  "sha256": "8453ae89f5b623f7a9cc6ca4617efba78e907def4a5ac71253b4baf9b631f2e1",
+                  "url": "https://www.drugsandalcohol.ie/43052/"
+                },
+                {
+                  "id": "snap-b9d125acb9a72775",
+                  "sha256": "33a18fdb9b0a9912a76151e1bc40d341011f6fe0933ad0a69ccb898b31ec1174",
+                  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/"
+                },
+                {
+                  "id": "snap-9e1053b359836f6a",
+                  "sha256": "1a63900c394642ee7f6e925f2bf79512b7a1b03d48ddab0c299d9b16906b9fe6",
+                  "url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/"
+                }
+              ],
+              "quote_chars": 110,
+              "quote_sha256": "66e28bf83ccbc5a2860842bc003575e7bbe028871fe38fc461d88718330fcc26",
+              "source_id": "web2",
+              "verdict": {
+                "checks": [
+                  {
+                    "check": "quote_verbatim",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "entity_in_window",
+                    "reason": "entity_not_in_document",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "qualifiers_in_window",
+                    "reason": "qualifier_outside_window",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "no_closer_competitor",
+                    "reason": "competitor_closer",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "premise_present",
+                    "reason": "key_term_missing",
+                    "status": "fail"
+                  }
+                ],
+                "decision": "abstain"
+              }
+            }
+          ],
+          "calls": {
+            "decompose": {
+              "paid_calls": 1,
+              "usd": 0.0001281
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/88c6c783e630f055",
+          "item_id": "sealqa/88c6c783e630f055",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ]
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "no_gate",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-fa0e0340c67897fd",
+                  "sha256": "9a7f7c583bce81aae484e88961352a18f68d24499815b2e2ac97fb6ec23db977",
+                  "url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/"
+                },
+                {
+                  "id": "snap-ff2150d7359870d8",
+                  "sha256": "f8553262ea9861223252e7a33278149a561dad7387727d55fba9b01f06724607",
+                  "url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles"
+                },
+                {
+                  "id": "snap-6289062d559a49cb",
+                  "sha256": "dfb81523361d2defdc998472827502646ea9d172fc7f109df47e9405fa7807f6",
+                  "url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html"
+                },
+                {
+                  "id": "snap-49fa58c9c533b879",
+                  "sha256": "1a05cc4d779d85edcdc921b2be77fca29276ffe7dc456a2b12320eb7122c74b4",
+                  "url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/"
+                },
+                {
+                  "id": "snap-2d110ebc222f54de",
+                  "sha256": "2d8f37909d3b70d4afa1da178082870a866a22cf50488080960621d918da0c15",
+                  "url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html"
+                }
+              ],
+              "quote_chars": 134,
+              "quote_sha256": "fc1b1ecc1f6ccefd32134a94dae11bf0d2da5439b8471f8ae9ef9b1694a93dfb",
+              "source_id": "web2",
+              "verdict": null
+            }
+          ],
+          "calls": {
+            "answer": {
+              "paid_calls": 1,
+              "usd": 0.0004967
+            },
+            "fetch": {
+              "paid_calls": 6,
+              "usd": 0.0
+            },
+            "search": {
+              "paid_calls": 1,
+              "usd": 0.001
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": 134,
+          "final_quote_sha256": "fc1b1ecc1f6ccefd32134a94dae11bf0d2da5439b8471f8ae9ef9b1694a93dfb",
+          "final_quote_tokens": 23,
+          "final_source_id": "web2",
+          "final_status": "answered",
+          "final_value": "The oldest singles champion of the ATP Finals is Novak Djokovic; he is 39 years old as of November 2",
+          "final_value_truncated": true,
+          "group_id": "sealqa/6edd4d609419ee14",
+          "item_id": "sealqa/6edd4d609419ee14",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "correct",
+            "outcome": "correct",
+            "quote_tokens": 23,
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ],
+            "value_exact": false,
+            "value_has_gold": true
+          },
+          "stratum": "seal_hard/fast-changing"
+        },
+        {
+          "arm": "gated_research",
+          "attempts": [
+            {
+              "answer_status": "answered",
+              "evidence": [
+                {
+                  "id": "snap-fa0e0340c67897fd",
+                  "sha256": "9a7f7c583bce81aae484e88961352a18f68d24499815b2e2ac97fb6ec23db977",
+                  "url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/"
+                },
+                {
+                  "id": "snap-ff2150d7359870d8",
+                  "sha256": "f8553262ea9861223252e7a33278149a561dad7387727d55fba9b01f06724607",
+                  "url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles"
+                },
+                {
+                  "id": "snap-6289062d559a49cb",
+                  "sha256": "dfb81523361d2defdc998472827502646ea9d172fc7f109df47e9405fa7807f6",
+                  "url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html"
+                },
+                {
+                  "id": "snap-49fa58c9c533b879",
+                  "sha256": "1a05cc4d779d85edcdc921b2be77fca29276ffe7dc456a2b12320eb7122c74b4",
+                  "url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/"
+                },
+                {
+                  "id": "snap-2d110ebc222f54de",
+                  "sha256": "2d8f37909d3b70d4afa1da178082870a866a22cf50488080960621d918da0c15",
+                  "url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html"
+                }
+              ],
+              "quote_chars": 134,
+              "quote_sha256": "fc1b1ecc1f6ccefd32134a94dae11bf0d2da5439b8471f8ae9ef9b1694a93dfb",
+              "source_id": "web2",
+              "verdict": {
+                "checks": [
+                  {
+                    "check": "quote_verbatim",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "entity_in_window",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "qualifiers_in_window",
+                    "reason": "qualifier_outside_window",
+                    "status": "fail"
+                  },
+                  {
+                    "check": "no_closer_competitor",
+                    "reason": null,
+                    "status": "pass"
+                  },
+                  {
+                    "check": "premise_present",
+                    "reason": "key_term_missing",
+                    "status": "fail"
+                  }
+                ],
+                "decision": "abstain"
+              }
+            }
+          ],
+          "calls": {
+            "decompose": {
+              "paid_calls": 1,
+              "usd": 0.0001229
+            }
+          },
+          "error": false,
+          "error_type": null,
+          "final_quote_chars": null,
+          "final_quote_sha256": null,
+          "final_source_id": null,
+          "final_status": "abstained",
+          "final_value": null,
+          "final_value_truncated": false,
+          "group_id": "sealqa/6edd4d609419ee14",
+          "item_id": "sealqa/6edd4d609419ee14",
+          "model": "openai-low",
+          "n_attempts": 1,
+          "repeat": 0,
+          "score": {
+            "freshness": "fast-changing",
+            "label": "abstained",
+            "outcome": "abstained",
+            "rule_version": 1,
+            "search_results": "conflicting",
+            "subsets": [
+              "seal_hard"
+            ]
+          },
+          "stratum": "seal_hard/fast-changing"
+        }
+      ],
+      "run_id": "20261122T220747Z-d18c37e7-d2b8",
+      "searches": 5,
+      "snapshot_counts": {
+        "page": 35,
+        "robots": 23,
+        "search": 5
+      },
+      "spend": {
+        "calls": 49,
+        "detail": {
+          "by_model_usd": {
+            "openai-low": 0.0086135
+          },
+          "by_purpose_usd": {
+            "answer": 0.003098,
+            "decompose": 0.0005155,
+            "fetch": 0.0,
+            "search": 0.005
+          },
+          "closed": true,
+          "computed_usd": 0.0086135,
+          "config_name": "dev-live-smoke",
+          "dataset": "sealqa",
+          "prices_sha256_now": "6d6fd8fecc0fa753eb12f8f5b10a08ee995f05d2bf66b881ca665d9d45b42671",
+          "recorded_usd": 0.008614,
+          "records": 10,
+          "split": "dev"
+        },
+        "key": "run:20261122T220747Z-d18c37e7-d2b8",
+        "kind": "trace",
+        "source": "layer-3 summary of 20261122T220747Z-d18c37e7-d2b8",
+        "unpriced_calls": 0,
+        "usd": 0.008614
+      },
+      "split": "dev",
+      "started_at": "2026-11-22T22:07:47+00:00",
+      "trace_count": 10,
+      "traces_sha256": "fb2dbf49da2b2537155524de3671042e6cffda393f25d433143c7bbdbb795495"
+    }
+  ],
+  "summary_version": 1
+}

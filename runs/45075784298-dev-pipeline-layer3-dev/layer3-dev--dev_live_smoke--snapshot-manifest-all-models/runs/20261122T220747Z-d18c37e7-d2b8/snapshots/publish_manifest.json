@@ -1,0 +1,936 @@
+{
+  "generated_at": "2026-11-22T22:08:23+00:00",
+  "manifest_version": 1,
+  "note": "Page contents are not included: they are third-party material kept privately (PREREGISTRATION.md section 14). Each page can be matched by its SHA-256.",
+  "pages": [
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:48+00:00",
+      "final_url": "https://www.forbes.com/lists/athletes/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 670462,
+      "raw_sha256": "613b49d1d521531a2703eee5f5acedc9c6290e7b58a7ccd4f905383cbedcbe47",
+      "snapshot_id": "snap-e98456aa22d27c38",
+      "text_sha256": "51b7f23aaa24c4187acdaf51f8454e44f47dde8922809515a1e7c663a0624688",
+      "url": "https://www.forbes.com/lists/athletes/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:49+00:00",
+      "final_url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 1053130,
+      "raw_sha256": "786816d598b5c3792f47e346aeb0780f1b29d15c51f921dab2d68aed01b60a56",
+      "snapshot_id": "snap-34520558c09a33f6",
+      "text_sha256": "fcd48923da98cec9606f3e38ab5be9a68733917c57ffbb69c38b9f581d315ffb",
+      "url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:49+00:00",
+      "final_url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 463305,
+      "raw_sha256": "44fa5fde403ffa6fc5a141566f072591178ad8de6652a8286e98c28865e677ed",
+      "snapshot_id": "snap-f0f0c123c7999cac",
+      "text_sha256": "a9d61d275f4462521d543098c28d8cd1d7bad9645e2debdcea6a907e7d401760",
+      "url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes"
+    },
+    {
+      "content_type": "text/html;charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:51+00:00",
+      "final_url": "https://www.forbes.com/sites/brettknight/2026/05/22/the-worlds-10-highest-paid-athletes-2026/",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-e8e02de69887638a",
+      "text_sha256": null,
+      "url": "https://www.forbes.com/sites/brettknight/2026/05/22/the-worlds-10-highest-paid-athletes-2026/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:50+00:00",
+      "final_url": "https://physics.berkeley.edu/welcome/nobel-laureates",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 48119,
+      "raw_sha256": "58ec6fa4e7ae3312c63c55cbe92cfcb90fe7ce885a3ae59a5930461dac6ffc86",
+      "snapshot_id": "snap-a01c65aec5a65eb6",
+      "text_sha256": "ff126b1234f8e0ae0f8c0ac58075898fde6fa410f0049232dac3e2dc6cd7c984",
+      "url": "https://physics.berkeley.edu/welcome/nobel-laureates"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:51+00:00",
+      "final_url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 837222,
+      "raw_sha256": "54c8b82c0153366f63ad1aa5034c648276c263e66459ddea415fc1e59faddf32",
+      "snapshot_id": "snap-2d53e7a728697d5c",
+      "text_sha256": "0a40ce906d39e2e8471ae750da1439e9aa6e9de3b6e0b0d53a9173604a9388b9",
+      "url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/"
+    },
+    {
+      "content_type": "text/html;charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:53+00:00",
+      "final_url": "https://www.forbes.com/sites/brettknight/2025/05/15/the-worlds-10-highest-paid-athletes-2025/",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-0b1d30b221e26d28",
+      "text_sha256": null,
+      "url": "https://www.forbes.com/sites/brettknight/2025/05/15/the-worlds-10-highest-paid-athletes-2025/"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:51+00:00",
+      "final_url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 892400,
+      "raw_sha256": "18dd145aab24002f34631ec98b5eef787157a0ffeacc320dca84103302c93d4a",
+      "snapshot_id": "snap-46307a8224895891",
+      "text_sha256": "489601b240bfd4125858591fe6cc2b49c383d4f46aa8d26878de9f8cb69b5eb7",
+      "url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:53+00:00",
+      "final_url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 56041,
+      "raw_sha256": "533f814eb660c5bace83eb4bb4d50672e11d39ac4f0a4cab9a6b94e6f7ac7183",
+      "snapshot_id": "snap-e9e53b19cb2d60ed",
+      "text_sha256": "b1d0965e1dc072acecf3be5c7976f213585d718bec322ecda1216bf1c018cf48",
+      "url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:54+00:00",
+      "final_url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 166151,
+      "raw_sha256": "962bcbfdf8b903ae169c461bfac7f195cbff2e9d6ec7e8b90c7a697d52ef03d6",
+      "snapshot_id": "snap-e3dbb2c0a87815d0",
+      "text_sha256": "3bcd68aef22565e2173d8f5989dcb98fdf3d43034af10f7b42326359f0f7acdf",
+      "url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:55+00:00",
+      "final_url": "https://qz.com/highest-paid-athletes-forbes-list",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-254941bcbe551104",
+      "text_sha256": null,
+      "url": "https://qz.com/highest-paid-athletes-forbes-list"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:56+00:00",
+      "final_url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 802371,
+      "raw_sha256": "58cbfd07d09bcff3296db7bf7ae5e0578e565dda18edc28d0093e637d401e417",
+      "snapshot_id": "snap-216b233ef52187fd",
+      "text_sha256": "7201e48b10fc93498ace4703191cae1b1819b9a6c5a1590bf744487679f1f061",
+      "url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:07:55+00:00",
+      "final_url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 1402845,
+      "raw_sha256": "02707c142345b9e14311dc903389da570103143c411bc2455c787f866e15b98f",
+      "snapshot_id": "snap-443385c474dd8914",
+      "text_sha256": "7dbed08cba78da32542b4429ac3dd7085121d1ffa2e00a6474010d854c4e0299",
+      "url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:00+00:00",
+      "final_url": "https://en.wikipedia.org/wiki/Android_version_history",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 1486412,
+      "raw_sha256": "5fb5606e3a1cc29ef744474f35946547302fb9782a5dcb59c00b20fffd464b94",
+      "snapshot_id": "snap-44f568e4d3fdaa5e",
+      "text_sha256": "8f88a2c621b0ae43d2525c2c4883aac85e7687347a4ddca7e2767969a7a70487",
+      "url": "https://en.wikipedia.org/wiki/Android_version_history"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:00+00:00",
+      "final_url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 966043,
+      "raw_sha256": "f3bb077c3d92f0ebe070118752f08835305106875c863b3dfad898af15cfbf94",
+      "snapshot_id": "snap-1972880bc4216174",
+      "text_sha256": "ae55e99a865cc0fd57c5a188b560f320273ba910a904f808cb10a0c6c86fd8d5",
+      "url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/"
+    },
+    {
+      "content_type": null,
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "final_url": "https://www.reddit.com/r/Android/comments/1ozj1aw/secret_no_more_android_canary_confirms_cinnamon/",
+      "http_status": null,
+      "outcome": "robots_disallowed",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-71bf9abd5bc20957",
+      "text_sha256": null,
+      "url": "https://www.reddit.com/r/Android/comments/1ozj1aw/secret_no_more_android_canary_confirms_cinnamon/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "final_url": "https://www.androidauthority.com/android-17-codename-3585116/",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-8b7f814ed043bda6",
+      "text_sha256": null,
+      "url": "https://www.androidauthority.com/android-17-codename-3585116/"
+    },
+    {
+      "content_type": "text/html",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "final_url": "https://www.hrb.ie/press-releases/hrb-reports-continued-rise-in-treatment-for-cocaine-and-crack-cocaine-use/",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-37e13d8cc537ffd8",
+      "text_sha256": null,
+      "url": "https://www.hrb.ie/press-releases/hrb-reports-continued-rise-in-treatment-for-cocaine-and-crack-cocaine-use/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:02+00:00",
+      "final_url": "https://www.codenameone.com/blog/android-37-readiness-location-button/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 48558,
+      "raw_sha256": "bcfffe668db619a3692b76ae41cb9c42cd2d890386d736c0aa86a2ec4f302a4d",
+      "snapshot_id": "snap-f5ef2cd72af7763c",
+      "text_sha256": "8c469f4e6028686a5b7613cd659c6a264b106c8f5a7760085a0561d1c8da5d2d",
+      "url": "https://www.codenameone.com/blog/android-37-readiness-location-button/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:03+00:00",
+      "final_url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 311887,
+      "raw_sha256": "d5a3a44b42ae5ee01cfd7f2155b9d577ee279bcd4c781910bf6017760a59a9ad",
+      "snapshot_id": "snap-43883bcde0f0ac25",
+      "text_sha256": "f0cac07f6455b70822a85c8022e5c0dfcb89163bf686a880f57f0347dd5147c8",
+      "url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:03+00:00",
+      "final_url": "https://stackoverflow.com/questions/12692431/why-does-the-android-version-code-and-version-name-keep-going-back-to-1-and-1-0",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-fb83edfb4bd3852a",
+      "text_sha256": null,
+      "url": "https://stackoverflow.com/questions/12692431/why-does-the-android-version-code-and-version-name-keep-going-back-to-1-and-1-0"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:04+00:00",
+      "final_url": "https://androidversion.github.io/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 24660,
+      "raw_sha256": "175b4379eeffc62683fed25f7b02bb7bd0e1d1309d522529ebb37fcd6b26ccd7",
+      "snapshot_id": "snap-5643b426860e1a47",
+      "text_sha256": "cc8800d4a4086bf08650b64bb6a4dbb385b9026f0d779036f59bbb0436e2b2f6",
+      "url": "https://androidversion.github.io/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:04+00:00",
+      "final_url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 62363,
+      "raw_sha256": "b0ab6955e774b69b700808493c24dfea08d2909f4d6ec8b8a9fa596e79e0cf41",
+      "snapshot_id": "snap-caeb4e9676cc31d7",
+      "text_sha256": "369fd8bf386ba5666b98c06426a86a00dd253655b9cfcfe0a7ab75c085a3c891",
+      "url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:06+00:00",
+      "final_url": "https://android.stackexchange.com/questions/225279/how-do-we-know-when-an-android-version-is-going-phase-out-and-not-maintain-anymo",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-6788d91bc4c764d6",
+      "text_sha256": null,
+      "url": "https://android.stackexchange.com/questions/225279/how-do-we-know-when-an-android-version-is-going-phase-out-and-not-maintain-anymo"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:06+00:00",
+      "final_url": "https://www.drugsandalcohol.ie/43052/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 80821,
+      "raw_sha256": "3865af86c8e811e1c05ca7fc9f4b17066a380c5c42da1443c40d155671625066",
+      "snapshot_id": "snap-c08b32e4f236c0be",
+      "text_sha256": "8453ae89f5b623f7a9cc6ca4617efba78e907def4a5ac71253b4baf9b631f2e1",
+      "url": "https://www.drugsandalcohol.ie/43052/"
+    },
+    {
+      "content_type": "text/html",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:07+00:00",
+      "final_url": "https://www.hrb.ie/press-releases/cocaine-main-problem-drug-for-40-of-cases-receiving-drug-treatment/",
+      "http_status": 403,
+      "outcome": "http_error",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-671aacf0b1575c5b",
+      "text_sha256": null,
+      "url": "https://www.hrb.ie/press-releases/cocaine-main-problem-drug-for-40-of-cases-receiving-drug-treatment/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:07+00:00",
+      "final_url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 423902,
+      "raw_sha256": "0918aa8fed473921225044e7d9be7476ebe69ffc47aefce821816a788185a4fc",
+      "snapshot_id": "snap-503814c8b365f1c2",
+      "text_sha256": "49cc45c3362a917e32b0cb1bb45034d260cafae947e90f938344feaab7012a5c",
+      "url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:07+00:00",
+      "final_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 190316,
+      "raw_sha256": "e4e5d4b8c1b77f93bc49a225360acbc40d3b0696ed169ab13b4e1cda20fd7149",
+      "snapshot_id": "snap-b9d125acb9a72775",
+      "text_sha256": "a79ecde5d63170cb6983ceecbc1358317b00998d21ac86ff64ba4619fc628285",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:09+00:00",
+      "final_url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 791329,
+      "raw_sha256": "50eacad2628c272602198fc192b6a621b40c7ce9519792cae74fd9d491cd63b5",
+      "snapshot_id": "snap-9e1053b359836f6a",
+      "text_sha256": "1a63900c394642ee7f6e925f2bf79512b7a1b03d48ddab0c299d9b16906b9fe6",
+      "url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/"
+    },
+    {
+      "content_type": null,
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:12+00:00",
+      "final_url": "https://www.reddit.com/r/tennis/comments/1orwrhk/at_38_years_and_170_days_djokovic_surpasses/",
+      "http_status": null,
+      "outcome": "robots_disallowed",
+      "raw_bytes": null,
+      "raw_sha256": null,
+      "snapshot_id": "snap-dcd7abd97ca0a9c5",
+      "text_sha256": null,
+      "url": "https://www.reddit.com/r/tennis/comments/1orwrhk/at_38_years_and_170_days_djokovic_surpasses/"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:12+00:00",
+      "final_url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 798025,
+      "raw_sha256": "e3a39172cf9d349a9c6587c718e39e0259a0253178a25566940e342a6ee0a14e",
+      "snapshot_id": "snap-fa0e0340c67897fd",
+      "text_sha256": "9a7f7c583bce81aae484e88961352a18f68d24499815b2e2ac97fb6ec23db977",
+      "url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:13+00:00",
+      "final_url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 31690,
+      "raw_sha256": "c84f879bae68c40065300327f6d09748fd8cab1f05b635f2fed1430fcabe5bf8",
+      "snapshot_id": "snap-ff2150d7359870d8",
+      "text_sha256": "f8553262ea9861223252e7a33278149a561dad7387727d55fba9b01f06724607",
+      "url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles"
+    },
+    {
+      "content_type": "text/html; charset=utf-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:14+00:00",
+      "final_url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 555808,
+      "raw_sha256": "6035a6ac32f400ed7c15f537ac15a000f255ed4b43a5e1ce3053622894806eae",
+      "snapshot_id": "snap-6289062d559a49cb",
+      "text_sha256": "ac423074556f05443dfcfbf6b185f94d67fa3e644098f70eec6a80b59c27579e",
+      "url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html"
+    },
+    {
+      "content_type": "text/html; charset=\"utf-8\"",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:16+00:00",
+      "final_url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 973244,
+      "raw_sha256": "7707b4b3196c83714feafcd4d2fab341606aa05226ea42a83d1309d5dcabe569",
+      "snapshot_id": "snap-49fa58c9c533b879",
+      "text_sha256": "1a05cc4d779d85edcdc921b2be77fca29276ffe7dc456a2b12320eb7122c74b4",
+      "url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/"
+    },
+    {
+      "content_type": "text/html; charset=UTF-8",
+      "extractor_version": 1,
+      "fetched_at": "2026-11-22T22:08:17+00:00",
+      "final_url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html",
+      "http_status": 200,
+      "outcome": "ok",
+      "raw_bytes": 135003,
+      "raw_sha256": "0645943d812be2bf48e466b6689f41b2424fa7e547e326e6ba132e3768632958",
+      "snapshot_id": "snap-2d110ebc222f54de",
+      "text_sha256": "2d8f37909d3b70d4afa1da178082870a866a22cf50488080960621d918da0c15",
+      "url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html"
+    }
+  ],
+  "robots": [
+    {
+      "fetched_at": "2026-11-22T22:07:48+00:00",
+      "http_status": 200,
+      "origin": "https://www.forbes.com",
+      "outcome": "parsed",
+      "raw_sha256": "c97502d2425c524682718abeacb23c3c435da135eb08ebbc1e18f8c167868ce9",
+      "robots_url": "https://www.forbes.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:49+00:00",
+      "http_status": 200,
+      "origin": "https://en.wikipedia.org",
+      "outcome": "parsed",
+      "raw_sha256": "e90f00eaaa6bee8c4364fa714a36f57ae8f74323f043f0cea99cc8ca92cad8e8",
+      "robots_url": "https://en.wikipedia.org/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:50+00:00",
+      "http_status": 200,
+      "origin": "https://physics.berkeley.edu",
+      "outcome": "parsed",
+      "raw_sha256": "d265635ae3e6000f4f12304241e5f73834438f63214b82e507416bc60c2b5ac6",
+      "robots_url": "https://physics.berkeley.edu/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:51+00:00",
+      "http_status": 200,
+      "origin": "https://www.facebook.com",
+      "outcome": "parsed",
+      "raw_sha256": "cb1f03faf25f4bf7e93e37375d401d5a31a47de8b4a8f54fed952f1b51091f03",
+      "robots_url": "https://www.facebook.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:53+00:00",
+      "http_status": 200,
+      "origin": "https://thravos.io",
+      "outcome": "parsed",
+      "raw_sha256": "8137ad8d6ec5067bd8f0325ba2292f20e653814728fe3d1e2a7b47ecb241fedc",
+      "robots_url": "https://thravos.io/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:54+00:00",
+      "http_status": 200,
+      "origin": "https://www.nobelprize.org",
+      "outcome": "parsed",
+      "raw_sha256": "8c1403af4b30ea4bd1917b061de57ea53a74851641f71f0d210086986977c7b6",
+      "robots_url": "https://www.nobelprize.org/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:55+00:00",
+      "http_status": 200,
+      "origin": "https://qz.com",
+      "outcome": "parsed",
+      "raw_sha256": "ed139ef2c465b277f6c733f62500a911fc8aefa1391338ce0d3685ea87b64745",
+      "robots_url": "https://qz.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:07:55+00:00",
+      "http_status": 200,
+      "origin": "https://www.youtube.com",
+      "outcome": "parsed",
+      "raw_sha256": "a872d7eb78cba28cd8988ca370c061ce99c87147a47d01311e7bb0bff6a06857",
+      "robots_url": "https://www.youtube.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "http_status": 200,
+      "origin": "https://www.reddit.com",
+      "outcome": "parsed",
+      "raw_sha256": "41aea42110242175c7b4247f222fa95ac6caee62044af686b684785832781857",
+      "robots_url": "https://www.reddit.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "http_status": 200,
+      "origin": "https://www.androidauthority.com",
+      "outcome": "parsed",
+      "raw_sha256": "92f3a8322bd72ec31b69504b8e0c09d73b64237545544a25640fc4a503c30f7a",
+      "robots_url": "https://www.androidauthority.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:01+00:00",
+      "http_status": 403,
+      "origin": "https://www.hrb.ie",
+      "outcome": "unavailable_allow_all",
+      "raw_sha256": null,
+      "robots_url": "https://www.hrb.ie/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:02+00:00",
+      "http_status": 200,
+      "origin": "https://www.codenameone.com",
+      "outcome": "parsed",
+      "raw_sha256": "289929d295c67e1a281c0bc6df418d125147173363ef065ff7d4a4cdb76a1aa8",
+      "robots_url": "https://www.codenameone.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:03+00:00",
+      "http_status": 200,
+      "origin": "https://www.thejournal.ie",
+      "outcome": "parsed",
+      "raw_sha256": "4cf18eebcae043168d91ff90ab51acff731e49ea0175f05b7191679ac6b2a5fe",
+      "robots_url": "https://www.thejournal.ie/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:03+00:00",
+      "http_status": 418,
+      "origin": "https://stackoverflow.com",
+      "outcome": "unavailable_allow_all",
+      "raw_sha256": null,
+      "robots_url": "https://stackoverflow.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:04+00:00",
+      "http_status": 404,
+      "origin": "https://androidversion.github.io",
+      "outcome": "unavailable_allow_all",
+      "raw_sha256": null,
+      "robots_url": "https://androidversion.github.io/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:04+00:00",
+      "http_status": 200,
+      "origin": "https://www.lawsociety.ie",
+      "outcome": "parsed",
+      "raw_sha256": "32e4c0ab8ad42e284a0d88474396ac117550b6facee08573d5e66c0270c14ae8",
+      "robots_url": "https://www.lawsociety.ie/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:06+00:00",
+      "http_status": 418,
+      "origin": "https://android.stackexchange.com",
+      "outcome": "unavailable_allow_all",
+      "raw_sha256": null,
+      "robots_url": "https://android.stackexchange.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:06+00:00",
+      "http_status": 200,
+      "origin": "https://www.drugsandalcohol.ie",
+      "outcome": "parsed",
+      "raw_sha256": "9362b47501fbef5990edd0c78ed8f43849d708850192ae2fb21f50231548295e",
+      "robots_url": "https://www.drugsandalcohol.ie/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:07+00:00",
+      "http_status": 200,
+      "origin": "https://blog.ecoatm.com",
+      "outcome": "parsed",
+      "raw_sha256": "0c142b6fe467b9dc093c113416e2c4abfcbd85143c8f474d26156367870256c3",
+      "robots_url": "https://blog.ecoatm.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:07+00:00",
+      "http_status": 200,
+      "origin": "https://pmc.ncbi.nlm.nih.gov",
+      "outcome": "parsed",
+      "raw_sha256": "13e9bc75b111d5322baa80bc867783835cea98e0a7137b4908cb9c74e1bd39a6",
+      "robots_url": "https://pmc.ncbi.nlm.nih.gov/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:13+00:00",
+      "http_status": 200,
+      "origin": "https://www.guinnessworldrecords.com",
+      "outcome": "parsed",
+      "raw_sha256": "47ecbeb2dfb1d5909b79ae0069168fb231f96a628fef3945db211f8f6ec82968",
+      "robots_url": "https://www.guinnessworldrecords.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:14+00:00",
+      "http_status": 200,
+      "origin": "https://sports.yahoo.com",
+      "outcome": "parsed",
+      "raw_sha256": "44cc6d61fd0b3722c43a4afbc97a1b8da97ac6f35372fc4b681c61647a8f3e43",
+      "robots_url": "https://sports.yahoo.com/robots.txt"
+    },
+    {
+      "fetched_at": "2026-11-22T22:08:17+00:00",
+      "http_status": 200,
+      "origin": "https://www.tennismajors.com",
+      "outcome": "parsed",
+      "raw_sha256": "af1bbe07f08ac908e69f0d29fd6aa52a713870156343e90042e4d503236e62bc",
+      "robots_url": "https://www.tennismajors.com/robots.txt"
+    }
+  ],
+  "searches": [
+    {
+      "model_id": "serper/google",
+      "params": {
+        "engine": "google",
+        "gl": "us",
+        "hl": "en",
+        "max_results": 10,
+        "model_id": "serper/google",
+        "provider": "serper"
+      },
+      "provider": "serper",
+      "query": "How many current and former Real Madrid players are ranked in the top 10 of the latest Forbes list of the world's highest-paid athletes?",
+      "requested_at": "2026-11-22T22:07:47+00:00",
+      "response_sha256": "eda227211d4834e9e4040c9d62a5888ddf044af49535242ce31fa560db0b85c6",
+      "result_urls": [
+        {
+          "rank": 1,
+          "url": "https://www.forbes.com/lists/athletes/"
+        },
+        {
+          "rank": 2,
+          "url": "https://en.wikipedia.org/wiki/Forbes_list_of_the_world%27s_highest-paid_athletes"
+        },
+        {
+          "rank": 3,
+          "url": "https://www.forbes.com/sites/brettknight/2026/05/22/the-worlds-10-highest-paid-athletes-2026/"
+        },
+        {
+          "rank": 4,
+          "url": "https://www.facebook.com/forbes/videos/forbes-daily-briefing-the-worlds-10-highest-paid-athletes-2025/1057321862974704/"
+        },
+        {
+          "rank": 5,
+          "url": "https://www.forbes.com/sites/brettknight/2025/05/15/the-worlds-10-highest-paid-athletes-2025/"
+        },
+        {
+          "rank": 6,
+          "url": "https://thravos.io/blog/2026-06-17-forbes-just-ranked-the-10-highest-paid-athletes-the-gap-below-them-is-the-real-story"
+        },
+        {
+          "rank": 7,
+          "url": "https://qz.com/highest-paid-athletes-forbes-list"
+        },
+        {
+          "rank": 8,
+          "url": "https://www.facebook.com/forbes/videos/these-are-the-worlds-highest-paid-soccer-players-in-2021/1978519982324060/"
+        },
+        {
+          "rank": 9,
+          "url": "https://www.topendsports.com/world/lists/earnings/forbes-index.htm"
+        }
+      ],
+      "search_id": "search-8b8fd116826d6bef"
+    },
+    {
+      "model_id": "serper/google",
+      "params": {
+        "engine": "google",
+        "gl": "us",
+        "hl": "en",
+        "max_results": 10,
+        "model_id": "serper/google",
+        "provider": "serper"
+      },
+      "provider": "serper",
+      "query": "What is the current age of the last American experimental physicist to win the Nobel Prize in Physics?",
+      "requested_at": "2026-11-22T22:07:47+00:00",
+      "response_sha256": "c67a07ed4e0b9a90fe22a24fc970d3ae1b2f9cb3b2773f2341aec4d3aafcdc60",
+      "result_urls": [
+        {
+          "rank": 1,
+          "url": "https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics"
+        },
+        {
+          "rank": 2,
+          "url": "https://physics.berkeley.edu/welcome/nobel-laureates"
+        },
+        {
+          "rank": 3,
+          "url": "https://www.facebook.com/uchicago/videos/uchicago-names-building-after-pioneering-physicist-albert-michelson/890083658030296/"
+        },
+        {
+          "rank": 4,
+          "url": "https://www.nobelprize.org/prizes/lists/all-nobel-prizes-in-physics/"
+        },
+        {
+          "rank": 5,
+          "url": "https://www.youtube.com/watch?v=uXG1205uugY&vl=en"
+        },
+        {
+          "rank": 6,
+          "url": "https://www.lindau-nobel.org/geniuses-are-getting-older/"
+        },
+        {
+          "rank": 7,
+          "url": "https://backend.orbit.dtu.dk/ws/files/215281397/NP_article.pdf"
+        },
+        {
+          "rank": 8,
+          "url": "https://www.facebook.com/nobelprize/posts/the-physics-laureates-are-on-average-the-youngest-of-all-nobel-laureates-with-an/10154977817189103/"
+        },
+        {
+          "rank": 9,
+          "url": "https://www.famousscientists.org/the-11-youngest-nobel-prize-winners-scientists/"
+        },
+        {
+          "rank": 10,
+          "url": "https://physics.mit.edu/about-physics/nobel-prize/"
+        }
+      ],
+      "search_id": "search-3cc17c104939c358"
+    },
+    {
+      "model_id": "serper/google",
+      "params": {
+        "engine": "google",
+        "gl": "us",
+        "hl": "en",
+        "max_results": 10,
+        "model_id": "serper/google",
+        "provider": "serper"
+      },
+      "provider": "serper",
+      "query": "What is the internal codename of the most recent version of Android that is currently no longer maintained?",
+      "requested_at": "2026-11-22T22:07:59+00:00",
+      "response_sha256": "1d92b7658a7acb5834e9508b9fd66f4f7f51132e74e7021b4595cb22e8433112",
+      "result_urls": [
+        {
+          "rank": 1,
+          "url": "https://en.wikipedia.org/wiki/Android_version_history"
+        },
+        {
+          "rank": 2,
+          "url": "https://www.facebook.com/MKBHD/videos/remember-when-android-versions-had-dessert-names-google-android-mkbhd/1072646212094333/"
+        },
+        {
+          "rank": 3,
+          "url": "https://www.reddit.com/r/Android/comments/1ozj1aw/secret_no_more_android_canary_confirms_cinnamon/"
+        },
+        {
+          "rank": 4,
+          "url": "https://www.androidauthority.com/android-17-codename-3585116/"
+        },
+        {
+          "rank": 5,
+          "url": "https://www.codenameone.com/blog/android-37-readiness-location-button/"
+        },
+        {
+          "rank": 6,
+          "url": "https://stackoverflow.com/questions/12692431/why-does-the-android-version-code-and-version-name-keep-going-back-to-1-and-1-0"
+        },
+        {
+          "rank": 7,
+          "url": "https://androidversion.github.io/"
+        },
+        {
+          "rank": 8,
+          "url": "https://android.stackexchange.com/questions/225279/how-do-we-know-when-an-android-version-is-going-phase-out-and-not-maintain-anymo"
+        },
+        {
+          "rank": 9,
+          "url": "https://blog.ecoatm.com/android-version-history-every-release-up-to-the-latest/"
+        },
+        {
+          "rank": 10,
+          "url": "https://www.instagram.com/reel/Dalc8pjwWm7/?hl=en"
+        }
+      ],
+      "search_id": "search-49035d118a6065c1"
+    },
+    {
+      "model_id": "serper/google",
+      "params": {
+        "engine": "google",
+        "gl": "us",
+        "hl": "en",
+        "max_results": 10,
+        "model_id": "serper/google",
+        "provider": "serper"
+      },
+      "provider": "serper",
+      "query": "What was the percentage increase in the number of people seeking cocaine treatment in the Republic of Ireland, according to the latest HRB report?",
+      "requested_at": "2026-11-22T22:08:01+00:00",
+      "response_sha256": "d494d3c77b655c4f175e76190c427d05f8258d51d377d761bfaa925e558dea04",
+      "result_urls": [
+        {
+          "rank": 1,
+          "url": "https://www.hrb.ie/press-releases/hrb-reports-continued-rise-in-treatment-for-cocaine-and-crack-cocaine-use/"
+        },
+        {
+          "rank": 2,
+          "url": "https://www.thejournal.ie/hrb-treatment-demand-for-crack-cocaine-increased-by-over-30-last-year-7044841-May2026/"
+        },
+        {
+          "rank": 3,
+          "url": "https://www.lawsociety.ie/gazette/top-stories/2026/may/treatment-for-cocaine-abuse-up-336-since-2017/"
+        },
+        {
+          "rank": 4,
+          "url": "https://www.drugsandalcohol.ie/43052/"
+        },
+        {
+          "rank": 5,
+          "url": "https://www.hrb.ie/press-releases/cocaine-main-problem-drug-for-40-of-cases-receiving-drug-treatment/"
+        },
+        {
+          "rank": 6,
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12217192/"
+        },
+        {
+          "rank": 7,
+          "url": "https://www.facebook.com/irishtimes/posts/cocaine-was-the-main-drug-in-almost-40-per-cent-of-cases-of-treatment-for-proble/1123520396472877/"
+        },
+        {
+          "rank": 8,
+          "url": "https://www.rte.ie/news/2024/0625/1456504-hrb-drug-use/"
+        },
+        {
+          "rank": 9,
+          "url": "https://www.bbc.com/news/articles/c0m0mjvlg1eo"
+        },
+        {
+          "rank": 10,
+          "url": "https://www.irishtimes.com/ireland/2026/05/20/number-of-women-seeking-treatment-for-cocaine-use-increases-almost-seven-fold-figures-show/"
+        }
+      ],
+      "search_id": "search-e5d57e681179fc05"
+    },
+    {
+      "model_id": "serper/google",
+      "params": {
+        "engine": "google",
+        "gl": "us",
+        "hl": "en",
+        "max_results": 10,
+        "model_id": "serper/google",
+        "provider": "serper"
+      },
+      "provider": "serper",
+      "query": "What is the current age of the oldest singles champion of The ATP Finals?",
+      "requested_at": "2026-11-22T22:08:11+00:00",
+      "response_sha256": "db817ec434756b9c70818e3ee02a4e7827e7a7253fb7b8cbd02a1553ac457dcd",
+      "result_urls": [
+        {
+          "rank": 1,
+          "url": "https://www.reddit.com/r/tennis/comments/1orwrhk/at_38_years_and_170_days_djokovic_surpasses/"
+        },
+        {
+          "rank": 2,
+          "url": "https://www.facebook.com/BBCSport/posts/at-39-novak-djokovic-has-just-become-the-oldest-tournament-winner-in-the-atp-tou/1657830022372355/"
+        },
+        {
+          "rank": 3,
+          "url": "https://www.guinnessworldrecords.com/world-records/736434-oldest-winner-at-the-atp-finals-singles"
+        },
+        {
+          "rank": 4,
+          "url": "https://sports.yahoo.com/articles/oldest-grand-slam-winners-tennis-160236431.html"
+        },
+        {
+          "rank": 5,
+          "url": "https://www.facebook.com/ATPTour/videos/ageless-greatness-djokernole-becomes-the-oldest-atp-champion-at-38-years-and-5-m/1486651129060311/"
+        },
+        {
+          "rank": 6,
+          "url": "https://www.tennismajors.com/atp-actualite/novak-djokovic-becomes-oldest-atp-tour-champion-with-athens-victory-musetti-misses-direct-atp-finals-qualification-839584.html"
+        },
+        {
+          "rank": 7,
+          "url": "https://www.espn.com/tennis/story/_/id/43365191/gael-monfils-becomes-oldest-player-win-atp-tour-singles-title"
+        },
+        {
+          "rank": 8,
+          "url": "https://stats.tennismylife.org/records/oldest-title-winners"
+        },
+        {
+          "rank": 9,
+          "url": "https://www.nittoatpfinals.com/en/heritage/singles-champions"
+        },
+        {
+          "rank": 10,
+          "url": "https://www.facebook.com/tntsports/posts/like-fine-wine-at-39-years-and-4-months-old-novak-djokovic-is-now-the-oldest-atp/1650766460039593/"
+        }
+      ],
+      "search_id": "search-a98081488bc12dd7"
+    }
+  ]
+}

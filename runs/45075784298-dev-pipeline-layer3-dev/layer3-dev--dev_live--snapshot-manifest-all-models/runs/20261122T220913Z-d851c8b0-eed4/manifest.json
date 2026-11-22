@@ -1,0 +1,184 @@
+{
+  "config": {
+    "arms": [
+      {
+        "label": "no_gate",
+        "name": "no_gate_live",
+        "options": {
+          "documents_per_attempt": 5,
+          "fetch": {
+            "max_bytes": 2000000,
+            "max_redirects": 5,
+            "per_host_interval_seconds": 1.0,
+            "timeout_seconds": 20.0
+          },
+          "max_document_chars": 8000,
+          "presentation": "sealqa_live_web",
+          "search": {
+            "label": "search",
+            "name": "serper_google",
+            "options": {
+              "backoff_seconds": 5.0,
+              "gl": "us",
+              "hl": "en",
+              "max_backoff_seconds": 120.0,
+              "max_results": 10,
+              "max_retries": 4,
+              "min_interval_seconds": 1.0,
+              "timeout_seconds": 60
+            }
+          }
+        }
+      },
+      {
+        "label": "gated_research",
+        "name": "gated_research",
+        "options": {
+          "checks": [
+            "quote_verbatim",
+            "entity_in_window",
+            "qualifiers_in_window",
+            "no_closer_competitor",
+            "premise_present"
+          ],
+          "decomposer": {
+            "name": "model_decomposer",
+            "options": {
+              "model": {
+                "label": "decomposer",
+                "name": "openai_responses",
+                "options": {
+                  "backoff_seconds": 2.0,
+                  "max_backoff_seconds": 60.0,
+                  "max_output_tokens": 4096,
+                  "max_retries": 5,
+                  "model_id": "gpt-6-luna",
+                  "reasoning": {
+                    "effort": "none"
+                  },
+                  "timeout_seconds": 180
+                }
+              },
+              "prompt_version": 1
+            }
+          },
+          "documents_per_attempt": 5,
+          "fetch": {
+            "max_bytes": 2000000,
+            "max_redirects": 5,
+            "per_host_interval_seconds": 1.0,
+            "timeout_seconds": 20.0
+          },
+          "max_attempts": 2,
+          "max_document_chars": 8000,
+          "parameters": {
+            "competitor_tie": "fail",
+            "lead_max_tokens": 4,
+            "lead_min_repeats": 2,
+            "min_quote_tokens": 5,
+            "premise_scope": "document",
+            "window_tokens": 40
+          },
+          "presentation": "sealqa_live_web",
+          "search": {
+            "label": "search",
+            "name": "serper_google",
+            "options": {
+              "backoff_seconds": 5.0,
+              "gl": "us",
+              "hl": "en",
+              "max_backoff_seconds": 120.0,
+              "max_results": 10,
+              "max_retries": 4,
+              "min_interval_seconds": 1.0,
+              "timeout_seconds": 60
+            }
+          }
+        }
+      }
+    ],
+    "config_version": 1,
+    "dataset": {
+      "label": "sealqa",
+      "name": "sealqa",
+      "options": {
+        "repository": "https://huggingface.co/datasets/vtllms/sealqa",
+        "revision": "0e75db526ad93dd039714897b7631afc03510e30",
+        "root": "data/raw/sealqa",
+        "subsets": [
+          "seal_hard",
+          "seal_0"
+        ]
+      }
+    },
+    "description": "PR 8/13: live-web dev run on SealQA (seal_hard), 1 repeat, 2 primary model(s), no_gate (live) and gated_research; Serper free tier.",
+    "limit": null,
+    "models": [
+      {
+        "label": "openai-low",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6-luna",
+          "reasoning": {
+            "effort": "none"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-low",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.1-flash-lite",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      }
+    ],
+    "name": "dev-live",
+    "repeats": 1,
+    "runner": {
+      "concurrency": 4,
+      "max_searches": 240,
+      "max_usd": 0.6,
+      "max_usd_by_model": {
+        "google-low": 1.15
+      },
+      "prices": "configs/prices.toml"
+    },
+    "scorers": [
+      {
+        "label": "sealqa_answer",
+        "name": "sealqa_answer",
+        "options": {
+          "min_quote_tokens": 5
+        }
+      }
+    ],
+    "split": "dev"
+  },
+  "config_hash": "d851c8b007c421f94108794a710e16fc298f57f86b175e8ed43a96dd344a008d",
+  "config_path": "configs/dev_live.toml",
+  "ended_at": "2026-11-22T22:17:16+00:00",
+  "git_commit": "10a749a5dcb67605e5d175cbeee158bfadb2156c",
+  "git_dirty": false,
+  "package_version": "0.1.0",
+  "python_version": "3.13.18",
+  "run_id": "20261122T220913Z-d851c8b0-eed4",
+  "schema_version": 1,
+  "started_at": "2026-11-22T22:09:13+00:00",
+  "test_unlock_tag": null,
+  "trace_count": 344,
+  "traces_sha256": "4dd3d3cdc1fe3ab1f4d5251e0ea580c0cb44d14a4464ee0ae4a3f468630b52d5"
+}

@@ -1,0 +1,109 @@
+{
+  "artifacts": [
+    "layer3-dev--dev_live--layer3-summary-all-models",
+    "layer3-dev--dev_live--ledger",
+    "layer3-dev--dev_live--runs-encrypted-all-models",
+    "layer3-dev--dev_live--snapshot-manifest-all-models",
+    "layer3-dev--dev_live_smoke--layer3-summary-all-models",
+    "layer3-dev--dev_live_smoke--ledger",
+    "layer3-dev--dev_live_smoke--runs-encrypted-all-models",
+    "layer3-dev--dev_live_smoke--snapshot-manifest-all-models",
+    "ledger-after-run",
+    "pipeline--layer3-dev--ledger"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T22:18:07+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45075784298-dev-pipeline-layer3-dev",
+  "head_branch": "main",
+  "head_sha": "10a749a5dcb67605e5d175cbeee158bfadb2156c",
+  "kept": [
+    {
+      "bytes": 1464052,
+      "path": "layer3-dev--dev_live--layer3-summary-all-models/layer3_summary.json",
+      "sha256": "43df4db6aeb50b21f7e44534a973138988480d2e794dd7e1364305e16d12babc"
+    },
+    {
+      "bytes": 98148,
+      "path": "layer3-dev--dev_live--ledger/ledger.json",
+      "sha256": "884d90e918c19ab939bd9c26ea84f9581bef4cd3781cedfd85218ad22bb7672d"
+    },
+    {
+      "bytes": 45532,
+      "path": "layer3-dev--dev_live--ledger/ledger.md",
+      "sha256": "f5a0bd3ea27d58df6d69488614a67e8cc4f3927cd42cf0fd6d195ed43cc06ef4"
+    },
+    {
+      "bytes": 5250,
+      "path": "layer3-dev--dev_live--snapshot-manifest-all-models/runs/20261122T220913Z-d851c8b0-eed4/manifest.json",
+      "sha256": "34106a32b841333357ca85de85b0e36d5babe24a78ab6a8497df243095320ce7"
+    },
+    {
+      "bytes": 646433,
+      "path": "layer3-dev--dev_live--snapshot-manifest-all-models/runs/20261122T220913Z-d851c8b0-eed4/snapshots/publish_manifest.json",
+      "sha256": "340e01eebef1783463d6e6bf8f04624441b6f693d36dce11a8698c4735a0f4e3"
+    },
+    {
+      "bytes": 72362,
+      "path": "layer3-dev--dev_live_smoke--layer3-summary-all-models/layer3_summary.json",
+      "sha256": "611fd35d3a1a94c4419093c2f6fe9bd5e5cd516473f6826afa7d896277438afa"
+    },
+    {
+      "bytes": 95981,
+      "path": "layer3-dev--dev_live_smoke--ledger/ledger.json",
+      "sha256": "846712667f1a729561ba1bb23880d784ce242c5e4415ccaf0f62852d05b591af"
+    },
+    {
+      "bytes": 45344,
+      "path": "layer3-dev--dev_live_smoke--ledger/ledger.md",
+      "sha256": "12f3ca7db7304f958d2c5dcf2c4f37a34466a9d44fad3b681f9dc129ff7df4e2"
+    },
+    {
+      "bytes": 4726,
+      "path": "layer3-dev--dev_live_smoke--snapshot-manifest-all-models/runs/20261122T220747Z-d18c37e7-d2b8/manifest.json",
+      "sha256": "e864f8f0718f24727fabd1cfcceee2dc8256b2cb883e7227b7cd1dba02993c53"
+    },
+    {
+      "bytes": 39605,
+      "path": "layer3-dev--dev_live_smoke--snapshot-manifest-all-models/runs/20261122T220747Z-d18c37e7-d2b8/snapshots/publish_manifest.json",
+      "sha256": "43be3488f125cb427264e122c612fb2b99e75c8889b2494a7d1a942034c2aae4"
+    },
+    {
+      "bytes": 100186,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "a034c32ef59327cc5fc2cb3322dd4a8f370c96943b59575ac1f3544330c8d5ae"
+    },
+    {
+      "bytes": 45693,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "a84549614dd0a4962a74a1ad83bd29b3bc9a48e79af1576d0cfde044db82a858"
+    },
+    {
+      "bytes": 95666,
+      "path": "pipeline--layer3-dev--ledger/ledger.json",
+      "sha256": "61b335cf0948a5bb90b3748339880e89cd3631f2e5be7834f85783e4fa575d0d"
+    },
+    {
+      "bytes": 45323,
+      "path": "pipeline--layer3-dev--ledger/ledger.md",
+      "sha256": "d1e3504dd8d08ef97125397151aa593339663c7b0a7c5cdb74e865c91c91732e"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "layer3-dev--dev_live--runs-encrypted-all-models/runs.tar.gz.gpg",
+      "reason": "binary, archived or encrypted file"
+    },
+    {
+      "path": "layer3-dev--dev_live_smoke--runs-encrypted-all-models/runs.tar.gz.gpg",
+      "reason": "binary, archived or encrypted file"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45075784298,
+  "stage": "dev-pipeline-layer3-dev",
+  "title": "dev pipeline: layer3-dev",
+  "workflow": "dev pipeline: layer3-dev"
+}
