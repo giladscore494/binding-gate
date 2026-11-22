@@ -81,7 +81,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `dev-baseline` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
 
-**dev-rest** (תקרות 9.90 דולר ביחד; מסרב אם ההחלטה האחרונה של dev-baseline אינה CONTINUE)
+**dev-rest** (תקרות 10.20 דולר ביחד; מסרב אם ההחלטה האחרונה של dev-baseline אינה CONTINUE)
 
 | שדה | ערך |
 |---|---|
@@ -97,7 +97,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `sec-dataset-prepare` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | לא מסומן |
 
-**layer2-dev** (תקרות 2.30 דולר ביחד; שכבה 2 (דוחות SEC): smoke, בדיקת שימוש, baseline, gated; מסרב כל עוד המאגר לא נעוץ (UNPINNED))
+**layer2-dev** (תקרות 2.60 דולר ביחד; שכבה 2 (דוחות SEC): smoke, בדיקת שימוש, baseline, gated, מועמדי binding scope; מסרב כל עוד המאגר לא נעוץ (UNPINNED))
 
 | שדה | ערך |
 |---|---|
@@ -113,7 +113,7 @@ GitHub ← הריפו ← לשונית **Actions** ← בעמודה השמאלי
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer3-dev` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
 
-**all-dev** (הכול ברצף: smoke ← dev-baseline ← עוצר אם לא CONTINUE ← dev-rest ← layer2-dev ← layer3-dev; תקרות 19.20 דולר ביחד)
+**all-dev** (הכול ברצף: smoke ← dev-baseline ← עוצר אם לא CONTINUE ← dev-rest ← layer2-dev ← layer3-dev; תקרות 19.80 דולר ביחד)
 
 | שדה | ערך |
 |---|---|
@@ -270,7 +270,7 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `dev-baseline` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
 
-**dev-rest** (caps 9.90 USD together; refused unless the newest dev-baseline decision is CONTINUE)
+**dev-rest** (caps 10.20 USD together; refused unless the newest dev-baseline decision is CONTINUE)
 
 | Field | Value |
 |---|---|
@@ -286,7 +286,7 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `sec-dataset-prepare` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | unchecked |
 
-**layer2-dev** (caps 2.30 USD together; layer 2 (SEC filings): smoke, usage check, baseline, gated; refused while the dataset is UNPINNED)
+**layer2-dev** (caps 2.60 USD together; layer 2 (SEC filings): smoke, usage check, baseline, gated, binding-scope candidates; refused while the dataset is UNPINNED)
 
 | Field | Value |
 |---|---|
@@ -302,7 +302,7 @@ Order: `check-secrets`, `smoke`, `dev-baseline`, `dev-rest`, `sec-dataset-prepar
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer3-dev` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | checked |
 
-**all-dev** (everything in sequence: smoke → dev-baseline → stops unless CONTINUE → dev-rest → layer2-dev → layer3-dev; caps 19.20 USD together)
+**all-dev** (everything in sequence: smoke → dev-baseline → stops unless CONTINUE → dev-rest → layer2-dev → layer3-dev; caps 19.80 USD together)
 
 | Field | Value |
 |---|---|

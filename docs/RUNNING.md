@@ -45,11 +45,13 @@ limits in the runner, and together they are at most 50 USD.
 | 8 | layer 2 smoke, SEC filings (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
 | 8 | layer 2 dev baseline (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
 | 8 | layer 2 gate and ablations (`configs/dev_sec_gated.toml`; answers reused) | 0.00 | 0.15 | 0.30 |
+| 6f | layer 1 binding-scope candidates (`configs/dev_gated_scope.toml`; answers reused; PR 18) | 0.00 | 0.06 | 0.30 |
+| 8 | layer 2 binding-scope candidates (`configs/dev_sec_gated_scope.toml`; answers reused; PR 18) | 0.00 | 0.15 | 0.30 |
 | 10 | **layer 1 test, confirmatory** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | mid-tier check, 225 test items (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
 | 10b | **layer 2 test, confirmatory** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
 | 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **Total** | **14.25** | **42.57** | **47.75** |
+| | **Total** | **14.25** | **42.78** | **48.35** |
 
 **Layer 2 since PR 17: SEC financial filings.** Layer 2 is a second
 confirmatory layer (H1 and H2 per model, the layer-1 thresholds): questions
@@ -117,9 +119,9 @@ configs of each stage are defined once in `binding_gate.pipeline.STAGES`
 | `check-secrets` | which secrets are set (names only), the free preflight of every model id, the decomposer, the judge and the SerpApi account (a Z.ai list-models HTTP 404 is reported with its fallback `preflight_list_models = false`), the budget left | free; red only if a preflight FAILED |
 | `smoke` | `configs/dev_smoke.toml`, then `python -m binding_gate.pipeline smoke-check`: measured output (visible + reasoning) and input tokens per answer call against `configs/prices.toml`; every run of `configs/budget.toml` is projected with the measured ratio | FAILS if a projected HIGH exceeds that run's cap, or if a smoke record ended in an error: re-derive the caps (or fix the setting) in a pull request first |
 | `dev-baseline` | `configs/dev_baseline.toml`, then the section 10 decision (job summary; artifact `dev-baseline--decision`, `decision.json`) | succeeds whatever the decision |
-| `dev-rest` | decomposer measurement, `dev_repeats`, `dev_gated`, five ablations, `dev_baselines` (MiniCheck prepare/verify inside), `dev_llm_judge_checks`, the judge re-scoring of the dev-baseline runs, then the gate calibration of the `dev-gated` traces and `cli analyze` per config (artifact `dev-rest--analysis`). (PR 17: the GRAB-RAG run left this stage; layer 2 is `layer2-dev`.) | refused unless the newest `dev-baseline--decision` is CONTINUE (final), or `results/dev_baseline_continue.json` is committed for that workflow run (IN-BETWEEN or MEASUREMENT-CHECK continued by the owner, with the amendment named) |
+| `dev-rest` | decomposer measurement, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: the binding-scope candidates), five ablations, `dev_baselines` (MiniCheck prepare/verify inside), `dev_llm_judge_checks`, the judge re-scoring of the dev-baseline runs, then the gate calibration of the `dev-gated` traces, `cli analyze` per config and the binding-scope selection of `dev-gated-scope` (`scope_selection_dev-gated-scope.txt`; artifact `dev-rest--analysis`). (PR 17: the GRAB-RAG run left this stage; layer 2 is `layer2-dev`.) | refused unless the newest `dev-baseline--decision` is CONTINUE (final), or `results/dev_baseline_continue.json` is committed for that workflow run (IN-BETWEEN or MEASUREMENT-CHECK continued by the owner, with the amendment named) |
 | `sec-dataset-prepare` | (PR 17, free) the SEC dataset generated from EDGAR (`cli dataset-prepare --config configs/dev_sec_baseline.toml`, secret `SEC_CONTACT_EMAIL`, EDGAR responses cached between runs with `actions/cache`); prints `content_sha256=<hash>` and `matches_pin=` in the log and the job summary; artifact `sec-dataset-prepare--dataset` (`prepare.json`, `manifest.json`, `selection.json`; no item text) | free; never started by another stage. Every SEC run refuses while `data_sha256` is `UNPINNED` |
-| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, the smoke usage check on it, `configs/dev_sec_baseline.toml`, then `configs/dev_sec_gated.toml` seeded with the answers of that baseline (same workflow run), then `cli analyze` of the SEC runs (artifact `layer2-dev--analysis`) | refused while the SEC dataset is unpinned (the runs refuse); the baseline only after a passing usage check |
+| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, the smoke usage check on it, `configs/dev_sec_baseline.toml`, then `configs/dev_sec_gated.toml` and (PR 18) `configs/dev_sec_gated_scope.toml`, both seeded with the answers of that baseline (same workflow run), then `cli analyze` of the SEC runs and the binding-scope selection (`scope_selection_dev-sec-gated-scope.txt`; artifact `layer2-dev--analysis`) | refused while the SEC dataset is unpinned (the runs refuse); the baseline only after a passing usage check |
 | `layer3-dev` | `configs/dev_live_smoke.toml`, then `configs/dev_live.toml` (SealQA prepared; at most 10 + 240 searches) | `dev_live` only after a successful smoke |
 | `all-dev` | smoke → dev-baseline → dev-rest (only after CONTINUE) → layer2-dev → layer3-dev (layer 3 also runs if layer 2 failed) | as above |
 
@@ -585,6 +587,44 @@ Workflow. Needs `MOONSHOT_API_KEY`. Its upper bound first (CLI, no key):
 60 dev items (4 per condition), slot A; the judge-only cap `judge_max_usd` is
 1.60 USD.
 
+### 6f. Binding-scope candidates and the pre-registered selection (PR 18; cap 0.30 USD)
+
+`configs/dev_gated_scope.toml` runs the gated arm four times on the same reused
+answers, once per candidate `binding_scope` (`window` = the current gate,
+`subject`, `table`, `subject_table`; PREREGISTRATION.md section 5.1, "Binding
+scope"); one decomposition per question is shared by the four arms, so it costs
+what `dev_gated` costs. The dev pipeline runs it in stage `dev-rest` right after
+`dev_gated`, and its analysis job applies the selection rule automatically
+(`scope_selection_dev-gated-scope.txt` in the artifact `dev-rest--analysis`). On
+its own, workflow **baseline**:
+
+| Field | Value |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_gated_scope.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | unchecked |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | checked |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | the number of the step-4 workflow run (see "Seed runs") |
+
+Selection (CLI only, no key, no model call; layer 2 the same with the runs of
+`configs/dev_sec_gated_scope.toml`):
+
+```bash
+python -m binding_gate.gates.calibration --select-scope runs/<run_id> [runs/<run_id> ...] --json scope.json
+```
+
+It prints every candidate's dev M1 mean and M2 max and the line
+`CHOSEN: binding_scope = "<name>"`. Freezing it is ONE line per layer, in a pull
+request before the layer's tag (step 9): in the gated arm of
+`configs/test_layer1.toml` (and the same line in `configs/test_layer1_midtier.toml`)
+for layer 1, of `configs/test_sec.toml` for layer 2, replace
+`binding_scope = "window"` by the chosen value, and record the chosen setting
+with the candidates' numbers in PREREGISTRATION.md section 5.1 (section 17,
+item 57). The tests then require the test arm to equal the chosen candidate arm
+of the dev scope config. A fake-model indication of the options' effect (not
+evidence): `python tests/scope_effect.py`.
+
 ## 7. Layer 3 (live web): smoke, then dev, in the same month
 
 Needs `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (slot A
@@ -674,7 +714,7 @@ of a sec config refuses. Every SEC run regenerates the dataset in its dataset
 step (from the cache, with `SEC_CONTACT_EMAIL`) and checks it against the pin.
 
 **8.1 Smoke, usage check, dev baseline, then the gate (workflow dev pipeline,
-stage `layer2-dev`; caps 2.30 USD;** keys `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+stage `layer2-dev`; caps 2.60 USD;** keys `OPENAI_API_KEY`, `GEMINI_API_KEY`,
 `ZAI_API_KEY`**).**
 
 | Field | Value |
@@ -686,8 +726,10 @@ stage `layer2-dev`; caps 2.30 USD;** keys `OPENAI_API_KEY`, `GEMINI_API_KEY`,
 `configs/dev_sec_gated.toml` runs the arms of the frozen layer-2 test run
 (`no_gate` seeded from `configs/dev_sec_baseline.toml` of the same workflow run,
 `faithfulness_checker`, `gated`, five ablations); only the decomposer is paid.
-The stage ends with `cli analyze` of the SEC runs (H1 and H2 per model, labelled
-not confirmatory on dev), committed to `runs/<id>-layer2-dev/` on `results-log`.
+PR 18: `configs/dev_sec_gated_scope.toml` (seeded the same way) runs the gated arm
+under each candidate `binding_scope`. The stage ends with `cli analyze` of the SEC
+runs (H1 and H2 per model, labelled not confirmatory on dev) and the binding-scope
+selection (step 6f), committed to `runs/<id>-layer2-dev/` on `results-log`.
 The same three configs can also run one at a time with the workflow
 **baseline**:
 
@@ -709,7 +751,8 @@ The same three configs can also run one at a time with the workflow
 2. In one pull request: approve the test configs of the layer(s) being frozen
    (layer 1: `configs/test_layer1.toml` and `configs/test_layer1_midtier.toml`;
    layer 2: `configs/test_sec.toml`; layer 3:
-   `configs/test_live.toml`), update `PARAMETERS_STATUS` in
+   `configs/test_live.toml`; PR 18: the `binding_scope` line chosen in step 6f is
+   already in their gated arm), update `PARAMETERS_STATUS` in
    `src/binding_gate/mcp/core.py` (item 42), change the status line of
    PREREGISTRATION.md to `**Status:** FROZEN` and its version. Merge it into
    `main`; the tests must pass.
@@ -915,11 +958,13 @@ supplied is listed as absent.
 | 8 | smoke של שכבה 2, דוחות SEC (`configs/dev_sec_smoke.toml`) | 0.01 | 0.03 | 0.30 |
 | 8 | baseline של שכבה 2 על dev (`configs/dev_sec_baseline.toml`) | 0.52 | 1.55 | 1.70 |
 | 8 | ה-gate וה-ablations של שכבה 2 (`configs/dev_sec_gated.toml`; תשובות משוחזרות) | 0.00 | 0.15 | 0.30 |
+| 6ו | המועמדים ל-binding scope בשכבה 1 (`configs/dev_gated_scope.toml`; תשובות משוחזרות; PR 18) | 0.00 | 0.06 | 0.30 |
+| 8 | המועמדים ל-binding scope בשכבה 2 (`configs/dev_sec_gated_scope.toml`; תשובות משוחזרות; PR 18) | 0.00 | 0.15 | 0.30 |
 | 10 | **test של שכבה 1, מאשש** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | בדיקת מודלי הביניים, 225 פריטי test (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
 | 10ב | **test של שכבה 2, מאשש** (`configs/test_sec.toml`) | 0.78 | 2.55 | 2.75 |
 | 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
-| | **סך הכול** | **14.25** | **42.57** | **47.75** |
+| | **סך הכול** | **14.25** | **42.78** | **48.35** |
 
 **שכבה 2 מאז PR 17: דוחות כספיים מ-SEC.** שכבה 2 היא שכבה מאששת שנייה (H1 ו-H2 לכל מודל, עם הספים של שכבה 1): שאלות על נתון מהדוח השנתי (Form 10-K) של חברה ציבורית אמריקאית, שעונים עליהן מתוך הדוחות הכספיים של אותו דוח ו/או של דוח של חברה מקבילה מאותו ענף; התשובות הנכונות הן עובדות ה-XBRL של הדוחות. מאגר הנתונים נבנה פעם אחת, בחינם, מ-SEC EDGAR (שלב 8). GRAB-RAG, שהייתה שכבה 2 עד PR 17, שמורה תחת `configs/extended/` ולא רצה. ההערכות של שכבה 2 הן dry runs שמרניים על נתונים סינתטיים; ה-dry run החינמי על נתוני ה-dev האמיתיים מחליף אותן לפני ההקפאה.
 
@@ -954,9 +999,9 @@ supplied is listed as absent.
 | `check-secrets` | אילו secrets קיימים (רק שמות), כל בדיקות ה-preflight החינמיות (כולל ה-fallback של Z.ai), התקציב שנשאר | חינם |
 | `smoke` | `configs/dev_smoke.toml`, ואז בדיקה של הטוקנים שנמדדו מול ההנחות ב-`configs/prices.toml` | נכשל אם ריצה מתוכננת הייתה עוברת את התקרה שלה: מחשבים תקרות מחדש ב-pull request |
 | `dev-baseline` | `configs/dev_baseline.toml` והחלטת כלל העצירה (artifact `dev-baseline--decision`) | מצליח בכל החלטה |
-| `dev-rest` | מדידת ה-decomposer, `dev_repeats`, `dev_gated`, חמשת ה-ablations, `dev_baselines`, `dev_llm_judge_checks`, השופט המשני, כיול ה-gate וניתוח (PR 17: ריצת GRAB-RAG יצאה מהשלב; שכבה 2 היא `layer2-dev`) | רק אחרי CONTINUE, או עם הערה `results/dev_baseline_continue.json` לאותה ריצה |
+| `dev-rest` | מדידת ה-decomposer, `dev_repeats`, `dev_gated`, `dev_gated_scope` (PR 18: המועמדים ל-binding scope), חמשת ה-ablations, `dev_baselines`, `dev_llm_judge_checks`, השופט המשני, כיול ה-gate, ניתוח ובחירת ה-binding scope (PR 17: ריצת GRAB-RAG יצאה מהשלב; שכבה 2 היא `layer2-dev`) | רק אחרי CONTINUE, או עם הערה `results/dev_baseline_continue.json` לאותה ריצה |
 | `sec-dataset-prepare` | (PR 17, חינם) בניית מאגר SEC מ-EDGAR עם ה-secret `SEC_CONTACT_EMAIL` ו-cache בין ריצות; מדפיס `content_sha256=<hash>` בלוג ובסיכום | חינם; אף שלב אחר לא מפעיל אותו. כל ריצת SEC מסרבת כל עוד `data_sha256` הוא `UNPINNED` |
-| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, בדיקת שימוש בטוקנים, `configs/dev_sec_baseline.toml`, ואז `configs/dev_sec_gated.toml` עם התשובות של ה-baseline מאותה ריצה, ואז ניתוח | מסרב כל עוד המאגר לא נעוץ; ה-baseline רק אחרי בדיקת שימוש שעברה |
+| `layer2-dev` | (PR 17) `configs/dev_sec_smoke.toml`, בדיקת שימוש בטוקנים, `configs/dev_sec_baseline.toml`, ואז `configs/dev_sec_gated.toml` ו-(PR 18) `configs/dev_sec_gated_scope.toml` עם התשובות של ה-baseline מאותה ריצה, ואז ניתוח ובחירת ה-binding scope | מסרב כל עוד המאגר לא נעוץ; ה-baseline רק אחרי בדיקת שימוש שעברה |
 | `layer3-dev` | `configs/dev_live_smoke.toml` ואז `configs/dev_live.toml` | `dev_live` רק אחרי smoke מוצלח |
 | `all-dev` | הכול ברצף: smoke ← dev-baseline ← dev-rest ← layer2-dev ← layer3-dev; עוצר אם אין CONTINUE (שכבה 3 רצה גם אם שכבה 2 נכשלה) | כמו למעלה |
 
@@ -1182,6 +1227,27 @@ Workflow. צריך `MOONSHOT_API_KEY`. קודם החסם העליון (CLI, בל
 
 60 פריטי dev (4 לכל תנאי), סלוט A; התקרה של השופט עצמו, `judge_max_usd`, היא 1.60 דולר.
 
+#### 6ו — המועמדים ל-binding scope והבחירה הרשומה מראש (PR 18; תקרה 0.30 דולר)
+
+`configs/dev_gated_scope.toml` מריץ את ה-gate ארבע פעמים על אותן תשובות משוחזרות, פעם לכל מועמד של `binding_scope` ‏(`window` = ה-gate הנוכחי, `subject`, `table`, `subject_table`; PREREGISTRATION.md סעיף 5.1, "Binding scope"). ארבע הזרועות חולקות פירוק אחד לכל שאלה, ולכן הריצה עולה כמו `dev_gated`. ה-dev pipeline מריץ אותה בשלב `dev-rest` מיד אחרי `dev_gated`, ועבודת הניתוח מפעילה את כלל הבחירה אוטומטית (`scope_selection_dev-gated-scope.txt` ב-artifact ‏`dev-rest--analysis`). כדי להריץ לבד — ה-workflow **baseline**:
+
+| שדה | ערך |
+|---|---|
+| Use workflow from (Branch) | `main` |
+| Run config (path in the repository) | `configs/dev_gated_scope.toml` |
+| Model label from the config, or "all" (one parallel job per model) | `all` |
+| Dry run: count calls and estimate cost; no model API is called | לא מסומן |
+| I confirm that paid API calls may be made (needed when dry run is unchecked) | מסומן |
+| Seed runs: id of the earlier workflow run that holds them (empty unless the config names seed runs) | המספר של ריצת ה-workflow של שלב 4 (ראו "Seed runs") |
+
+הבחירה — CLI בלבד, בלי מפתח ובלי קריאה למודל (לשכבה 2 אותו דבר עם הריצות של `configs/dev_sec_gated_scope.toml`):
+
+```bash
+python -m binding_gate.gates.calibration --select-scope runs/<run_id> [runs/<run_id> ...] --json scope.json
+```
+
+הפלט מראה לכל מועמד את ממוצע M1 ואת M2 המרבי על dev, ואת השורה `CHOSEN: binding_scope = "<name>"`. ההקפאה היא שורה אחת לכל שכבה, ב-pull request לפני התג של השכבה (שלב 9): בזרוע ה-gated של `configs/test_layer1.toml` (ואותה שורה ב-`configs/test_layer1_midtier.toml`) לשכבה 1, ושל `configs/test_sec.toml` לשכבה 2 — מחליפים את `binding_scope = "window"` בערך שנבחר, ורושמים את הבחירה ואת המספרים של המועמדים בסעיף 5.1 (סעיף 17, פריט 57). הבדיקות דורשות אז שזרוע ה-test תהיה זהה לזרוע המועמד שנבחר בקונפיג ה-scope של dev. הערכה עם מודלים מזויפים (לא ראיה): `python tests/scope_effect.py`.
+
 ### שלב 7 — שכבה 3 (web חי): smoke ואז dev, באותו חודש
 
 צריך `SERPAPI_API_KEY`, `RUNS_ENCRYPTION_PASSPHRASE`, `OPENAI_API_KEY` (סלוט A וה-decomposer) ו-`GEMINI_API_KEY` (סלוט E). ה-workflow מוריד את SealQA בגרסה המוצמדת בעצמו. תוכנית Free של SerpApi מאפשרת 250 חיפושים בחודש ו-50 בשעה: ה-smoke משתמש בלכל היותר 10, ריצת ה-dev בלכל היותר 240 (`[runner] max_searches`), והחיפושים במרווח של 72 שניות. כל ריצה גם נעצרת לבד כשהחשבון מדווח שנשארו פחות חיפושים; אז ממשיכים אותה (CLI, `--resume runs/<run_id>`, אותו קונפיג) אחרי שהמכסה החודשית מתחדשת.
@@ -1232,7 +1298,7 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 
 ה-job מריץ `python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml`: בוחר כ-300 חברות אמריקאיות גדולות מ-EDGAR לפי הכלל שנרשם מראש, קורא את דוח הרווח והפסד והמאזן מה-10-K של כל חברה ואת עובדות ה-XBRL, וכותב את `data/raw/sec-financials/` (`manifest.json`, `items.jsonl`, `selection.json`; לא נכנס ל-git). כמה אלפי בקשות בקצב 5 לשנייה (כ-15 דקות); כל תשובה נשמרת ב-cache תחת `data/raw/sec-financials/cache/`, שנשמר בין ריצות ב-`actions/cache`. הוא מדפיס `content_sha256=<hash>` בלוג ובסיכום, ו-`prepare.json`, `manifest.json` ו-`selection.json` נכנסים ל-`runs/<מספר>-sec-dataset-prepare/` ב-branch ‏`results-log`. אחר כך ה-orchestrator פותח pull request אחד: `data_sha256` בארבעת קבצי `configs/*sec*.toml` שווה ל-hash הזה, ו-`selection.json` נכנס בשם `configs/datasets/sec_financials_selection_v1.json` ונרשם כ-`selection_file` ב-`configs/datasets/sec_financials_v1.toml` (כך בנייה מאוחרת יותר קוראת רק דוחות בארכיון ומקבלת אותו hash). אחרי המיזוג מריצים את `sec-dataset-prepare` פעם נוספת: הוא חייב להדפיס `matches_pin=true`, והוא ממלא את ה-cache במפתח החדש. עד ש-`data_sha256` נקבע, כל ריצה ו-dry run של קונפיג sec מסרבים.
 
-**8.1 Smoke, בדיקת שימוש, baseline על dev, ואז ה-gate (ה-workflow ‏dev pipeline, השלב `layer2-dev`; תקרות 2.30 דולר;** מפתחות `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`**).**
+**8.1 Smoke, בדיקת שימוש, baseline על dev, ואז ה-gate (ה-workflow ‏dev pipeline, השלב `layer2-dev`; תקרות 2.60 דולר;** מפתחות `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ZAI_API_KEY`**).**
 
 | שדה | ערך |
 |---|---|
@@ -1240,7 +1306,7 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 | Stage of the dev pipeline (docs/OWNER_SETUP.md) | `layer2-dev` |
 | I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare) | מסומן |
 
-`configs/dev_sec_gated.toml` מריץ את הזרועות של ריצת ה-test המוקפאת של שכבה 2 (`no_gate` משוחזר מה-baseline של אותה ריצה, `faithfulness_checker`, `gated`, חמשת ה-ablations); משלמים רק על ה-decomposer. השלב מסתיים בניתוח (H1 ו-H2 לכל מודל, מסומנים כלא מאששים על dev), שנכנס ל-`runs/<מספר>-layer2-dev/` ב-`results-log`. אפשר להריץ את שלושת הקונפיגים גם אחד-אחד מה-workflow **baseline**:
+`configs/dev_sec_gated.toml` מריץ את הזרועות של ריצת ה-test המוקפאת של שכבה 2 (`no_gate` משוחזר מה-baseline של אותה ריצה, `faithfulness_checker`, `gated`, חמשת ה-ablations); משלמים רק על ה-decomposer. PR 18: ‏`configs/dev_sec_gated_scope.toml` (משוחזר באותה דרך) מריץ את ה-gate תחת כל מועמד של `binding_scope`. השלב מסתיים בניתוח (H1 ו-H2 לכל מודל, מסומנים כלא מאששים על dev) ובבחירת ה-binding scope (שלב 6ו), שנכנס ל-`runs/<מספר>-layer2-dev/` ב-`results-log`. אפשר להריץ את שלושת הקונפיגים גם אחד-אחד מה-workflow **baseline**:
 
 | שדה | ערך |
 |---|---|
@@ -1254,7 +1320,7 @@ python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml
 ### שלב 9 — הקפאה
 
 1. לסגור כל פריט בסעיף 17 שנוגע לשכבה שמוקפאת (אישורים והחלטות עם תאריך), כולל תוכנית התקציב (פריט 43) והתקרות שחושבו מחדש לפי השימוש שנמדד ב-dev (פריט 13).
-2. ב-pull request אחד: לאשר את קונפיגי ה-test של השכבה (או השכבות) שמוקפאות (שכבה 1: `configs/test_layer1.toml` ו-`configs/test_layer1_midtier.toml`; שכבה 2: `configs/test_sec.toml`; שכבה 3: `configs/test_live.toml`), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
+2. ב-pull request אחד: לאשר את קונפיגי ה-test של השכבה (או השכבות) שמוקפאות (שכבה 1: `configs/test_layer1.toml` ו-`configs/test_layer1_midtier.toml`; שכבה 2: `configs/test_sec.toml`; שכבה 3: `configs/test_live.toml`; PR 18: שורת ה-`binding_scope` שנבחרה בשלב 6ו כבר נמצאת בזרוע ה-gated שלהם), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
 3. לתייג בדיוק את ה-merge commit בשם `prereg-freeze-1` (לשכבות הבאות `-2`, `-3`; אם שלוש השכבות מוקפאות יחד, תג אחד משמש את כל הריצות המוקפאות). ב-GitHub: **Releases ← Draft a new release ← Choose a tag** ← להקליד `prereg-freeze-1` ← **Create new tag on publish** ← Target: `main` ← **Publish release**. או ב-CLI:
 
    ```bash

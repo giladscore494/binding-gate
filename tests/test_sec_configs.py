@@ -12,7 +12,7 @@ from binding_gate.config import load_config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = REPO_ROOT / "configs"
-SEC = ["dev_sec_smoke.toml", "dev_sec_baseline.toml", "dev_sec_gated.toml", "test_sec.toml"]
+SEC = ["dev_sec_smoke.toml", "dev_sec_baseline.toml", "dev_sec_gated.toml", "dev_sec_gated_scope.toml", "test_sec.toml"]
 
 
 @pytest.mark.parametrize("name", SEC)
@@ -29,13 +29,25 @@ def test_sec_configs_use_the_primary_models_presentation_scorer_and_one_dataset_
 
 
 def test_gate_options_are_those_of_dev_gated_except_the_presentation():
+    """PR 18: apart from the binding_scope line (the candidates of dev_sec_gated_scope and the setting frozen in
+    test_sec), every layer-2 gated arm has the layer-1 gate options."""
+    from binding_gate.gates.binding import SCOPE_PARAMETERS
+
+    def strip(options):
+        out = {k: v for k, v in options.items() if k not in ("presentation", "checks")}
+        out["parameters"] = {k: v for k, v in out.get("parameters", {}).items() if k not in SCOPE_PARAMETERS}
+        return out
+
     reference = next(a for a in load_config(CONFIGS / "dev_gated.toml").arms if a.label == "gated").options
-    for name in ("dev_sec_gated.toml", "test_sec.toml"):
+    for name in ("dev_sec_gated.toml", "dev_sec_gated_scope.toml", "test_sec.toml"):
         for arm in load_config(CONFIGS / name).arms:
             if arm.name != "gated":
                 continue
-            options = {k: v for k, v in arm.options.items() if k not in ("presentation", "checks")}
-            assert options == {k: v for k, v in reference.items() if k not in ("presentation", "checks")}, (name, arm.label)
+            assert strip(arm.options) == strip(reference), (name, arm.label)
+            scoped = set(arm.options["parameters"]) & set(SCOPE_PARAMETERS)
+            assert scoped <= {"binding_scope"}, (name, arm.label)
+            if name == "dev_sec_gated.toml" or arm.label.startswith("gated_minus_"):
+                assert not scoped, (name, arm.label)  # the default gate: no scope line
 
 
 def test_arm_sets_and_seeding():
@@ -71,11 +83,12 @@ def test_requirements_of_a_sec_config(capsys):
     assert set(req["secrets"]) == {"OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY"}  # the run itself needs no SEC secret
 
 
-def test_preregistration_version_0_8_names_layer_2_and_the_code_agrees():
+def test_preregistration_names_layer_2_and_the_code_agrees():
     from binding_gate.stats import prereg
 
     text = (REPO_ROOT / "PREREGISTRATION.md").read_text(encoding="utf-8")
-    assert "**Document version:** 0.8 (2026-11-22, PR 17)" in text and "**Status:** DRAFT" in text
+    assert "**Document version:** 0.9 (2026-11-22, PR 18)" in text and "**Status:** DRAFT" in text  # PR 18: 0.9
+    assert "0.8 (2026-11-22, PR 17): layer 2 replaced" in text
     assert prereg.LAYER_BY_DATASET == {"deceptive_grounding": 1, "sec_financials": 2, "sealqa": 3}
     assert prereg.HYPOTHESES_BY_LAYER[2] == ("H1", "H2") and "grab_rag" in prereg.EXTENDED_DATASETS
     section3 = text.split("## 3. Datasets and layers", 1)[1].split("## 4.", 1)[0]

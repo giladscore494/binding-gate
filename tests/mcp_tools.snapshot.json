@@ -200,12 +200,33 @@
           "additionalProperties": false,
           "description": "Gate parameters. Omit to use the defaults, which are the PROPOSED values of the study's pre-registration (section 5.1; not yet frozen). Any value you set is echoed in the output.",
           "properties": {
+            "binding_scope": {
+              "default": "window",
+              "description": "Shorthand for entity_scope, qualifier_scope and table_binding: 'window' (the default: window, window, false), 'subject', 'table' or 'subject_table'. Do not combine with a contradicting value of those three.",
+              "enum": [
+                "window",
+                "subject",
+                "table",
+                "subject_table"
+              ],
+              "type": "string"
+            },
             "competitor_tie": {
               "default": "fail",
               "description": "Whether a competing entity exactly as close to the quote as the question's entity blocks the answer ('fail') or not ('pass').",
               "enum": [
                 "fail",
                 "pass"
+              ],
+              "type": "string"
+            },
+            "entity_scope": {
+              "default": "window",
+              "description": "Where a mention of the entity binds the quote: within the window ('window'), by the cited document's subject - its leading name - when that is the entity and no competing entity is near ('document_subject'), or either ('window_or_document_subject').",
+              "enum": [
+                "window",
+                "document_subject",
+                "window_or_document_subject"
               ],
               "type": "string"
             },
@@ -232,9 +253,26 @@
               "description": "Where presupposition key terms are looked for: the whole cited document, or only the window around the quote.",
               "enum": [
                 "document",
-                "window"
+                "window",
+                "document_subject",
+                "window_or_document_subject"
               ],
               "type": "string"
+            },
+            "qualifier_scope": {
+              "default": "window",
+              "description": "Where a mention of a qualifier binds the quote: within the window ('window'), anywhere in a cited document whose subject is the entity ('document_subject'), or either ('window_or_document_subject').",
+              "enum": [
+                "window",
+                "document_subject",
+                "window_or_document_subject"
+              ],
+              "type": "string"
+            },
+            "table_binding": {
+              "default": false,
+              "description": "When the quote lies in a table cell (flattened 'row | column: cell' lines, pipe or tab tables), decide a qualifier named in the table's column headers (or row labels) by the quoted cell's header (or row label) instead of by distance, so a value from another column of the same row fails.",
+              "type": "boolean"
             },
             "window_tokens": {
               "default": 40,

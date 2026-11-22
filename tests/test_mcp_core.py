@@ -268,7 +268,7 @@ def test_document_url_is_recorded_but_never_opened(monkeypatch):
         (f.args(parameters={"min_quote_tokens": 0}), "parameters.min_quote_tokens: must be an integer >= 1"),
         (f.args(parameters={"window_tokens": True}), "must be an integer"),
         (f.args(parameters={"window_tokens": 40.0}), "must be an integer"),
-        (f.args(parameters={"premise_scope": "page"}), "parameters.premise_scope: must be one of ['document', 'window']"),
+        (f.args(parameters={"premise_scope": "page"}), "parameters.premise_scope: must be one of ['document', 'window', 'document_subject', 'window_or_document_subject']"),
         (f.args(constraints={"entity": {"name": "x"}}), "constraints: missing required field(s) ['attribute']"),
         (f.args(constraints={**f.CONSTRAINTS, "question": "q"}), "constraints: unknown field(s) ['question']"),
         (f.args(constraints={**f.CONSTRAINTS, "entity": {"name": ""}}), "constraints.entity.name: must not be empty"),

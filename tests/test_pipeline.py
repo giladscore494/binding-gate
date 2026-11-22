@@ -38,16 +38,17 @@ def test_all_dev_covers_every_dev_run_of_the_budget_plan_once_and_nothing_of_the
 
 def test_dev_rest_runs_in_the_documented_order():
     order = [Path(c).stem for c in pipeline.STAGES["dev-rest"]]
-    assert order[:3] == ["decomposer_eval_dev", "dev_repeats", "dev_gated"]
-    assert order[3:8] == [Path(a).stem for a in pipeline.ABLATIONS]
-    assert order[8:] == ["dev_baselines", "dev_llm_judge_checks", "dev_llm_judge"]
+    assert order[:4] == ["decomposer_eval_dev", "dev_repeats", "dev_gated", "dev_gated_scope"]  # PR 18: scope candidates
+    assert order[4:9] == [Path(a).stem for a in pipeline.ABLATIONS]
+    assert order[9:] == ["dev_baselines", "dev_llm_judge_checks", "dev_llm_judge"]
 
 
 def test_layer2_dev_runs_smoke_then_baseline_then_the_gated_run_seeded_from_that_baseline():
     """PR 17: the SEC layer replaced the GRAB-RAG run; dev_sec_gated reuses the answers of dev_sec_baseline."""
     from binding_gate.config import load_config
 
-    assert [Path(c).stem for c in pipeline.STAGES["layer2-dev"]] == ["dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated"]
+    assert [Path(c).stem for c in pipeline.STAGES["layer2-dev"]] == [
+        "dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated", "dev_sec_gated_scope"]  # PR 18: scope candidates
     assert not any("grab_rag" in c for configs in pipeline.STAGES.values() for c in configs)
     seeds = {Path(c).stem: runner.run_requirements(load_config(REAL_REPO / c))["seed_runs"] for c in pipeline.STAGES["layer2-dev"]}
     assert not seeds["dev_sec_smoke"] and not seeds["dev_sec_baseline"] and seeds["dev_sec_gated"]

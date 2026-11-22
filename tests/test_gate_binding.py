@@ -144,7 +144,8 @@ def test_shared_parameters_reach_the_checks():
     details = gate(window_tokens=7).evaluate(g.constraints(), short, DOCS).check_results[1].details
     assert details["window_tokens"] == 7
     assert set(DEFAULT_PARAMETERS) == {
-        "window_tokens", "min_quote_tokens", "lead_max_tokens", "lead_min_repeats", "premise_scope", "competitor_tie"
+        "window_tokens", "min_quote_tokens", "lead_max_tokens", "lead_min_repeats", "premise_scope", "competitor_tie",
+        "entity_scope", "qualifier_scope", "table_binding", "binding_scope",  # PR 18, defaults = pre-PR-18 behaviour
     }
 
 

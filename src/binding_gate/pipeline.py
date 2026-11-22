@@ -62,13 +62,15 @@ STAGES: dict[str, tuple[str, ...]] = {
         "configs/decomposer_eval_dev.toml",
         "configs/dev_repeats.toml",
         "configs/dev_gated.toml",
+        "configs/dev_gated_scope.toml",  # PR 18: binding-scope candidates (section 5.1 selection)
         *ABLATIONS,
         "configs/dev_baselines.toml",
         "configs/dev_llm_judge_checks.toml",
         "configs/rescore/dev_llm_judge.toml",
     ),
     "sec-dataset-prepare": (),
-    "layer2-dev": ("configs/dev_sec_smoke.toml", "configs/dev_sec_baseline.toml", "configs/dev_sec_gated.toml"),
+    "layer2-dev": ("configs/dev_sec_smoke.toml", "configs/dev_sec_baseline.toml", "configs/dev_sec_gated.toml",
+                   "configs/dev_sec_gated_scope.toml"),  # PR 18: binding-scope candidates
     "layer3-dev": ("configs/dev_live_smoke.toml", "configs/dev_live.toml"),
 }
 STAGES["all-dev"] = (STAGES["smoke"] + STAGES["dev-baseline"] + STAGES["dev-rest"] + STAGES["layer2-dev"]
@@ -79,7 +81,11 @@ PR 17: the layer-2 dev runs (SEC financial filings) replace the GRAB-RAG run tha
 their own stage ``layer2-dev`` (smoke, baseline, then the gated run seeded from that baseline in the same
 workflow run), so that layer 1 never waits for the SEC dataset pin. ``sec-dataset-prepare`` is free: it generates
 the SEC dataset from EDGAR and prints the content hash the orchestrator pins (every SEC run refuses while the
-pin is ``UNPINNED``; the stage is never started automatically)."""
+pin is ``UNPINNED``; the stage is never started automatically).
+
+PR 18: ``dev_gated_scope`` (after ``dev_gated``) and ``dev_sec_gated_scope`` (after ``dev_sec_gated``, seeded from the
+same SEC baseline) run the gated arm under each candidate ``binding_scope``; the analysis jobs apply the
+pre-registered selection rule to them (:func:`analyze_dev`, ``calibration --select-scope``)."""
 FREE_STAGES = ("check-secrets", "sec-dataset-prepare")
 """Stages that make no paid call: no confirmation, no budget-ledger check."""
 LAYER2_SEED_PATTERN = "layer2-dev--dev_sec_baseline--runs-*"
@@ -483,6 +489,8 @@ def sec_prepare_markdown(report: Mapping[str, Any]) -> str:
 # Calibration and analysis of every dev run (no model call, no key)
 # --------------------------------------------------------------------------- #
 
+SCOPE_SELECTION_CONFIGS = ("dev-gated-scope", "dev-sec-gated-scope")
+"""PR 18: config names whose runs get the binding-scope selection (section 5.1) in :func:`analyze_dev`."""
 CALIBRATION_CONFIG = "dev-gated"
 CALIBRATION_GRID = ("--window-tokens", "20,40,60,80", "--premise-scope", "document,window", "--competitor-tie", "fail,pass")
 """The grid of docs/RUNNING.md step 6a, applied to the ``dev-gated`` traces only."""
@@ -503,7 +511,8 @@ def group_run_dirs(root: str | Path) -> dict[str, list[str]]:
 
 
 def analyze_dev(root: str | Path, out: str | Path, *, figures: bool = False) -> dict[str, Any]:
-    """``cli analyze`` once per config (all its models together) and the gate calibration of ``dev-gated``."""
+    """``cli analyze`` once per config (all its models together), the gate calibration of ``dev-gated`` and (PR 18)
+    the binding-scope selection of ``dev-gated-scope`` / ``dev-sec-gated-scope`` (``scope_selection_<name>.txt|json``)."""
     import contextlib
     import io
 
@@ -535,6 +544,19 @@ def analyze_dev(root: str | Path, out: str | Path, *, figures: bool = False) -> 
             index["calibration"] = {"run_dirs": run_dirs, "exit_code": code, "json": json_out.as_posix()}
             if code != 0:
                 index["failed"].append("calibration dev-gated")
+        if name in SCOPE_SELECTION_CONFIGS:
+            buffer = io.StringIO()
+            json_out = out / f"scope_selection_{name}.json"
+            with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+                try:
+                    code = calibration.main(["--select-scope", *run_dirs, "--json", str(json_out)])
+                except SystemExit as exc:  # argparse errors
+                    code = int(exc.code or 1)
+            (out / f"scope_selection_{name}.txt").write_text(buffer.getvalue(), encoding="utf-8")
+            index.setdefault("scope_selection", {})[name] = {"run_dirs": run_dirs, "exit_code": code,
+                                                              "json": json_out.as_posix()}
+            if code != 0:
+                index["failed"].append(f"scope selection {name}")
     (out / "index.json").write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return index
 

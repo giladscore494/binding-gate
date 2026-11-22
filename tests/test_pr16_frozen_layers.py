@@ -66,9 +66,28 @@ PAIRS = [
 SPLIT_DEPENDENT_TOP = {"name", "description", "split"}
 
 
+def with_chosen_scope(test: dict, dev: dict, scope_config: str) -> dict:
+    """PR 18: ``dev`` with its gated arm replaced by the candidate arm of ``scope_config`` that has the
+    ``binding_scope`` frozen in the test config's gated arm (relabelled ``gated``); unchanged without that line."""
+    (gated,) = [a for a in test["arms"] if a["label"] == "gated"]
+    scope = gated["options"].get("parameters", {}).get("binding_scope")
+    if scope is None:
+        return dev
+    label = "gated" if scope == "window" else f"gated_scope_{scope}"
+    (chosen,) = [a for a in load_config(CONFIGS / scope_config).to_dict()["arms"] if a["label"] == label]
+    arms = [{**chosen, "label": "gated"} if a["label"] == "gated" else a for a in dev["arms"]]
+    return {**dev, "arms": arms}
+
+
+SCOPE_CONFIGS = {"test_sec.toml": "dev_sec_gated_scope.toml"}
+"""PR 18: the dev config of the binding-scope candidates of each layer whose test config freezes a scope."""
+
+
 @pytest.mark.parametrize(("test_name", "dev_name", "runner_keys"), PAIRS, ids=lambda v: str(v))
 def test_each_test_config_is_its_dev_counterpart_except_split_dependent_fields(test_name, dev_name, runner_keys):
     test, dev = load_config(CONFIGS / test_name).to_dict(), load_config(CONFIGS / dev_name).to_dict()
+    if test_name in SCOPE_CONFIGS:
+        dev = with_chosen_scope(test, dev, SCOPE_CONFIGS[test_name])
     assert test["split"] == "test" and dev["split"] == "dev"
     strip = lambda raw: {k: v for k, v in raw.items() if k not in SPLIT_DEPENDENT_TOP | {"runner"}}  # noqa: E731
     assert strip(test) == strip(dev)  # models, dataset pin, every arm option, scorers, repeats, limit

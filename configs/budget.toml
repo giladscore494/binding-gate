@@ -52,7 +52,9 @@ hard_limit_usd = 50.0
 planned_high_max_usd = 45.0
 reserve_usd = 5.0
 
-# Totals of the runs below (PR 17): low 14.25, HIGH 42.57, caps 47.75 USD (PR 14: 13.16 / 39.21 / 43.70;
+# PR 18 added two dev runs of the binding-scope candidates (dev_gated_scope, dev_sec_gated_scope; decomposer only,
+# 0.00 / 0.21 / 0.60): totals low 14.25, HIGH 42.78, caps 48.35 USD. No other entry changed.
+# Totals of the runs below before PR 18 (PR 17): low 14.25, HIGH 42.57, caps 47.75 USD (PR 14: 13.16 / 39.21 / 43.70;
 # PR 13: 17.35 / 43.24 / 48.65). PR 17 removed the two GRAB-RAG runs (layer 2 until PR 17; 0.22 / 0.92 /
 # 1.00; their configs moved to configs/extended/) and added the four runs of the new layer 2 (SEC financial
 # filings; 1.31 / 4.28 / 5.05). No layer-1 entry and no exploratory entry changed.
@@ -121,6 +123,19 @@ low_usd = 0.00
 high_usd = 0.06
 cap_usd = 0.30
 note = "paid: decomposer only; re-runs after calibration come out of the reserve"
+
+[[run]]
+id = "dev_gated_scope"
+config = "configs/dev_gated_scope.toml"
+kind = "run"
+invocations = 1
+models = "A, E, H"
+items = "dev, all 1,455 items (answers seeded)"
+arms = "no_gate, gated under the four binding_scope candidates"
+low_usd = 0.00
+high_usd = 0.06
+cap_usd = 0.30
+note = "PR 18; paid: decomposer only (one decomposition per question shared by the four arms; dev dry run = dev_gated's); section 5.1 scope selection"
 
 [[run]]
 id = "dev_ablation_quote_verbatim"
@@ -329,6 +344,19 @@ low_usd = 0.00
 high_usd = 0.15
 cap_usd = 0.30
 note = "PR 17 layer 2; paid: decomposer only (at most 120 dev questions per model job); MiniCheck on the CPU is free"
+
+[[run]]
+id = "dev_sec_gated_scope"
+config = "configs/dev_sec_gated_scope.toml"
+kind = "run"
+invocations = 1
+models = "A, E, H"
+items = "sec_financials dev, all items (answers seeded)"
+arms = "no_gate, gated under the four binding_scope candidates"
+low_usd = 0.00
+high_usd = 0.15
+cap_usd = 0.30
+note = "PR 18 layer 2; paid: decomposer only (same questions as dev_sec_gated, one decomposition shared by the four arms); section 5.1 scope selection"
 
 [[run]]
 id = "test_sec"

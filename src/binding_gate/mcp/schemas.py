@@ -23,10 +23,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from binding_gate.checks.entity_in_window import SCOPES as BINDING_SCOPE_VALUES
 from binding_gate.checks.no_closer_competitor import TIE_POLICIES
 from binding_gate.checks.premise_present import SCOPES
 from binding_gate.contracts import QualifierKind
-from binding_gate.gates.binding import ALL_CHECKS, DEFAULT_PARAMETERS
+from binding_gate.gates.binding import ALL_CHECKS, BINDING_SCOPES, DEFAULT_PARAMETERS
 from binding_gate.mcp.config import Limits
 
 VERIFY_ANSWER = "verify_answer"
@@ -44,8 +45,14 @@ PARAMETER_MINIMUMS: dict[str, int] = {
 PARAMETER_ENUMS: dict[str, tuple[str, ...]] = {
     "premise_scope": tuple(SCOPES),
     "competitor_tie": tuple(TIE_POLICIES),
+    "entity_scope": tuple(BINDING_SCOPE_VALUES),  # PR 18
+    "qualifier_scope": tuple(BINDING_SCOPE_VALUES),  # PR 18
+    "binding_scope": tuple(BINDING_SCOPES),  # PR 18
 }
 """Allowed values of each string gate parameter, taken from the check modules."""
+
+PARAMETER_BOOLEANS: tuple[str, ...] = ("table_binding",)  # PR 18
+"""Gate parameters that are true or false."""
 
 PARAMETER_DESCRIPTIONS: dict[str, str] = {
     "window_tokens": "Largest number of tokens allowed between the quote and a mention of the entity, "
@@ -58,9 +65,21 @@ PARAMETER_DESCRIPTIONS: dict[str, str] = {
     "or only the window around the quote.",
     "competitor_tie": "Whether a competing entity exactly as close to the quote as the question's "
     "entity blocks the answer ('fail') or not ('pass').",
+    "entity_scope": "Where a mention of the entity binds the quote: within the window ('window'), by the "
+    "cited document's subject - its leading name - when that is the entity and no competing entity is near "
+    "('document_subject'), or either ('window_or_document_subject').",
+    "qualifier_scope": "Where a mention of a qualifier binds the quote: within the window ('window'), anywhere "
+    "in a cited document whose subject is the entity ('document_subject'), or either "
+    "('window_or_document_subject').",
+    "table_binding": "When the quote lies in a table cell (flattened 'row | column: cell' lines, pipe or tab "
+    "tables), decide a qualifier named in the table's column headers (or row labels) by the quoted cell's "
+    "header (or row label) instead of by distance, so a value from another column of the same row fails.",
+    "binding_scope": "Shorthand for entity_scope, qualifier_scope and table_binding: 'window' (the default: "
+    "window, window, false), 'subject', 'table' or 'subject_table'. Do not combine with a contradicting "
+    "value of those three.",
 }
 
-_typed = set(PARAMETER_MINIMUMS) | set(PARAMETER_ENUMS)
+_typed = set(PARAMETER_MINIMUMS) | set(PARAMETER_ENUMS) | set(PARAMETER_BOOLEANS)
 if set(PARAMETER_DESCRIPTIONS) != set(DEFAULT_PARAMETERS) or _typed != set(DEFAULT_PARAMETERS):  # pragma: no cover
     # A gate parameter was added or removed without updating this module.
     raise RuntimeError("binding_gate.mcp.schemas is out of date with gates.binding.DEFAULT_PARAMETERS")
@@ -85,6 +104,8 @@ def parameter_schema() -> dict[str, Any]:
     for name, default in DEFAULT_PARAMETERS.items():
         if name in PARAMETER_ENUMS:
             prop: dict[str, Any] = {"type": "string", "enum": list(PARAMETER_ENUMS[name])}
+        elif name in PARAMETER_BOOLEANS:
+            prop = {"type": "boolean"}
         else:
             prop = {"type": "integer", "minimum": PARAMETER_MINIMUMS[name]}
         prop["default"] = default

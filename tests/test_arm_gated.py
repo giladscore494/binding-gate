@@ -14,7 +14,7 @@ from binding_gate import registry, runner
 from binding_gate.arms.gated import MEMO, GatedArm, clear_decomposition_memo
 from binding_gate.config import load_config
 from binding_gate.contracts import AnswerStatus, ArmInput, Decision
-from binding_gate.gates.binding import ALL_CHECKS, DEFAULT_PARAMETERS
+from binding_gate.gates.binding import ALL_CHECKS, DEFAULT_PARAMETERS, SCOPE_PARAMETERS
 from binding_gate.trace import read_traces
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -218,7 +218,9 @@ def test_dev_gated_config_reuses_the_baseline_and_lists_all_checks_with_proposed
     assert [a.name for a in config.arms] == ["no_gate", "gated"]
     options = config.arms[1].options
     assert options["checks"] == list(ALL_CHECKS)
-    assert options["parameters"] == DEFAULT_PARAMETERS
+    # PR 18: every pre-PR-18 parameter stated explicitly; the binding-scope options left at their defaults
+    assert {**DEFAULT_PARAMETERS, **options["parameters"]} == DEFAULT_PARAMETERS
+    assert set(DEFAULT_PARAMETERS) - set(options["parameters"]) == set(SCOPE_PARAMETERS)
     assert options["presentation"] == config.arms[0].options["presentation"]
     assert set(options["decomposer"]) == {"name", "options"}
 

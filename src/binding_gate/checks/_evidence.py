@@ -54,6 +54,22 @@ See :func:`competitor_candidates` and :func:`lead_term`. In short: the subject
 term at the start of each provided document (its *lead term*), if it recurs in
 that document, is a candidate competing entity unless it is the question's
 entity, appears in the question, or is a qualifier.
+
+Document subject (PR 18, used only by the non-default binding scopes)
+---------------------------------------------------------------------
+See :func:`document_subject` and :func:`subject_binding`. The *subject* of a
+document is its lead term computed after skipping ONE leading article ("a",
+"an", "the"), so that "The Ellery Stores Company: ..." has the subject
+"ellery stores company" (the competitor lead term of that document stays
+``None``, unchanged). The cited document is **bound to the question's entity
+by its subject** when (1) it has a subject, (2) the subject contains the token
+sequence of the entity name or of an alias, a leading article of the name
+ignored (so "zentrix systems inc" binds the entity "Zentrix Systems" and
+"ellery stores company" binds "The Ellery Stores Company"; a subject "bank"
+never binds "Bank of America Corp"), (3) the subject is not related (equal / contains / contained) to any
+remaining competitor candidate, and (4) no mention of a remaining competitor
+candidate (ignoring mentions that overlap an entity mention) lies within the
+window of the anchor occurrence. Nothing else (no id, no metadata, no gold).
 """
 
 from __future__ import annotations
@@ -461,3 +477,120 @@ def competitor_candidates(
             excluded = None
         out.append(Candidate(" ".join(term), term, document.id, excluded))
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Document subject (PR 18; only the non-default binding scopes use it)
+# --------------------------------------------------------------------------- #
+
+ARTICLES: frozenset[str] = frozenset({"a", "an", "the"})
+"""One of these at the very start of a document is skipped before its subject is read."""
+
+
+def subject_run(doc: DocText) -> tuple[str, ...]:
+    """:func:`lead_run` after skipping one leading article (same lead segment, same stop words)."""
+    cut = LEAD_CUT.search(doc.normalized)
+    end = cut.start() if cut else len(doc.normalized)
+    run: list[str] = []
+    for index, (token, (start, _stop)) in enumerate(zip(doc.tokens, doc.offsets)):
+        if start >= end:
+            break
+        if index == 0 and token in ARTICLES:
+            continue
+        if token in STOP_WORDS:
+            break
+        run.append(token)
+    return tuple(run)
+
+
+def _without_article(tokens: tuple[str, ...]) -> tuple[str, ...]:
+    """``tokens`` without one leading article, unless nothing would remain."""
+    return tokens[1:] if len(tokens) > 1 and tokens[0] in ARTICLES else tokens
+
+
+def document_subject(doc: DocText, *, max_tokens: int, min_repeats: int) -> tuple[str, ...] | None:
+    """The document's subject: :func:`lead_term`'s rule applied to :func:`subject_run`.
+
+    The run must be non-empty and at most ``max_tokens`` long; the subject is its
+    LONGEST prefix that contains a letter and occurs at least ``min_repeats``
+    times in the whole document. ``None`` when there is no such prefix.
+    """
+    run = subject_run(doc)
+    if not run or len(run) > max_tokens:
+        return None
+    for k in range(len(run), 0, -1):
+        prefix = run[:k]
+        if any(ch.isalpha() for token in prefix for ch in token) and doc.count(prefix) >= min_repeats:
+            return prefix
+    return None
+
+
+@dataclass(frozen=True)
+class SubjectBinding:
+    """Whether the cited document is bound to the question's entity by its subject (module docstring)."""
+
+    subject: tuple[str, ...] | None
+    entity_form: str | None
+    competing_subject: str | None
+    competitor_in_window: Mention | None
+    anchor: Span
+
+    @property
+    def bound(self) -> bool:
+        return self.reason is None
+
+    @property
+    def reason(self) -> str | None:
+        if self.subject is None:
+            return "no_document_subject"
+        if self.entity_form is None:
+            return "subject_not_entity"
+        if self.competing_subject is not None:
+            return "subject_is_competitor"
+        if self.competitor_in_window is not None:
+            return "competitor_in_window"
+        return None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "subject": " ".join(self.subject) if self.subject is not None else None,
+            "entity_form": self.entity_form,
+            "competing_subject": self.competing_subject,
+            "competitor_in_window": describe_mention(self.competitor_in_window, self.anchor),
+            "bound": self.bound,
+            "reason": self.reason,
+        }
+
+
+def subject_binding(
+    constraints: QuestionConstraints,
+    located: Located,
+    documents: Sequence[Document],
+    *,
+    window_tokens: int,
+    max_tokens: int,
+    min_repeats: int,
+) -> SubjectBinding:
+    """Conditions (1)-(4) of the module docstring for the cited document of ``located``."""
+    subject = document_subject(located.doc, max_tokens=max_tokens, min_repeats=min_repeats)
+    entity_form = None
+    if subject is not None:
+        entity_form = next(
+            (f.text for f in located.entity_forms if _contains(subject, _without_article(f.tokens))), None
+        )
+    active = [
+        c
+        for c in competitor_candidates(constraints, documents, max_tokens=max_tokens, min_repeats=min_repeats)
+        if c.excluded is None
+    ]
+    competing = None
+    if subject is not None:
+        competing = next((c.term for c in active if _related(subject, c.tokens)), None)
+    in_window = [
+        mention
+        for mention in mentions(located.doc, [Form(c.term, c.tokens) for c in active])
+        if not any(overlaps(mention.span, e.span) for e in located.entity_mentions)
+        and distance(mention.span, located.anchor) <= window_tokens
+    ]
+    closest, _d = nearest(in_window, located.anchor)
+    return SubjectBinding(subject, entity_form, competing, closest, located.anchor)

@@ -187,6 +187,7 @@ what the workflows run; none of them is needed on a computer.
 | SEC filings (layer 2): generate the dataset (free; secret `SEC_CONTACT_EMAIL`), then smoke, dev baseline and the gate | `python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml`, pin the printed hash in the `configs/*sec*.toml` files, then `run --config configs/dev_sec_smoke.toml`, `configs/dev_sec_baseline.toml`, `configs/dev_sec_gated.toml` (seeded) with `--confirm-spend`. GRAB-RAG (`configs/extended/*grab_rag*.toml`) is not run |
 | Live web (layer 3): smoke, then dev (needs `SERPAPI_API_KEY`; in the workflow also `RUNS_ENCRYPTION_PASSPHRASE`) | `python -m binding_gate.cli run --config configs/dev_live_smoke.toml --confirm-spend`, then `configs/dev_live.toml`; check snapshots with `python -m binding_gate.research.snapshots verify runs/<run_id>` |
 | Statistics: metrics, intervals, H1-H4 (each layer with its own rule: layer 1 `provenance`, layer 2 `sec_answer` (H1-H2), layer 3 `sealqa_answer`; mixed layers refused) | `python -m binding_gate.cli analyze runs/<run_id> [...] --out runs/<run_id>/analysis` |
+| Binding-scope selection on dev (PR 18; no model call; section 5.1 rule) | `python -m binding_gate.gates.calibration --select-scope runs/<run_id of dev_gated_scope> [...]` (layer 2: the runs of `dev_sec_gated_scope`) |
 | Frozen test runs (one layer each, after the freeze) | `python -m binding_gate.cli frozen-test-run --config configs/test_layer1.toml --tag prereg-freeze-<n> --purpose "..." --confirm-spend`; then the same with `configs/test_layer1_midtier.toml` (exploratory mid-tier check), `configs/test_sec.toml` (layer 2, H1-H2) and `configs/test_live.toml` (layer 3, H4) |
 | Published results (committed under `results/layer<N>/<run_id>/`) | `python -m binding_gate.report publish runs/<run_id>` (allow-list only: no page text, no layer-2/3 traces) |
 | Human audit (section 13) | see below |
@@ -329,7 +330,11 @@ and the study's results are pending. See [docs/MCP.md](docs/MCP.md).
   each financial statement, while most figures sit more than 40 tokens below
   it, so the unchanged gate is expected to block many correct answers there
   (a risk for H2 on layer 2, measured on synthetic statements in the tests);
-  and a prior-year figure in the same row passes the qualifier check. The layer-2
+  and a prior-year figure in the same row passes the qualifier check. PR 18 added
+  config-selectable binding-scope options for this (document-subject binding,
+  table-cell binding; defaults unchanged) and a pre-registered rule that picks one
+  per layer on dev data (`python -m binding_gate.gates.calibration --select-scope`;
+  PREREGISTRATION.md section 5.1). The layer-2
   dataset is constructed by this project (from public filings, by a rule fixed
   before any model output) and its EDGAR formats were not verifiable in the
   build sandbox; the first generation settles them.
