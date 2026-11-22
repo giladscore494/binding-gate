@@ -23,6 +23,8 @@ Thresholds are the PROPOSED values of section 10 and still need owner approval.
 
 from __future__ import annotations
 
+import re
+
 import json
 from collections import Counter
 from dataclasses import dataclass, field
@@ -59,6 +61,19 @@ MEASUREMENT_CHECK = "MEASUREMENT-CHECK"
 
 class ReportError(RuntimeError):
     """Raised when the traces cannot support the baseline report."""
+
+
+_ERROR_MESSAGE_CHARS = 300
+_SECRET_LIKE = re.compile(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|Bearer\s+\S+|key=[^&\s]+)")
+
+
+def summarise_errors(errors: Iterable[str], limit: int = 3) -> list[dict[str, Any]]:
+    """The ``limit`` most frequent distinct error messages, truncated and scrubbed of key-like strings."""
+    counts: Counter[str] = Counter()
+    for error in errors:
+        message = _SECRET_LIKE.sub("[redacted]", " ".join(error.split()))[:_ERROR_MESSAGE_CHARS]
+        counts[message] += 1
+    return [{"count": n, "message": msg} for msg, n in counts.most_common(limit)]
 
 
 def record_outcome(record: TraceRecord) -> str:
@@ -112,6 +127,9 @@ class ModelBaseline:
     calls_reporting_reasoning: int = 0
     paid_calls: int = 0
     decision: str = ""
+    # PR 20: the most frequent distinct error messages (scrubbed, truncated), so an
+    # operator can diagnose a failing configuration from the report alone.
+    top_errors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def wrong_entity(self) -> int:
@@ -234,6 +252,7 @@ class BaselineReport:
                 f"{m.truncated_calls} truncated at the output limit",
                 f"   tokens reported: input {m.input_tokens:,}, output {m.output_tokens:,} "
                 f"(of which reasoning {m.reasoning_tokens:,}, itemised by {m.calls_reporting_reasoning} call(s))",
+                *[f"   error x{e['count']}: {e['message']}" for e in m.top_errors],
                 "   wrong-entity / records by condition (rows: competing document; columns: X document)",
             ]
             cx_levels = sorted({key.split("/")[0] for key in m.by_condition})
@@ -317,6 +336,7 @@ def build_report(records: Iterable[TraceRecord], *, arm: str = "no_gate") -> lis
                 if isinstance(reasoning, int) and not isinstance(reasoning, bool):
                     result.reasoning_tokens += reasoning
                     result.calls_reporting_reasoning += 1
+        result.top_errors = summarise_errors(r.error for r in rows if r.error is not None)
         result.served_models = sorted(served)
         result.n_groups = len({r.group_id for r in rows})
         result.n_items = len(items)
