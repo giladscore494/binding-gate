@@ -28,8 +28,10 @@ def test_all_dev_covers_every_dev_run_of_the_budget_plan_once_and_nothing_of_the
     assert len(set(pipeline.STAGES["all-dev"])) == len(pipeline.STAGES["all-dev"])
     assert all(not Path(c).name.startswith("test_") for configs in pipeline.STAGES.values() for c in configs)
     assert pipeline.STAGES["all-dev"] == (pipeline.STAGES["smoke"] + pipeline.STAGES["dev-baseline"] + pipeline.STAGES["dev-rest"]
-                                          + pipeline.STAGES["layer3-dev"])
-    assert pipeline.STAGES["check-secrets"] == ()
+                                          + pipeline.STAGES["layer2-dev"] + pipeline.STAGES["layer3-dev"])
+    for free in pipeline.FREE_STAGES:
+        assert pipeline.STAGES[free] == ()
+    assert set(pipeline.FREE_STAGES) == {"check-secrets", "sec-dataset-prepare"}
     for configs in pipeline.STAGES.values():
         assert all((REAL_REPO / c).is_file() for c in configs)
 
@@ -38,7 +40,41 @@ def test_dev_rest_runs_in_the_documented_order():
     order = [Path(c).stem for c in pipeline.STAGES["dev-rest"]]
     assert order[:3] == ["decomposer_eval_dev", "dev_repeats", "dev_gated"]
     assert order[3:8] == [Path(a).stem for a in pipeline.ABLATIONS]
-    assert order[8:] == ["dev_baselines", "dev_llm_judge_checks", "dev_llm_judge", "dev_grab_rag_supportive"]
+    assert order[8:] == ["dev_baselines", "dev_llm_judge_checks", "dev_llm_judge"]
+
+
+def test_layer2_dev_runs_smoke_then_baseline_then_the_gated_run_seeded_from_that_baseline():
+    """PR 17: the SEC layer replaced the GRAB-RAG run; dev_sec_gated reuses the answers of dev_sec_baseline."""
+    from binding_gate.config import load_config
+
+    assert [Path(c).stem for c in pipeline.STAGES["layer2-dev"]] == ["dev_sec_smoke", "dev_sec_baseline", "dev_sec_gated"]
+    assert not any("grab_rag" in c for configs in pipeline.STAGES.values() for c in configs)
+    seeds = {Path(c).stem: runner.run_requirements(load_config(REAL_REPO / c))["seed_runs"] for c in pipeline.STAGES["layer2-dev"]}
+    assert not seeds["dev_sec_smoke"] and not seeds["dev_sec_baseline"] and seeds["dev_sec_gated"]
+    assert pipeline.LAYER2_SEED_PATTERN == "layer2-dev--dev_sec_baseline--runs-*"
+    for config in pipeline.STAGES["layer2-dev"]:
+        assert load_config(REAL_REPO / config).dataset.name == "sec_financials"
+
+
+def test_sec_prepare_report_prints_the_pin_and_checks_the_manifest(tmp_path, capsys):
+    from binding_gate.canonical import sha256_json
+
+    content = {"dataset": "sec_financials", "n_items": 3}
+    digest = sha256_json(content)
+    prepared = {"content_sha256": digest, "pinned_in_config": "UNPINNED", "matches_pin": False, "n_items": 3,
+                "n_companies": 1, "items_by_split": {"dev": 3, "test": 0}, "items_by_stratum": {}, "excluded": 0,
+                "retrieval": {"network_requests": 10, "cache_hits": 2, "user_agent_project": "x"}, "next_step": "pin it"}
+    (tmp_path / "prepare.json").write_text(json.dumps(prepared), encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(json.dumps({"content": content, "content_sha256": digest}), encoding="utf-8")
+    argv = ["sec-prepare-report", "--prepare", str(tmp_path / "prepare.json"), "--manifest", str(tmp_path / "manifest.json"),
+            "--markdown", str(tmp_path / "p.md"), "--json", str(tmp_path / "p.json")]
+    assert pipeline.main(argv) == 0
+    out = capsys.readouterr().out
+    assert f"content_sha256={digest}" in out and "matches_pin=false" in out
+    assert "NOT the pin" in (tmp_path / "p.md").read_text(encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(json.dumps({"content": {"other": 1}, "content_sha256": digest}), encoding="utf-8")
+    assert pipeline.main(argv) == 1
+    assert "::error::SEC dataset" in capsys.readouterr().out
 
 
 def test_stage_configs_command(capsys):

@@ -5,14 +5,15 @@ dataset in its manifest (``prereg.LAYER_BY_DATASET``); run directories of
 different layers given together are refused.
 
 * layer 1, ``deceptive_grounding``: outcomes from ``provenance``; decides H1-H3;
-* layer 2, ``grab_rag``: outcomes from ``grab_rag_answer``; metrics reported,
-  no decision (no pass/fail threshold);
+* layer 2, ``sec_financials`` (PR 17): outcomes from ``sec_answer``; decides H1
+  and H2 per model with the layer-1 thresholds (GRAB-RAG, layer 2 until PR 17,
+  is in the extended design and belongs to no layer);
 * layer 3, ``sealqa``: outcomes from ``sealqa_answer``; decides H4 (M3), with
   M4 reported.
 
 Layer 1 is ``binding_gate.stats.analysis.analyse_run_dirs`` unchanged (its
 output is byte-identical to what it was before PR 16); layer 2 is
-``binding_gate.scorers.grab_rag_answer.analyse_layer2``; layer 3 is
+``binding_gate.scorers.sec_answer.analyse_sec``; layer 3 is
 ``binding_gate.scorers.sealqa_answer.analyse_layer3``. Used by ``cli analyze``
 and by the frozen test run, so both give the same numbers for the same traces.
 """
@@ -40,8 +41,7 @@ class LayerRule:
 
 LAYER_RULES: Mapping[int, LayerRule] = {
     1: LayerRule(1, "deceptive_grounding", "provenance", "provenance", "H1-H3 (section 11)"),
-    2: LayerRule(2, "grab_rag", "grab_rag_answer", "grab_rag_answer (layer 2)",
-                 "none: reporting only, no pass/fail threshold (section 11)"),
+    2: LayerRule(2, "sec_financials", "sec_answer", "sec_answer (layer 2)", "H1-H2 per model (section 11)"),
     3: LayerRule(3, "sealqa", "sealqa_answer", "sealqa_answer (layer 3)", "H4 (section 11)"),
 }
 
@@ -81,6 +81,13 @@ def layer_of_run_dirs(run_dirs: Sequence[str | Path]) -> int | None:
     for run_dir, name in datasets.items():
         by_layer.setdefault(prereg.LAYER_BY_DATASET.get(name), []).append(run_dir)
     if None in by_layer:
+        extended = sorted(d for d, name in datasets.items() if name in prereg.EXTENDED_DATASETS and d in by_layer[None])
+        if extended:
+            raise LayerError(
+                f"run directories {extended} hold GRAB-RAG, which since PR 17 is in the extended design only "
+                "(configs/extended/) and belongs to no layer; analyse them with "
+                "binding_gate.scorers.grab_rag_answer.analyse_layer2 if ever needed"
+            )
         raise LayerError(
             f"run directories {sorted(by_layer[None])} hold a dataset of no pre-registered layer; "
             "analyse each dataset separately"
@@ -97,9 +104,9 @@ def layer_of_run_dirs(run_dirs: Sequence[str | Path]) -> int | None:
 
 def _analyser(layer: int | None) -> Callable[..., dict[str, Any]]:
     if layer == 2:
-        from binding_gate.scorers.grab_rag_answer import analyse_layer2
+        from binding_gate.scorers.sec_answer import analyse_sec
 
-        return analyse_layer2
+        return analyse_sec
     if layer == 3:
         from binding_gate.scorers.sealqa_answer import analyse_layer3
 

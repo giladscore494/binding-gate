@@ -27,6 +27,11 @@ prompt of a run is fixed by its config file.
     pages fetched for the question, each with its URL, then the question and
     the same instruction.
 
+``sec_filings``
+    Layer 2 (PR 17, ``binding_gate.datasets.sec_financials.filing_messages``):
+    the rendered financial statements of one or two 10-K filings, the question
+    and the same instruction.
+
 Retries
 -------
 :func:`call_model` is the only place where a model call is retried. Each attempt
@@ -76,10 +81,17 @@ def _sealqa_live_web(question: str, documents: Sequence[Document]) -> tuple[Mess
     return live_web_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
 
 
+def _sec_filings(question: str, documents: Sequence[Document]) -> tuple[Message, ...]:
+    from binding_gate.datasets.sec_financials import filing_messages
+
+    return filing_messages(question, documents, ANSWER_FORMAT_INSTRUCTIONS)
+
+
 PRESENTATIONS: dict[str, Callable[[str, Sequence[Document]], tuple[Message, ...]]] = {
     "deceptive_grounding_doc_injection": _deceptive_grounding,
     "grab_rag_context": _grab_rag,
     "sealqa_live_web": _sealqa_live_web,
+    "sec_filings": _sec_filings,
 }
 
 

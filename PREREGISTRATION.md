@@ -2,9 +2,28 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.7 (2026-11-22, PR 16)
+**Document version:** 0.8 (2026-11-22, PR 17)
 
-**Changelog.** 0.7 (2026-11-22, PR 16): frozen test runs for layers 2 and 3
+**Changelog.** 0.8 (2026-11-22, PR 17): layer 2 replaced (decided by the
+orchestrator under the owner's delegation). Layer 2 is now **financial facts from
+US public-company annual reports** (SEC EDGAR, dataset `sec_financials`), a
+**second confirmatory layer** for H1 and H2, evaluated per primary model with the
+layer-1 thresholds (sections 2, 3, 11). GRAB-RAG, layer 2 until 0.7, does not test
+entity binding (its "misleading" edit substitutes the answer, and its misleading
+contexts are not shipped); it moves to the extended design (`configs/extended/`,
+in no layer). The layer-2 dataset is generated deterministically from EDGAR by a
+rule fixed here before any data was fetched or any model output existed (section
+3, layer 2): company universe, filing, statements, gold from XBRL "as reported in
+that filing", peers, conditions, document rendering and size budget; split unit
+the company (section 4); scorer `sec_answer` (sections 6.3 and 7); power note
+(section 8); frozen access `configs/test_sec.toml` (section 12); threats (section
+16); open items 45-55 (section 17). Budget plan: GRAB-RAG's two runs removed, four
+layer-2 runs added (planned HIGH 42.57 USD, sum of caps 47.75 USD; section 9).
+EDGAR's formats and fair-access rules could not be read from the build sandbox
+and are **unverified** until the first generation. No layer-1 threshold, gate
+parameter, sample-size rule or primary model changed. Status stays DRAFT; every
+new value is PROPOSED.
+0.7 (2026-11-22, PR 16): frozen test runs for layers 2 and 3
 (section 17, items 37 and 39 closed). New test configs
 `configs/test_live.toml` (layer 3, confirmatory for H4; slots A and E; caps
 0.55 + 1.25 USD; `max_searches = 250`, month 2 of the SerpApi allocation) and
@@ -70,10 +89,13 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project at version 0.7 (PR 16):** all ten planned pull requests,
-the housekeeping PR 11, PR 12, PR 13 and PR 14 are merged; PR 13 fitted the paid
-plan into the USD 50 budget, PR 14 moved it to the providers the owner funds and
-PR 16 adds the frozen test runs of layers 2 and 3 (changelog). No model has been called and no result of any kind
+**State of the project at version 0.8 (PR 17):** all ten planned pull requests,
+the housekeeping PR 11, PR 12, PR 13, PR 14 and PR 16 are merged; PR 13 fitted the paid
+plan into the USD 50 budget, PR 14 moved it to the providers the owner funds,
+PR 16 added the frozen test runs of layers 2 and 3, and PR 17 replaces layer 2 by
+SEC financial filings (changelog). The layer-2 dataset has not been generated
+yet (it is generated in GitHub Actions; no EDGAR data has been seen by anyone
+involved). No model has been called and no result of any kind
 exists. The
 Deceptive Grounding benchmark has been cloned at a pinned commit and its files
 inspected for structure (section 3); the structural statistics quoted there were
@@ -147,12 +169,27 @@ and is not claimed. Every model runs at its lowest reasoning setting (section
 Anthropic model and no DeepSeek model is tested (version 0.6), so nothing is
 claimed about those families.
 
+**Two domains (version 0.8).** H1 and H2 are tested confirmatorily on two
+controlled layers: layer 1 (constructed clinical documents, Deceptive
+Grounding) and layer 2 (financial statements from US public companies' annual
+reports, SEC EDGAR), each per primary model with the same thresholds (section
+11). The claim "the gate works" is made per domain and per model; it is not
+pooled across domains. H3 stays a layer-1 hypothesis; H4 a layer-3 one. Why
+this second domain (PROPOSED — requires owner approval before freeze): extracting
+figures from filings is core analyst work where agents save large costs; the
+classic agent error there is exactly a binding error (the right kind of filing
+but the wrong company, the wrong fiscal year, or the wrong unit scale);
+independent gold values exist in machine-readable XBRL, so scoring is
+deterministic and not designed around the gate; and EDGAR data are free, public
+US-government-hosted data with documented fair-access rules.
+
 ## 3. Datasets and layers
 
 | Layer | Dataset | Role | Licence | Status of our knowledge |
 |---|---|---|---|---|
 | 1. Controlled | Deceptive Grounding benchmark (github.com/CedricCaruzzo/deceptive-grounding-benchmark; arXiv 2607.09349), pinned at commit `61b0281d8d3897f53bef3f7402727c905614c1e4` | Confirmatory for H1-H3 | Apache-2.0 (LICENSE file in the checkout) | Files inspected in PR 2; facts below |
-| 2. Controlled, other domain | GRAB-RAG (github.com/andre44s/grab-rag; arXiv 2608.22228), pinned at commit `2006561476b39a6cd1ebc0ab5df1b09af01dbcab`; misleading condition, with the supportive condition as paired control | Exploratory (secondary); see below for what it can and cannot test | Code MIT; data CC BY-SA 3.0 (NQ-derived) and CC BY-SA 4.0 (HotpotQA-derived) | Files inspected in PR 7; facts below. The misleading contexts are **not shipped** and must be exported once with GRAB-RAG's code |
+| 2. Controlled, other domain (version 0.8) | `sec_financials`: generated from SEC EDGAR (US public companies' 10-K filings and their XBRL facts) by the pre-registered builder `src/binding_gate/datasets/sec_build.py`, version 1; pinned by its manifest content hash `data_sha256` after the first generation | Confirmatory for H1-H2 (per model) | Public filings submitted to the SEC; sec.gov reuse terms **unverified** (not committed or published until verified) | Rules fixed in PR 17 before any data was fetched; EDGAR formats **unverified** (sandbox could not reach sec.gov); facts to be entered after the first generation (section 17, items 45-47) |
+| (extended, not run) | GRAB-RAG (github.com/andre44s/grab-rag; arXiv 2608.22228), pinned at commit `2006561476b39a6cd1ebc0ab5df1b09af01dbcab` | Layer 2 until version 0.7; extended design since 0.8, in no layer | Code MIT; data CC BY-SA 3.0 (NQ-derived) and CC BY-SA 4.0 (HotpotQA-derived) | Files inspected in PR 7; facts below, kept for the record |
 | 3. Live web | SealQA (Hugging Face `vtllms/sealqa`; arXiv 2506.01062), pinned at revision `0e75db526ad93dd039714897b7631afc03510e30`; subset `seal_hard` (which contains `seal_0`) | Confirmatory for H4 | Apache-2.0 (dataset card and `LICENSE` file at the pinned revision) | Revision, file hashes and column names checked against the Hub API in PR 8; the rows could not be downloaded in the PR 8 sandbox, so counts and values are **unverified** (facts below) |
 
 **Layer 1.** Each stimulus is built from a triple: queried drug X, competitor
@@ -245,7 +282,128 @@ the adapter on every load):
     split. The unit of the split and of the bootstrap is therefore the (X, C)
     pair (section 4).
 
-**Layer 2.** GRAB-RAG presents the same questions (500 from Natural Questions,
+**Layer 2 (version 0.8): financial facts from SEC filings (`sec_financials`).**
+Everything in this block is version 1 of the builder
+(`src/binding_gate/datasets/sec_build.py`, `sec_edgar.py`; the adapter
+`sec_financials.py` only reads and verifies the generated directory), written
+before any EDGAR data was fetched and before any model output. **PROPOSED — requires owner approval before freeze.**
+EDGAR facts used below (URL patterns, JSON fields of `company_tickers.json`, of
+the XBRL `frames` and `companyfacts` APIs and of the `submissions` API, the
+per-filing `FilingSummary.xml` and the `R<n>.htm` statement pages, and the
+fair-access rules) are **unverified**: the official pages "Accessing EDGAR Data"
+(sec.gov/os/accessing-edgar-data) and "EDGAR Application Programming Interfaces"
+(sec.gov/search-filings/edgar-application-programming-interfaces) could not be
+opened from the PR 17 sandbox. The builder checks every field it relies on and
+refuses or excludes with a recorded reason; the first generation settles them
+(section 17, item 45).
+
+1. **Universe** (seed `20261122`). Candidates: the entities of the XBRL frame
+   `us-gaap/Assets/USD/CY2024Q4I` (total assets at 2024-12-31, one fact per
+   filer) that are in `company_tickers.json` (listed) and whose `loc`, when
+   present, starts with `US`; ranked by total assets (ties: CIK). In that order
+   the `submissions` record is read until every sector quota is filled or 2,500
+   candidates were examined. Quotas by SIC division (300 companies): mining
+   (1000-1499) 20, construction (1500-1799) 10, manufacturing (2000-3999) 110,
+   transportation, communications and utilities (4000-4999) 40, wholesale
+   (5000-5199) 15, retail (5200-5999) 30, finance, insurance and real estate
+   (6000-6799) 40, services (7000-8999) 35. Excluded SIC codes: 6189, 6221,
+   6722, 6726, 6770 (asset-backed issuers, commodity pools, funds, blank-check
+   companies). A candidate must have `entityType` "operating" (when present).
+2. **The filing.** The latest original `10-K` (not `10-K/A`) with XBRL filed
+   between 2025-07-01 and 2026-06-30; its report date is the fiscal-year end.
+   Every examined candidate is recorded with the reason it was taken or skipped
+   (`selection.json`). The selection is a snapshot of mutable sources; after the
+   first generation it is committed
+   (`configs/datasets/sec_financials_selection_v1.json`) and named in the
+   builder config, so later generations read only immutable sources.
+3. **Statements.** From the filing's `FilingSummary.xml`: the cover page
+   (registrant name), the income statement (first report of category
+   Statements named operations / income / earnings / loss and not
+   parenthetical, cash flows, equity, stockholders, shareholders, partners,
+   members, changes in, balance sheet or financial position/condition; a name
+   without "comprehensive" preferred) and the balance sheet (first named
+   balance sheet / financial position / financial condition / statement of
+   condition, not parenthetical), each EDGAR's rendering (`R<n>.htm`) of the
+   filing's own XBRL statements. Deviation from "the 10-K's typeset pages": the
+   rendering is structured and locatable deterministically; its row labels are
+   the filing's own labels.
+4. **Document text** (rendering version 1). First line `"<registrant name>:
+   annual report on Form 10-K for the fiscal year ended <Month D, YYYY>"`; then
+   per statement `"<registrant name>: <statement title with the stated unit
+   scale>"` (the company name above each statement, as printed statements show
+   it) and one line per row, `"<row label> | <column label>: <cell text> |
+   ..."`; a header shared by every column ("12 Months Ended") is written once
+   on the statement line. Income statement first, then the balance sheet. Size
+   budget 10,000 characters per document: each statement keeps its leading rows
+   within its share (even split; an unneeded share goes to the other statement)
+   and the cut is marked `"[<n> more rows not shown]"`. Disclosure: the name
+   standing alone before a colon was chosen knowing that the gate's
+   competitor-candidate rule reads a document's lead segment (section 5.1); it
+   mirrors the cover page and favours no arm.
+5. **Gold** (metrics and XBRL concepts, in preference order): revenue
+   (`Revenues`, `RevenueFromContractWithCustomerExcludingAssessedTax`,
+   `RevenueFromContractWithCustomerIncludingAssessedTax`, `SalesRevenueNet`),
+   operating income (`OperatingIncomeLoss`), net income (`NetIncomeLoss`), total
+   assets (`Assets`), cash and cash equivalents
+   (`CashAndCashEquivalentsAtCarryingValue`); all in USD. For a metric, the
+   first concept with exactly one value in `companyfacts` for the filing's
+   accession number, form 10-K, a period ending on the report date (duration
+   metrics: 350-380 days; balance-sheet metrics: an instant) whose value is
+   displayed, at the statement's stated scale, in a current-year column of the
+   kept text. Values are **as reported in that filing**: a later restatement
+   (next year's 10-K, a 10-K/A) never changes gold; the prior-year columns come
+   from the same filing (`target_alternatives`, used to detect wrong-period
+   answers). Net income is not used when the filing also reports a different
+   consolidated `ProfitLoss` (two "net income" lines). Why these concepts: the
+   five most common headline figures, present for almost every filer, two on
+   the balance sheet (instants) and three on the income statement (durations).
+6. **Peers.** Within the same split (section 4) and the same two-digit SIC
+   major group; a group with one member is pooled with the other singletons of
+   its sector in that split; a company still alone is excluded. Members are
+   ordered by SHA-256(`"20261122\npeer\n<CIK>"`) and each one's peer is the
+   next in that cycle. No company appears in both splits, as target or as peer.
+7. **Metric of a company:** among its available metrics that its peer also
+   reports (else among its own), the smallest SHA-256(`"20261122\nmetric\n<CIK>\n<metric>"`).
+8. **Conditions** (strata `<target>/<competitor>`, mirroring layer 1's two
+   factors): `present/none` (the target filing only; the multi-year table tests
+   the period binding), `present/peer` (target and peer filings; order by
+   SHA-256(`"20261122\norder\n<item id>"`), first byte even = target first),
+   `absent/peer` (the peer filing only: the correct behaviour is to abstain).
+   Documents are labelled `doc1`, `doc2` by position (no role hint). No document
+   is edited; no unit-scale variant is constructed (filings state their own
+   scale, in thousands or millions, which is the natural scale test).
+9. **Question** (template version 1), e.g. "What was <registrant>'s total
+   revenue, in US dollars, for the fiscal year ended <Month D, YYYY>, as
+   reported in its annual report on Form 10-K?" (balance-sheet metrics: "as of
+   <date>"). Constraints it implies: entity = the company (aliases: tickers and
+   name variants, in gold), qualifiers = fiscal year, metric and unit.
+10. **Presentation** `sec_filings`: a system message written for this study
+    (it names no company and says nothing about peer or missing documents), the
+    documents as `[Document n — source: docN]` blocks, the question and the
+    answer-format instruction of section 6.2.
+11. **Expected size** (estimates; realised counts are entered after the first
+    generation from dev counts only, item 46): about 250-300 usable companies,
+    3 items each, 750-900 items; about 300-360 dev and 450-540 test items.
+12. **Fair access and provenance.** User-Agent `"<project part> <e-mail>"`: the
+    project part (product, version, project URL) is committed
+    (`configs/datasets/sec_financials_v1.toml`), the owner's e-mail comes only
+    from the repository secret `SEC_CONTACT_EMAIL` and is never written to any
+    output (the generation refuses without it); at most 5 requests per second
+    (SEC's limit: 10, unverified); an on-disk cache; at most 4 retries with
+    exponential backoff, every attempt logged. The manifest records every
+    source URL with its SHA-256, the extracted facts' hash per filing, the
+    exclusions with reasons and the retrieval times; its content hash is the
+    pin. The dataset is not committed or published while the reuse terms are
+    unverified (item 47).
+
+**Extended design, not run (version 0.8): GRAB-RAG, layer 2 until version 0.7.**
+Kept for the record; its configs are under `configs/extended/` and it belongs
+to no layer (`stats/prereg.py` `EXTENDED_DATASETS`). Reason for the move: its
+"misleading" edit replaces the answer, not the entity, so it does not test the
+binding failure of section 1 (see "What layer 2 can and cannot test" below),
+and its misleading contexts are not shipped.
+
+GRAB-RAG presents the same questions (500 from Natural Questions,
 500 from HotpotQA) under four context conditions: supportive, degraded, missing
 and misleading. We use the misleading condition and, as its paired control, the
 supportive condition.
@@ -382,7 +540,7 @@ Proposed interpretation (**PROPOSED — requires owner approval before freeze.**
   conditions are paired by question.
 - Layer 2 stays exploratory and has no pass/fail threshold (section 11).
 - *Version 0.5 (USD 50 budget).* Only the cost side is planned:
-  `configs/dev_grab_rag_supportive.toml` runs `no_gate` and `gated` on the
+  `configs/dev_grab_rag_supportive.toml` (since version 0.8 under `configs/extended/`) runs `no_gate` and `gated` on the
   supportive condition of every dev question (394; slot A; one repeat;
   supportive items need no export: dataset options `conditions =
   ["supportive"]`, `supportive_questions = "all"`), estimate $0.09-$0.36; the
@@ -577,7 +735,11 @@ split  = test if bucket < TEST_BUCKETS else dev
   `<source dataset>/<question id>`, so both conditions used (misleading and
   supportive) of one question are always in the same split. For SealQA it is
   the question (group id derived from the normalised question text; SealQA has
-  no row id, section 3, layer 3, item 5).
+  no row id, section 3, layer 3, item 5). For `sec_financials` (version 0.8) it
+  is the **company**, group id `sec/<10-digit CIK>`, so all three conditions of
+  a company share a split; peers are paired within a split (section 3, layer 2,
+  item 6), so no company appears in both splits, as target or as peer. The
+  40/60 ratio is the same as for layer 1.
 - The salt was fixed on 2026-11-22, before any data was opened, and is not
   tuned. `tests/test_preregistration.py` fails if this section and the code
   disagree.
@@ -623,6 +785,14 @@ structured answer of section 6.2.
   `configs/dev_llm_judge_checks.toml`), because its judge is the most expensive
   model of the study; it is a dev-only exploratory comparison and is not in the
   test run. The subsample rule is in section 9.
+  **PROPOSED — requires owner approval before freeze.**
+- **Layer 2 (version 0.8).** Frozen test run `configs/test_sec.toml`: `no_gate`,
+  `faithfulness_checker` (free, CPU), `gated` and the five ablations, the three
+  primary models, every test item; every gate arm judges the single `no_gate`
+  answer, so the paid calls are `no_gate` and the decomposer.
+  `prompt_entity_check` is not run on layer 2 (a second paid answer per item
+  would push the sum of caps above 50 USD). Dev: the same arms
+  (`configs/dev_sec_gated.toml`, answers seeded from `configs/dev_sec_baseline.toml`).
   **PROPOSED — requires owner approval before freeze.**
 - **RESEARCH without search.** In layers 1 and 2 there is nothing to search. A
   RESEARCH verdict there is final and counts as an abstention.
@@ -878,6 +1048,10 @@ Notes that are part of the rule:
 - The scorer's labels are the four above plus `abstained` and `unparseable` for
   final answers that are not scoreable answers, so that every record carries
   exactly one provenance label; the outcome category is stored with it.
+- For layer 2 (version 0.8) correctness is decided against independent gold
+  values by the deterministic scorer `sec_answer` (section 7, "Layer 2"); the
+  quote's provenance (target or competitor document) is recorded with the same
+  matching as above.
 - For layer 3 (SealQA) correctness is judged against the dataset's gold answers
   by a rule fixed in PR 8 before any test use. If that rule cannot be fully
   deterministic, this is stated in an amendment together with the judge used.
@@ -1001,6 +1175,46 @@ Always reported as a pair, never one without the other.
 - for layer 1, results by each of the 15 conditions and by the two condition
   factors.
 
+**Layer 2 (version 0.8, SEC filings)**
+
+M1 and M2 as above, with the categories of the scorer `sec_answer`
+(`src/binding_gate/scorers/sec_answer.py`, rule version 1; **PROPOSED — requires owner approval before freeze**):
+
+- *Amount.* After the normalisation of section 6.1, the first amount of the
+  answer's value: a number with a currency marker (`$`, `us$`, `usd`), a scale
+  word or thousands separators, or in parentheses; not a percentage, a number
+  glued to letters (`fy2024`, `10-k`), an ordinal, a day after a month name, or
+  a year 1900-2100 without currency or scale. Scale: a scale word after the
+  number (thousand, million, billion, trillion, plurals; `mm`, `mn`, `bn`,
+  `tn`; attached `k`, `m`, `b`, `t`), else a phrase "in thousands / millions /
+  billions" in the value, else whole dollars (a bare `391,035` from a statement
+  in millions is a scale error). Negative: a minus sign, parentheses, or
+  "loss"/"losses"/"deficit" in the 60 preceding characters other than in
+  "income (loss)", "income or loss" and the like.
+- *Match.* At least 2 significant digits, and the absolute difference from the
+  value is below one unit of the last stated digit (scale included: correct
+  rounding and truncation pass; "$1.2 billion" matches 1,234,000,000). An
+  explicitly negative amount never matches a positive value; an amount without
+  an explicit sign matches either sign.
+- *Labels* (first that applies): `correct` (matches the gold value and the
+  quote is found in a target document), `value_unsupported` (matches gold, quote
+  not in a target document, e.g. a recalled figure in `absent/peer`),
+  `wrong_entity` (matches the peer company's value of the same metric, any year
+  of its filing), `wrong_period_or_scale` (matches the target's value for
+  another year of the same filing, or gold or such a value after rescaling by
+  10^(3k), k ≠ 0), `other_wrong` (anything else, including no amount and fewer
+  than 2 significant digits), `abstained`, `unparseable` (as in section 6.3,
+  including quotes shorter than 5 tokens).
+- *Categories for the statistics:* `correct` = target-grounded (the correct
+  answer of M2/H2), `wrong_entity` = wrong-entity (M1/H1), the other answered
+  labels = answered and neither (`ungrounded` in the outcome table), plus
+  abstention, unparseable, error. Reported with them, exploratory: the counts of
+  every label, the strict wrong-entity count (also quoted only from the
+  competitor document), binding errors (wrong entity + wrong period or scale)
+  and scale errors.
+- *Why value-based wrong entity:* the answer asserts the peer's figure; the
+  layer-1 quote-provenance definition is reported as the strict variant.
+
 **Layer 3 (live web)**
 
 - **M3, net correct answers:** correct final answers / all records,
@@ -1086,7 +1300,11 @@ so it is measurement code only and is never used by the gate or any arm.
 - attribute: recorded, not scored (the question is open-ended, and no gate
   check reads the attribute).
 
-Layers 2 and 3 have no reference procedure yet. PR 7 and PR 8 define one (for
+Layer 2 (version 0.8) has the same question template for every item, so a
+reference can be derived from gold as in layer 1 (entity = the registrant, aliases
+= tickers; qualifiers = fiscal year end); defining it, or stating that the
+decomposer is not measured there, is item 52 of section 17. Layer 3 has no
+reference procedure yet. PR 7 and PR 8 define one (for
 example a reference written by a person for a sample, blind to the decomposer's
 output) before those layers are frozen, or state that the decomposer is not
 measured there.
@@ -1243,8 +1461,8 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   arithmetic, and every threshold of section 11 is compared exactly, so a value
   at a boundary is decided by the rule as written, not by rounding.
 - **Confidence intervals.** Cluster bootstrap. The cluster is the split unit
-  `group_id`: the (X, C) pair for layer 1, the question for layer 2, the question
-  for layer 3. Resampling groups respects the dependence between the conditions of
+  `group_id`: the (X, C) pair for layer 1, the company (CIK) for layer 2 (version
+  0.8), the question for layer 3. Resampling groups respects the dependence between the conditions of
   one triple and between the triples of one (X, C) pair. For one model with *G*
   clusters (sorted by `group_id`), each of `BOOTSTRAP_RESAMPLES` resamples draws
   *G* clusters with replacement with Python's
@@ -1311,6 +1529,18 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   for how many of the three it held. The GLM model H thinks at its lowest
   setting while A and E do not (or barely) think, so a difference between H and
   the others may reflect the reasoning setting as well as the family.
+- **Power, layer 2 (version 0.8; a planning note, not a rule).** About 450-540
+  test items per primary model in about 150-180 company clusters (three items
+  per company: one per condition). Wrong-entity answers can occur in
+  `present/peer` and `absent/peer` (about 300-360 items); the baseline rate is
+  unknown (the dev baseline measures it). At 10% of those items, about 30-36
+  events per model; at 20%, about 60-70. With the design effect of three
+  conditions per company, an interval of the paired M1 difference that excludes
+  zero needs a large reduction at 10% (most events removed), which H1(a)
+  requires anyway. H2: with roughly 200-300 correct `no_gate` answers per model,
+  M2 near 10% has an interval of roughly ±4-5 percentage points. The main risk
+  is not power but the size of M2 (section 16, "Tables"). The section 10 stop
+  rule is not applied to layer 2; its dev baseline is reported.
 - **Breakdowns.** Point estimates are reported per condition (15 for layer 1)
   and per factor level (X completeness; competing-document condition), together
   with the full outcome table and the cost per arm. They are exploratory.
@@ -1334,10 +1564,10 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   (`configs/test_grab_rag_supportive.toml`, `configs/test_live.toml`). One frozen
   run analyses one layer, with that layer's pre-registered rule, chosen from the
   config's dataset (`src/binding_gate/stats/layers.py`): layer 1 from the
-  `provenance` score (H1-H3); layer 2 from the `grab_rag_answer` score (M1 =
-  misled / answered, with the strict variant counted; M2 with `correct` as the
-  correct answer), reported with the same intervals and **no decision** (section
-  11: no threshold; every hypothesis is NOT EVALUABLE there); layer 3 from the
+  `provenance` score (H1-H3); layer 2 since version 0.8 from the `sec_answer` score (M1 =
+  wrong entity / answered, M2 with `correct` as the correct answer), deciding
+  H1 and H2 per model with the layer-1 thresholds (H3, H4 NOT EVALUABLE there;
+  until 0.7 layer 2 was GRAB-RAG with `grab_rag_answer` and no decision); layer 3 from the
   `sealqa_answer` score (M3 = correct / all, M4; H4 with its status of section
   11, NOT EVALUABLE when an arm it needs is absent). The run refuses a config
   whose dataset is in no layer or that lacks the scorer its layer's rule reads,
@@ -1502,12 +1732,23 @@ reported size; searches free (SerpApi Free plan).
 | secondary judge (`rescore/dev_llm_judge.toml`) | judge J on A, E, H | 60 dev items × 3 models | 0.92 | 4.52 | 4.75 |
 | layer 3 smoke (`dev_live_smoke.toml`) | A | 5 SealQA dev questions | 0.01 | 0.02 | 0.10 |
 | layer 3 dev (`dev_live.toml`) | A, E | SealQA dev (about 108) | 0.45 | 1.20 | 1.30 |
-| layer 2 cost side (`dev_grab_rag_supportive.toml`) | A | 394 supportive dev items | 0.09 | 0.36 | 0.40 |
+| layer 2 smoke (`dev_sec_smoke.toml`) | A, E, H | first 2 dev companies (6 items) | 0.01 | 0.03 | 0.30 |
+| layer 2 dev baseline (`dev_sec_baseline.toml`) | A, E, H | SEC dev items (about 300; at most 360) | 0.52 | 1.55 | 1.70 |
+| layer 2 gate and ablations (`dev_sec_gated.toml`) | A, E, H | SEC dev items (answers reused): decomposer | 0.00 | 0.15 | 0.30 |
 | **layer 1 test, confirmatory** (`test_layer1.toml`) | A, E, H | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 5.98 | 15.85 | 16.75 |
 | mid-tier check (`test_layer1_midtier.toml`) | B, F, I | 225 test items | 2.47 | 6.55 | 6.95 |
 | layer 3 test, confirmatory (`test_live.toml`) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
-| layer 2 test, exploratory (`test_grab_rag_supportive.toml`) | A | 606 supportive test items | 0.13 | 0.56 | 0.60 |
-| **Total** | | | **13.16** | **39.21** | **43.70** |
+| **layer 2 test, confirmatory** (`test_sec.toml`) | A, E, H | SEC test items (about 450; at most 540) | 0.78 | 2.55 | 2.75 |
+| **Total** | | | **14.25** | **42.57** | **47.75** |
+
+*Version 0.8.* GRAB-RAG's two runs (0.22 / 0.92 / 1.00 USD) left the plan; the
+four layer-2 runs were estimated by dry runs on a synthetic EDGAR stand-in with
+realistic statement sizes (238 companies, 300 dev items, 8,400 prompt
+characters per item), made conservative for HIGH and the caps by assuming every
+document at its 10,000-character budget (input × 1.6) and all 300 companies
+usable (360 dev, 540 test items). The free dry run on the real dev data replaces
+these numbers before the freeze (item 13). No layer-1 or exploratory entry
+changed.
 
 The caps are hard limits in the runner (a model stops when its reported usage
 reaches its cap) and are set at the high estimate × 1.05, rounded up to 0.05
@@ -1629,8 +1870,8 @@ H4_MIN_NET_DIFFERENCE     = 0
 
 | Hypothesis | Supported if |
 |---|---|
-| H1 | Layer 1, all three: (a) M1 of `gated` is at least 50% lower than M1 of `no_gate`, i.e. 1 − M1(`gated`) / M1(`no_gate`) ≥ 0.50 (point estimate); (b) the 95% interval of the paired difference M1(`gated`) − M1(`no_gate`) excludes zero, i.e. its upper bound is below 0; (c) wrong-entity answers per all records do not increase: wrong / all of `gated` ≤ that of `no_gate` (point estimate). |
-| H2 | Layer 1: M2 of `gated` is at most 10% (point estimate ≤ 0.10). |
+| H1 | Layer 1, and separately layer 2 (version 0.8), all three: (a) M1 of `gated` is at least 50% lower than M1 of `no_gate`, i.e. 1 − M1(`gated`) / M1(`no_gate`) ≥ 0.50 (point estimate); (b) the 95% interval of the paired difference M1(`gated`) − M1(`no_gate`) excludes zero, i.e. its upper bound is below 0; (c) wrong-entity answers per all records do not increase: wrong / all of `gated` ≤ that of `no_gate` (point estimate). |
+| H2 | Layer 1, and separately layer 2 (version 0.8): M2 of `gated` is at most 10% (point estimate ≤ 0.10). |
 | H3 | Layer 1: (a) wrong-entity answers per all records are lower for `gated` than for `faithfulness_checker` (point estimate), with the 95% interval of the paired difference (`gated` − `faithfulness_checker`) entirely below zero; and (b) M2 of `gated` is not higher than M2 of `faithfulness_checker` (point estimate). If the gate is better on one and worse on the other — (a) holds but M2 of `gated` is higher, or wrong / all of `gated` is higher (point estimate) but its M2 is lower — this is reported as a **trade-off**, not as support. Otherwise not supported. |
 | H4 | Layer 3: M3 of `gated_research` is not lower than M3 of `no_gate` (paired difference, point estimate ≥ 0); the interval is reported. |
 
@@ -1642,16 +1883,19 @@ H4_MIN_NET_DIFFERENCE     = 0
 - Intervals that are not part of a rule (M2 in H2, the M2 difference in H3, M3
   in H4) are reported with the decision.
 - The controlled-layer claim ("the gate works") requires H1 **and** H2 for the
-  same model. H1 without H2 is reported as "reduces errors at an unacceptable
-  cost".
+  same model and the same layer. H1 without H2 is reported as "reduces errors at
+  an unacceptable cost". Since version 0.8 the claim is made per domain: layer 1
+  (clinical) and layer 2 (financial filings) are decided and reported
+  separately, never pooled.
 - H4 as proposed is a weak criterion: with a live sample of this size the
   interval will be wide, and "not lower" by point estimate does not establish
   equivalence. A non-inferiority margin would be stricter; whether to adopt one
   is an open owner decision (section 17).
-- Layer 2 has no pass/fail threshold. Its results are reported with the same
-  metrics as evidence for or against generalisation beyond the clinical domain.
-- "Per model" means per primary model of section 9 (layer 1: A, E, H; layer
-  3: A, E). The mid-tier check is evaluated with the same rules and reported,
+- Layer 2 (version 0.8, SEC filings) has the H1 and H2 thresholds above, per
+  primary model (A, E, H). Until version 0.7 layer 2 (GRAB-RAG) had no
+  threshold.
+- "Per model" means per primary model of section 9 (layers 1 and 2: A, E, H;
+  layer 3: A, E). The mid-tier check is evaluated with the same rules and reported,
   but its statuses are exploratory (subsample run, section 8).
 - A hypothesis that is not supported is reported as not supported. Thresholds
   are not moved after the test split is unlocked.
@@ -1677,8 +1921,9 @@ H4_MIN_NET_DIFFERENCE     = 0
   - layer 1: `configs/test_layer1.toml` (confirmatory, the primary models), then
     `configs/test_layer1_midtier.toml` (exploratory mid-tier check on a
     pre-registered subsample, section 9) - two accesses (since version 0.5);
-  - layer 2: `configs/test_grab_rag_supportive.toml` (exploratory, cost side,
-    reported without a decision) - one access;
+  - layer 2: `configs/test_sec.toml` (version 0.8; confirmatory for H1 and H2
+    on layer 2) - one access (until version 0.7:
+    `configs/test_grab_rag_supportive.toml`, now in the extended design);
   - layer 3: `configs/test_live.toml` (confirmatory for H4) - one access, plus
     one per resume in a following month when the SerpApi quota stops it
     (section 3, layer 3, item 7; expected: at most one).
@@ -1717,7 +1962,8 @@ existed, and is not tuned.
 - **Population.** A gate decision is the verdict on the *first* attempt of a
   trace record of the arm `gated` (layer 1) or `gated_research` (layer 3) in the
   confirmatory frozen test runs (version 0.5: `configs/test_layer1.toml` and the
-  layer-3 test run; the exploratory mid-tier run is not in the population);
+  layer-3 test run; the exploratory mid-tier run is not in the population;
+  whether the layer-2 test run of version 0.8 joins it is section 17, item 53);
   ablation arms are not in the population. Records whose
   candidate was not judged (abstained, unparseable) and error records are not
   gate decisions. All models and audited layers are pooled; the sample file
@@ -1885,7 +2131,7 @@ section in the generator.
 - **Constructed clinical data.** Layer 1 uses documents constructed by the
   benchmark authors around drug-disease-competitor triples. Effects there may
   not transfer to naturally occurring pages, other domains, or other kinds of
-  entities. Layers 2 and 3 address this only partly.
+  entities. Layers 2 (real filings, version 0.8) and 3 address this only partly.
 - **Entity matching is brittle.** The deterministic checks compare strings.
   Aliases, brand versus generic names, abbreviations, pronouns and other
   coreference, and facts laid out in tables or lists (where the entity is in a
@@ -1946,9 +2192,37 @@ section in the generator.
   triples have no completing-information targets (section 3, fact 10). They are
   kept; conditions built on an empty competing document cannot yield a
   wrong-entity answer under quote matching.
-- **Single-benchmark confirmation.** H1-H3 rest on one benchmark. A positive
-  result is evidence for the gate on this kind of stimulus, not a general
-  guarantee.
+- **Layer 2: a dataset constructed by the authors (version 0.8).** The items are
+  generated by this project from public filings. Mitigations: gold values are
+  independent XBRL facts of the filings, not written by us; the generation rule
+  (universe, filing, statements, rendering, conditions, metric choice) was fixed
+  and committed before any data was fetched and before any model output; the
+  generation is deterministic and pinned by a manifest hash, with every source
+  URL and SHA-256 recorded; the code and the manifest are public. Residual risk:
+  the rendering and the conditions are our choices.
+- **Layer 2: tables and the window rule (version 0.8).** The registrant's name
+  heads each statement while most figures sit more than 40 tokens below it, so
+  the unchanged gate's `entity_in_window` check is expected to block many
+  correct answers (on synthetic statements every correct answer for net income,
+  operating income and total assets was blocked; tests/test_sec_gate_compat.py),
+  a serious risk for H2 on layer 2; and because every year of a row sits in the
+  window, `qualifiers_in_window` cannot catch a prior-year figure from the same
+  row. These are properties of the pre-registered gate on tabular evidence; no
+  gate parameter was changed for layer 2. Names that start with a function word
+  ("The ... Company") yield no competitor candidate.
+- **Layer 2: conversion and data errors.** EDGAR's rendering of the statements,
+  our HTML-to-text flattening, the size cut and the concept rules can drop or
+  mislabel rows; an item whose gold value is not displayed in the kept text is
+  excluded by rule, and exclusions are counted. Restatements are handled by
+  taking every value as reported in the chosen filing; a filer's own errors in
+  XBRL tagging would propagate to gold. EDGAR's formats were not verifiable in
+  the build sandbox.
+- **Layer 2: training-data exposure.** Large companies' headline figures are
+  widely published; a model may answer from memory (scored `value_unsupported`
+  when not supported by a target quote, and visible in `absent/peer`).
+- **Single-benchmark confirmation.** H1-H3 rest on one benchmark (since version
+  0.8, H1-H2 also on layer 2's filings). A positive result is evidence for the
+  gate on this kind of stimulus, not a general guarantee.
 - **Low-cost models only (version 0.5, USD 50 budget).** The confirmatory
   evidence comes from three low-cost models (version 0.6; section 2). There is no
   confirmatory evidence for mid-tier or flagship models: the mid-tier check
@@ -2046,7 +2320,9 @@ changed on dev data before the freeze.
     budget plan (section 9, "Budget plan"; `configs/budget.toml`; sum of caps
     48.65 USD, planned high 43.24 USD, checked by `tests/test_budget_plan.py`).
     Version 0.6 (PR 14): re-derived again for the new model set from dry runs
-    (sum of caps 43.70 USD, planned high 39.21 USD).
+    (sum of caps 43.70 USD, planned high 39.21 USD). Version 0.8 (PR 17): GRAB-RAG's
+    runs removed, the four layer-2 SEC runs added (sum of caps 47.75 USD, planned
+    high 42.57 USD).
     Still to do: re-derive the caps of the later configs from the usage the
     smoke run and the dev baseline measure, within the 50 USD; approve the plan
     (item 43).*
@@ -2063,7 +2339,8 @@ named.
     (section 11).
 16. Whether ties in `no_closer_competitor` fail (`competitor_tie = "fail"`,
     the current value) or pass (section 5.1).
-17. Layer 2 interpretation (section 3, layer 2). GRAB-RAG's "misleading"
+17. *Superseded in version 0.8 (PR 17): layer 2 is SEC filings; GRAB-RAG is in
+    the extended design (section 3).* Layer 2 interpretation (section 3, layer 2). GRAB-RAG's "misleading"
     condition is answer-span substitution, not entity mismatch, and its
     misleading contexts are not shipped (an export with GRAB-RAG's own code,
     which needs a GPU, is required). Recommendation recorded by the
@@ -2199,11 +2476,49 @@ owner in the repository settings).
     `configs/budget.toml`): what is cut (mid-tier models confirmatorily, two
     repeats, `llm_judge_checks` on test, the judges beyond 60 dev items, layer 3
     for slot H, the misleading condition of layer 2), the subsample sizes and
-    the reserve (version 0.6: planned high 39.21 USD, caps 43.70 USD).
+    the reserve (version 0.6: planned high 39.21 USD, caps 43.70 USD; version
+    0.8: planned high 42.57 USD, caps 47.75 USD, with layer 2 replaced).
 44. Repository secret `ZAI_API_KEY` (slots H, I; version 0.6) and a monthly
     spending limit or prepaid balance set by the owner at every provider used
     (OpenAI, Google, Z.ai, Moonshot) as the outer safety net (docs/RUNNING.md,
     "Provider spending limits"); SerpApi stays on the Free plan.
+
+**(E) Layer 2, SEC financial filings (version 0.8, PR 17).**
+
+45. EDGAR facts the builder relies on (URL patterns, JSON fields, FilingSummary
+    and R-page structure, fair-access rules): verified by the first generation
+    in GitHub Actions and by reading the official pages; differences recorded
+    in section 3, layer 2.
+46. First generation: commit the printed `content_sha256` as `data_sha256` in
+    the four `configs/*sec*.toml` and the selection file
+    (`configs/datasets/sec_financials_selection_v1.json`, named in
+    `configs/datasets/sec_financials_v1.toml`); enter realised counts from the
+    dev split only (companies, items per condition and metric, exclusions with
+    reasons; section 3, layer 2, item 11).
+47. Reuse terms of EDGAR data and filings verified from a primary source
+    (sec.gov); until then the generated dataset and layer-2 traces are not
+    committed or published (`report publish` refuses layer-2 traces).
+48. Owner approval of the layer-2 rules: universe quotas and exclusions, filing
+    window, concepts and their order, rendering and the 10,000-character budget,
+    peer and metric rules, conditions, question template, `sec_answer` rule
+    (sections 3 and 7).
+49. Owner decision: the SEC contact e-mail is the repository secret
+    `SEC_CONTACT_EMAIL` (decided 2026-11-22: the owner's e-mail, never committed
+    or stored; recorded here as closed once the secret exists).
+50. Layer-2 caps re-derived from the free dry run on the real dev data before
+    the freeze (item 13).
+51. Whether `prompt_entity_check` (and the secondary judge) are added on layer 2
+    if the measured costs leave room in the reserve.
+52. Decomposer reference procedure for layer 2, or a statement that it is not
+    measured there (section 7).
+53. Whether layer-2 gate decisions join the human-audit population (section 13;
+    currently layers 1 and 3).
+54. The risk for H2 on layer 2 from the window rule on tables (section 16):
+    accepted as a pre-registered property of the gate, or addressed by an
+    amendment before any layer-2 dev result is seen (any change of a gate
+    parameter would apply to every layer).
+55. Whether the dev baseline of layer 2 gets a stop rule like section 10 (none
+    is pre-registered; the layer is run regardless of its baseline rate).
 
 *Closed earlier, kept for the record:* layer-1 facts from the real files
 (PR 2; section 3, facts 1-11); "correct" for layer 1 cannot be tightened to a

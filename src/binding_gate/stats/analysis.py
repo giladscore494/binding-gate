@@ -197,7 +197,8 @@ def evaluate_model_hypotheses(
 
     def missing(hypothesis: str, needed: Sequence[str]) -> hyp.HypothesisResult | None:
         if hypothesis not in wanted:
-            where = "layer 1" if hypothesis in ("H1", "H2", "H3") else "layer 3"
+            layers = [str(n) for n, names in sorted(prereg.HYPOTHESES_BY_LAYER.items()) if hypothesis in names]
+            where = ("layer " if len(layers) == 1 else "layers ") + " and ".join(layers)
             return hyp.not_evaluable(hypothesis, f"{hypothesis} is evaluated on {where}; these traces are layer {layer}")
         absent = [arm for arm in needed if arm not in arms]
         if absent:

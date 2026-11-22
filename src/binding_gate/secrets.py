@@ -33,6 +33,11 @@ KNOWN_SECRETS: dict[str, str] = {
         "passphrase with which .github/workflows/baseline.yml encrypts the run artifacts of live-web runs, "
         "which contain third-party page text (PR 8); read by the workflow only, never by Python code"
     ),
+    "SEC_CONTACT_EMAIL": (
+        "contact e-mail declared in the User-Agent of SEC EDGAR requests (SEC fair-access rules); read by "
+        "datasets/sec_edgar.py (PR 17) and required ONLY for the free `cli dataset-prepare` step of the layer-2 "
+        "dataset (sec_financials). Never written to the dataset, manifests, traces, logs or artifacts"
+    ),
 }
 
 

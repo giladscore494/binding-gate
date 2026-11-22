@@ -1,9 +1,12 @@
 name: dev pipeline
+run-name: "dev pipeline: ${{ inputs.stage }}"   # the results-log workflow names its folder runs/<run id>-<stage> from this
 
 # PR 15: the whole DEV phase of docs/RUNNING.md from GitHub Actions, with no edit to any file.
 # The owner adds the repository secrets once (docs/OWNER_SETUP.md); the orchestrator (an AI that can
-# start workflows and read their artifacts through the GitHub API but never sees a secret value)
-# starts the stages below and reads every result from predictably named artifacts.
+# start workflows and read their logs and git branches through the GitHub API, but never sees a secret
+# value and cannot download artifacts) starts the stages below. PR 17: when a stage has finished, the
+# workflow .github/workflows/results_log.yml commits its non-sensitive reports to the branch results-log
+# under runs/<workflow run id>-<stage>/ (binding_gate.results_log), where the orchestrator reads them.
 #
 # Stages (input "stage"; the configs of each stage: binding_gate.pipeline.STAGES):
 #   check-secrets  free: which secrets exist (names only), every free preflight (model ids, the Z.ai
@@ -18,18 +21,28 @@ name: dev pipeline
 #                  committed as results/dev_baseline_continue.json); then, in order: the decomposer
 #                  measurement, dev_repeats, dev_gated, the five ablations, dev_baselines (with the
 #                  MiniCheck prepare/verify step), dev_llm_judge_checks, the judge re-scoring of the
-#                  dev-baseline runs, GRAB-RAG supportive (its dataset prepared), then the gate
-#                  calibration (dev traces only) and `cli analyze` of every dev run. The seed runs are
-#                  the dev-baseline run directories (artifacts dev-baseline--dev_baseline--runs-*).
+#                  dev-baseline runs, then the gate calibration (dev traces only) and `cli analyze` of
+#                  every dev run. The seed runs are the dev-baseline run directories (artifacts
+#                  dev-baseline--dev_baseline--runs-*). (PR 17: the GRAB-RAG run left dev-rest; layer 2
+#                  is now the SEC stage layer2-dev.)
+#   sec-dataset-prepare  free (PR 17): generates the layer-2 dataset from SEC EDGAR (`cli dataset-prepare`,
+#                  secret SEC_CONTACT_EMAIL, EDGAR responses cached between runs) and prints
+#                  content_sha256=<hash>; the orchestrator pins that hash as data_sha256 in the sec
+#                  configs in a pull request. Never started automatically: every SEC run refuses while
+#                  the pin is UNPINNED.
+#   layer2-dev     (PR 17) dev_sec_smoke, its usage check, dev_sec_baseline, then dev_sec_gated seeded
+#                  with the answers of that baseline (same workflow run), then `cli analyze`.
 #   layer3-dev     SealQA prepared, dev_live_smoke then dev_live within the SerpApi monthly allowance
 #                  ([runner] max_searches); run directories uploaded only encrypted, next to an
 #                  unencrypted layer-3 summary (costs, outcomes, URLs, hashes; no page text).
-#   all-dev        smoke -> dev-baseline -> (stops unless CONTINUE) -> dev-rest -> layer3-dev.
+#   all-dev        smoke -> dev-baseline -> (stops unless CONTINUE) -> dev-rest -> layer2-dev -> layer3-dev
+#                  (layer3-dev also runs when layer2-dev failed, e.g. while the SEC pin is UNPINNED).
 #
 # Every paid stage needs "confirm_spend". Every paid step is preceded by the budget ledger
-# (.github/actions/ledger-check): it reads the artifacts of every earlier hand-started run and refuses
-# when the spend so far plus the caps about to run could exceed USD 50 (configs/budget.toml). The plan
-# job checks the whole stage first; each config is checked again right before it runs.
+# (.github/actions/ledger-check): it reads the artifacts of every earlier hand-started run and the ledger
+# snapshots on the results-log branch, and refuses when the spend so far plus the caps about to run could
+# exceed USD 50 (configs/budget.toml). The plan job checks the whole stage first; each config is checked
+# again right before it runs.
 #
 # Artifact names: <stage>--<config stem>--<kind>-<model label>[-attempt<N>], e.g.
 # dev-baseline--dev_baseline--runs-openai-low, dev-rest--dev_gated--baseline-report,
@@ -51,10 +64,12 @@ on:
           - smoke
           - dev-baseline
           - dev-rest
+          - sec-dataset-prepare
+          - layer2-dev
           - layer3-dev
           - all-dev
       confirm_spend:
-        description: "I confirm that paid API calls may be made (needed for every stage except check-secrets)"
+        description: "I confirm that paid API calls may be made (needed for every stage except check-secrets and sec-dataset-prepare)"
         required: true
         default: false
         type: boolean
@@ -84,7 +99,7 @@ jobs:
       - name: Install package
         run: python -m pip install -e .
       - name: Refuse a paid stage that was not confirmed
-        if: ${{ inputs.stage != 'check-secrets' && !inputs.confirm_spend }}
+        if: ${{ inputs.stage != 'check-secrets' && inputs.stage != 'sec-dataset-prepare' && !inputs.confirm_spend }}
         run: |
           echo "::error::Stage $STAGE makes paid API calls; check confirm_spend. Nothing was run."
           exit 1
@@ -96,7 +111,7 @@ jobs:
             python -m binding_gate.pipeline stage-configs --stage "$STAGE" | sed 's/^/- /'
           } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Budget ledger - refuse the stage if the caps of all its configs could exceed the hard limit
-        if: ${{ inputs.stage != 'check-secrets' }}
+        if: ${{ inputs.stage != 'check-secrets' && inputs.stage != 'sec-dataset-prepare' }}
         uses: ./.github/actions/ledger-check
         with:
           mode: check
@@ -131,6 +146,7 @@ jobs:
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           RUNS_ENCRYPTION_PASSPHRASE: ${{ secrets.RUNS_ENCRYPTION_PASSPHRASE }}
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}   # PR 17: reported as set or not, never its value
         run: |
           mkdir -p check-secrets
           set +e
@@ -563,22 +579,9 @@ jobs:
           path: rescore/
           retention-days: 90
 
-  dev-grab-rag:
-    name: dev_grab_rag_supportive (dataset prepared)
-    needs: [dev-rest-gate, rescore]
-    if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
-    uses: ./.github/workflows/baseline.yml
-    with:
-      config: configs/dev_grab_rag_supportive.toml
-      model: all
-      dry_run: false
-      confirm_spend: ${{ inputs.confirm_spend }}
-      artifact_prefix: dev-rest--dev_grab_rag_supportive--
-    secrets: inherit
-
   dev-analysis:
     name: gate calibration and analysis of every dev run (no model call)
-    needs: [dev-rest-gate, dev-grab-rag]
+    needs: [dev-rest-gate, rescore]
     if: ${{ !cancelled() && needs.dev-rest-gate.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -628,11 +631,194 @@ jobs:
           exit 1
 
   # ------------------------------------------------------------------------------------------- #
+  # sec-dataset-prepare (PR 17; free)
+  # ------------------------------------------------------------------------------------------- #
+  sec-dataset-prepare:
+    name: SEC dataset from EDGAR (free; prints the content hash to pin)
+    needs: plan
+    if: ${{ inputs.stage == 'sec-dataset-prepare' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Cache the EDGAR responses (public SEC data; one file per URL)
+        uses: actions/cache@v4
+        with:
+          path: data/raw/sec-financials/cache
+          key: sec-edgar-v1-${{ hashFiles('configs/datasets/sec_financials_v1.toml','configs/datasets/sec_financials_selection_v1.json') }}
+          restore-keys: |
+            sec-edgar-v1-
+      - name: Generate the SEC dataset (no model call; the contact e-mail is never written anywhere)
+        env:
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}
+        run: |
+          if [ -z "$SEC_CONTACT_EMAIL" ]; then
+            echo "::error::The repository secret SEC_CONTACT_EMAIL is not set (docs/OWNER_SETUP.md). SEC's fair-access rules require a contact e-mail. Nothing was fetched."
+            exit 1
+          fi
+          mkdir -p sec-dataset
+          python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml > sec-dataset/prepare.json
+          cp data/raw/sec-financials/manifest.json data/raw/sec-financials/selection.json sec-dataset/
+      - name: The content hash to pin (content_sha256=... in this log and on the results-log branch)
+        run: |
+          python -m binding_gate.pipeline sec-prepare-report --prepare sec-dataset/prepare.json \
+            --manifest sec-dataset/manifest.json --json sec-dataset/prepare_report.json --markdown sec-dataset/prepare.md
+          cat sec-dataset/prepare.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the dataset manifest, the company selection and the hash (no item text)
+        if: ${{ always() && hashFiles('sec-dataset/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sec-dataset-prepare--dataset${{ env.ATTEMPT_SUFFIX }}
+          path: sec-dataset/
+          retention-days: 90
+
+  # ------------------------------------------------------------------------------------------- #
+  # layer2-dev (PR 17: SEC financial filings)
+  # ------------------------------------------------------------------------------------------- #
+  layer2-smoke:
+    name: dev_sec_smoke
+    needs: [plan, dev-rest-gate, dev-analysis]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (inputs.stage == 'layer2-dev' || (inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success')) }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_sec_smoke.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: layer2-dev--dev_sec_smoke--
+    secrets: inherit
+
+  layer2-smoke-check:
+    name: SEC smoke usage check (measured tokens vs the caps)
+    needs: layer2-smoke
+    if: ${{ !cancelled() && needs.layer2-smoke.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the SEC smoke run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: layer2-dev--dev_sec_smoke--runs-*
+          path: smoke-runs
+          merge-multiple: true
+      - name: Compare the measured usage with the budget's assumptions; fail if a planned run could exceed its cap
+        id: check
+        run: |
+          mkdir -p usage-check
+          mapfile -t RUN_DIRS < <(find smoke-runs -mindepth 2 -maxdepth 2 -name traces.jsonl -printf '%h\n' | sort)
+          if [ "${#RUN_DIRS[@]}" -eq 0 ]; then
+            echo "::error::No SEC smoke run directory was found (every model skipped or failed; is the SEC dataset pinned?)."
+            exit 1
+          fi
+          set +e
+          python -m binding_gate.pipeline smoke-check "${RUN_DIRS[@]}" --json usage-check/smoke_usage_check.json --markdown usage-check/smoke_usage_check.md
+          CODE=$?
+          set -e
+          cat usage-check/smoke_usage_check.md >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+      - name: Upload the usage check
+        if: ${{ always() && hashFiles('usage-check/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer2-dev--dev_sec_smoke--usage-check${{ env.ATTEMPT_SUFFIX }}
+          path: usage-check/
+          retention-days: 90
+      - name: Fail if the measured usage would make a planned run exceed its cap
+        if: ${{ steps.check.outputs.code != '0' }}
+        run: |
+          echo "::error::The SEC smoke usage check failed: re-derive the caps (configs/budget.toml and the configs) in a pull request before continuing."
+          exit 1
+
+  layer2-baseline:
+    name: dev_sec_baseline
+    needs: [plan, layer2-smoke, layer2-smoke-check]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-smoke.result == 'success' && needs.layer2-smoke-check.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_sec_baseline.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      artifact_prefix: layer2-dev--dev_sec_baseline--
+    secrets: inherit
+
+  layer2-gated:
+    name: dev_sec_gated (answers seeded from dev_sec_baseline of this workflow run)
+    needs: [plan, layer2-baseline]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.layer2-baseline.result == 'success' }}
+    uses: ./.github/workflows/baseline.yml
+    with:
+      config: configs/dev_sec_gated.toml
+      model: all
+      dry_run: false
+      confirm_spend: ${{ inputs.confirm_spend }}
+      seed_run_id: ${{ github.run_id }}
+      seed_pattern: layer2-dev--dev_sec_baseline--runs-*
+      artifact_prefix: layer2-dev--dev_sec_gated--
+    secrets: inherit
+
+  layer2-analysis:
+    name: analysis of the SEC dev runs (no model call)
+    needs: [layer2-baseline, layer2-gated]
+    if: ${{ !cancelled() && needs.layer2-baseline.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download the SEC baseline run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: layer2-dev--dev_sec_baseline--runs-*
+          path: sec-runs/baseline
+      - name: Download the SEC gated run directories of this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: layer2-dev--dev_sec_gated--runs-*
+          path: sec-runs/gated
+      - name: cli analyze per config (layer-2 rule, from the sec_answer score)
+        id: analysis
+        run: |
+          set +e
+          python -m binding_gate.pipeline analyze-dev sec-runs --out analysis
+          CODE=$?
+          set -e
+          { echo '```'; cat analysis/index.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+      - name: Upload the analyses
+        if: ${{ always() && hashFiles('analysis/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer2-dev--analysis${{ env.ATTEMPT_SUFFIX }}
+          path: analysis/
+          retention-days: 90
+      - name: Fail if an analysis failed
+        if: ${{ steps.analysis.outputs.code != '0' }}
+        run: |
+          echo "::error::An analysis failed; see analysis/index.json and the *.log files (results-log branch, runs/<run id>-layer2-dev/)."
+          exit 1
+
+  # ------------------------------------------------------------------------------------------- #
   # layer3-dev
   # ------------------------------------------------------------------------------------------- #
   layer3-smoke:
     name: dev_live_smoke
-    needs: [plan, dev-rest-gate, dev-analysis]
+    needs: [plan, dev-rest-gate, dev-analysis, layer2-analysis]   # all-dev: after layer 2, whatever its result
     if: ${{ !cancelled() && needs.plan.result == 'success' && (inputs.stage == 'layer3-dev' || (inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success')) }}
     uses: ./.github/workflows/baseline.yml
     with:

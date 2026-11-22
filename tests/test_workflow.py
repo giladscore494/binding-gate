@@ -33,9 +33,10 @@ def test_paid_step_requires_confirmation_and_inputs_never_reach_a_shell_unquoted
     assert "!inputs.dry_run && inputs.confirm_spend" in paid and "--confirm-spend" in paid
     assert "Refuse a paid run that was not confirmed" in WORKFLOW
     # User-typed inputs are passed through environment variables, not pasted into scripts.
+    # run-name (PR 17) is the run's title in the UI and the API, never a shell
     for line in WORKFLOW.splitlines():
         if "${{ inputs.config }}" in line or "${{ inputs.model }}" in line:
-            assert line.strip().startswith(("CONFIG:", "MODEL:", "group:"))
+            assert line.strip().startswith(("CONFIG:", "MODEL:", "group:", "run-name:"))
 
 
 def test_only_documented_secrets_are_used_and_a_missing_one_skips_the_model():
@@ -45,6 +46,7 @@ def test_only_documented_secrets_are_used_and_a_missing_one_skips_the_model():
         "SERPAPI_API_KEY", "RUNS_ENCRYPTION_PASSPHRASE",  # PR 8: web search key, artifact encryption
         "DEEPSEEK_API_KEY",  # PR 13: slot G (optional since PR 14; unused by the USD 50 study)
         "ZAI_API_KEY",  # PR 14: slots H and I (Z.ai GLM)
+        "SEC_CONTACT_EMAIL",  # PR 17: EDGAR User-Agent contact, only for generating the SEC dataset
     }
     assert used <= set(KNOWN_SECRETS)
     # PR 14: the Z.ai key reaches every step that a model key reaches
@@ -112,6 +114,14 @@ def test_dataset_is_cloned_or_prepared_by_its_pin_method():
     assert "method=" in step and '"$METHOD" = "prepare"' in step
     assert 'binding_gate.cli dataset-prepare --config "$CONFIG"' in step and 'git -C "$ROOT" fetch -q --depth 1' in step
     assert step.index("dataset-pin") < step.index("dataset-prepare")
+    # PR 17: the SEC contact e-mail reaches the dataset step (and only through its env), with the EDGAR cache
+    assert "SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}" in uses
+    for name, block in RUN_STEPS.items():
+        if "SEC_CONTACT_EMAIL" in block:
+            assert name == "Get the dataset at its pinned version (into data/raw/, git-ignored)", name
+    assert "actions/cache@v4" in step and "path: data/raw/sec-financials/cache" in step
+    assert ("key: sec-edgar-v1-${{ hashFiles('configs/datasets/sec_financials_v1.toml',"
+            "'configs/datasets/sec_financials_selection_v1.json') }}") in step
     names = list(RUN_STEPS)
     assert names.index("Install package (with the optional extras the config needs)") < names.index(
         "Get the dataset at its pinned version (into data/raw/, git-ignored)"

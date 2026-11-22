@@ -30,6 +30,11 @@ Commands (``python -m binding_gate.pipeline <command>``)
 ``find-decision --out DIR``
     (GitHub Actions) the newest ``dev-baseline--decision`` artifact of the
     repository, downloaded into DIR; prints ``workflow_run_id=<N>``.
+``sec-prepare-report --prepare FILE [--manifest FILE] [--markdown FILE]``
+    (PR 17) the outcome of ``cli dataset-prepare`` for the SEC dataset: prints
+    ``content_sha256=<hash>`` and ``matches_pin=<true|false>`` (the orchestrator
+    reads them from the job log and from the results-log branch) and checks that
+    the generated ``manifest.json`` carries the same hash. Exit 1 if it does not.
 """
 
 from __future__ import annotations
@@ -61,12 +66,24 @@ STAGES: dict[str, tuple[str, ...]] = {
         "configs/dev_baselines.toml",
         "configs/dev_llm_judge_checks.toml",
         "configs/rescore/dev_llm_judge.toml",
-        "configs/dev_grab_rag_supportive.toml",
     ),
+    "sec-dataset-prepare": (),
+    "layer2-dev": ("configs/dev_sec_smoke.toml", "configs/dev_sec_baseline.toml", "configs/dev_sec_gated.toml"),
     "layer3-dev": ("configs/dev_live_smoke.toml", "configs/dev_live.toml"),
 }
-STAGES["all-dev"] = STAGES["smoke"] + STAGES["dev-baseline"] + STAGES["dev-rest"] + STAGES["layer3-dev"]
-"""Paid configs of each stage, in the order the stage runs them (one invocation each)."""
+STAGES["all-dev"] = (STAGES["smoke"] + STAGES["dev-baseline"] + STAGES["dev-rest"] + STAGES["layer2-dev"]
+                     + STAGES["layer3-dev"])
+"""Paid configs of each stage, in the order the stage runs them (one invocation each).
+
+PR 17: the layer-2 dev runs (SEC financial filings) replace the GRAB-RAG run that ended ``dev-rest``; they are
+their own stage ``layer2-dev`` (smoke, baseline, then the gated run seeded from that baseline in the same
+workflow run), so that layer 1 never waits for the SEC dataset pin. ``sec-dataset-prepare`` is free: it generates
+the SEC dataset from EDGAR and prints the content hash the orchestrator pins (every SEC run refuses while the
+pin is ``UNPINNED``; the stage is never started automatically)."""
+FREE_STAGES = ("check-secrets", "sec-dataset-prepare")
+"""Stages that make no paid call: no confirmation, no budget-ledger check."""
+LAYER2_SEED_PATTERN = "layer2-dev--dev_sec_baseline--runs-*"
+"""Artifacts of the SEC dev baseline that seed ``configs/dev_sec_gated.toml`` (same workflow run)."""
 
 PREFLIGHT_CONFIGS = (
     "configs/dev_smoke.toml",             # the six models under test
@@ -75,7 +92,8 @@ PREFLIGHT_CONFIGS = (
     "configs/dev_live_smoke.toml",        # the SerpApi account
 )
 STUDY_SECRETS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "ZAI_API_KEY", "MOONSHOT_API_KEY", "SERPAPI_API_KEY",
-                 "RUNS_ENCRYPTION_PASSPHRASE")
+                 "RUNS_ENCRYPTION_PASSPHRASE", "SEC_CONTACT_EMAIL")
+"""Secrets the USD 50 study needs (SEC_CONTACT_EMAIL: only the layer-2 SEC dataset, PR 17)."""
 DECISION_ARTIFACT = "dev-baseline--decision"
 CONTINUE_NOTE = "results/dev_baseline_continue.json"
 """Committed note that lets dev-rest run after an IN-BETWEEN or MEASUREMENT-CHECK decision:
@@ -414,6 +432,54 @@ def find_decision(api: Any, out_dir: str | Path) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# SEC dataset preparation (PR 17; free)
+# --------------------------------------------------------------------------- #
+
+
+def sec_prepare_report(prepared: Mapping[str, Any], manifest: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The pin the orchestrator commits, from the printed ``cli dataset-prepare`` output (and the manifest)."""
+    from binding_gate.canonical import sha256_json
+
+    digest = prepared.get("content_sha256")
+    if not isinstance(digest, str) or len(digest) != 64:
+        raise ValueError("the dataset-prepare output has no 64-digit content_sha256")
+    problems: list[str] = []
+    if manifest is not None:
+        if manifest.get("content_sha256") != digest:
+            problems.append(f"manifest.json names content_sha256 {manifest.get('content_sha256')!r}, the output {digest!r}")
+        elif sha256_json(manifest.get("content")) != digest:
+            problems.append("manifest.json: content_sha256 does not match its content")
+    return {
+        "report_version": 1,
+        "content_sha256": digest,
+        "pinned_in_config": prepared.get("pinned_in_config"),
+        "matches_pin": bool(prepared.get("matches_pin")),
+        "n_items": prepared.get("n_items"),
+        "n_companies": prepared.get("n_companies"),
+        "items_by_split": prepared.get("items_by_split"),
+        "items_by_stratum": prepared.get("items_by_stratum"),
+        "excluded": prepared.get("excluded"),
+        "network_requests": (prepared.get("retrieval") or {}).get("network_requests"),
+        "cache_hits": (prepared.get("retrieval") or {}).get("cache_hits"),
+        "next_step": prepared.get("next_step"),
+        "problems": problems,
+    }
+
+
+def sec_prepare_markdown(report: Mapping[str, Any]) -> str:
+    verdict = ("matches the pin in the configs" if report["matches_pin"] else
+               f"NOT the pin in the configs ({report['pinned_in_config']}); pin it in a pull request (docs/RUNNING.md step 8)")
+    lines = ["## SEC dataset (layer 2) generated from EDGAR", "",
+             f"- content_sha256: `{report['content_sha256']}` - {verdict}",
+             f"- items: {report['n_items']} from {report['n_companies']} companies; by split {report['items_by_split']}; "
+             f"by stratum {report['items_by_stratum']}; excluded companies or items: {report['excluded']}",
+             f"- EDGAR requests: {report['network_requests']} over the network, {report['cache_hits']} from the cache",
+             f"- next step: {report['next_step']}"]
+    lines += [f"- PROBLEM: {p}" for p in report["problems"]]
+    return "\n".join(lines) + "\n"
+
+
+# --------------------------------------------------------------------------- #
 # Calibration and analysis of every dev run (no model call, no key)
 # --------------------------------------------------------------------------- #
 
@@ -507,6 +573,11 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_argument("--notes-dir", default="results")
     sub = commands.add_parser("find-decision")
     sub.add_argument("--out", required=True)
+    sub = commands.add_parser("sec-prepare-report")
+    sub.add_argument("--prepare", required=True)
+    sub.add_argument("--manifest", default=None)
+    sub.add_argument("--json", default=None)
+    sub.add_argument("--markdown", default=None)
     sub = commands.add_parser("analyze-dev")
     sub.add_argument("root")
     sub.add_argument("--out", required=True)
@@ -555,6 +626,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"workflow_run_id={decision['workflow_run_id']}")
             print(f"decision={decision['decision']}")
             return EXIT_OK
+        if args.command == "sec-prepare-report":
+            prepared = json.loads(Path(args.prepare).read_text(encoding="utf-8"))
+            manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8")) if args.manifest else None
+            report = sec_prepare_report(prepared, manifest)
+            if args.json:
+                Path(args.json).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            _write(args.markdown, sec_prepare_markdown(report))
+            print(f"content_sha256={report['content_sha256']}")
+            print(f"matches_pin={'true' if report['matches_pin'] else 'false'}")
+            for problem in report["problems"]:
+                print(f"::error::SEC dataset: {problem}")
+            return EXIT_FAILURE if report["problems"] else EXIT_OK
         if args.command == "analyze-dev":
             index = analyze_dev(args.root, args.out)
             print(json.dumps({k: index[k] for k in ("failed",)} | {"analysed": sorted(index["analyses"])}, indent=2))

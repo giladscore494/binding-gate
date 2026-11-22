@@ -161,7 +161,7 @@ def test_negative_results_come_right_after_the_headline_at_the_same_level():
     assert "**H4 NOT EVALUABLE**" in text
     # validity guard: 1 of 8 items has an error record in every repeat = 12.5% > 5%
     assert "arm `gated`: unparseable + error rate 12.5% exceeds the validity limit 5.0%" in text
-    assert "Layer 2 (`grab_rag`) is not in this report" in text and "Layer 3 (`sealqa`) is not in this report" in text
+    assert "Layer 2 (`sec_financials`) is not in this report" in text and "Layer 3 (`sealqa`) is not in this report" in text
     assert "`prompt_entity_check`" in text and "`gated_research`" in text
     assert "stop-rule outcome (section 10) was not supplied" in text
     assert "human audit (section 13) has not been carried out" in text
@@ -188,7 +188,7 @@ def test_every_arm_model_and_condition_is_in_the_exploratory_and_coverage_sectio
     assert "M1 wrong among answered | M2 correct answers blocked" in exploratory
     assert "`complete/class_proximate`" in exploratory
     coverage = section(md, "coverage")
-    assert "| 2 | `grab_rag` | **ABSENT** |" in coverage
+    assert "| 2 | `sec_financials` | **ABSENT** |" in coverage
     # stats_helpers puts every record in one condition, so 14 layer-1 conditions are reported missing
     assert "`absent/null_control`" in coverage
 

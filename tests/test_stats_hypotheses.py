@@ -100,8 +100,13 @@ def test_validity_guard_boundary_and_not_evaluable_cases():
     assert "validity guard" in over["H1"].non_confirmatory_reasons[0]
     assert at_limit["H3"].status == hyp.NOT_EVALUABLE and not at_limit["H3"].confirmatory  # no faithfulness arm
     assert at_limit["H4"].status == hyp.NOT_EVALUABLE  # layer 1 data
-    layer2 = evaluate_model_hypotheses(est=_estimates(F(0)), **{**common, "layer": 2})
-    assert {r.status for r in layer2.values()} == {hyp.NOT_EVALUABLE}
+    layer2 = evaluate_model_hypotheses(est=_estimates(F(5, 100)), **{**common, "layer": 2})
+    # PR 17: layer 2 (SEC financial filings) decides H1 and H2 with the layer-1 thresholds; H3 and H4 are elsewhere
+    assert layer2["H1"].status == hyp.SUPPORTED and layer2["H2"].status == hyp.SUPPORTED
+    assert layer2["H3"].status == hyp.NOT_EVALUABLE and "layer 1" in str(layer2["H3"].to_dict())
+    assert layer2["H4"].status == hyp.NOT_EVALUABLE and "layer 3" in str(layer2["H4"].to_dict())
+    layer3 = evaluate_model_hypotheses(est=_estimates(F(0)), **{**common, "layer": 3})
+    assert "layers 1 and 2" in str(layer3["H1"].to_dict())
     blocked = evaluate_model_hypotheses(est=_estimates(F(0)), **{**common, "base_reasons": ["split is 'dev'"]})
     assert blocked["H1"].status == hyp.SUPPORTED and not blocked["H1"].confirmatory
 

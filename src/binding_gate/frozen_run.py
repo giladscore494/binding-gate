@@ -24,8 +24,8 @@
    manifest.
 5. **The analysis** (``binding_gate.stats.layers``), with the pre-registered
    rule of the run's layer: layer 1 ``provenance`` (H1-H3); layer 2
-   ``grab_rag_answer`` (metrics reported, no decision: section 11 gives layer 2
-   no threshold); layer 3 ``sealqa_answer`` (H4 from M3, M4 reported).
+   ``sec_answer`` (H1 and H2 per model, PR 17); layer 3 ``sealqa_answer``
+   (H4 from M3, M4 reported).
    ``analysis.json``, ``report.md`` and figures under
    ``<runs_dir>/<run_id>/analysis/``, plus ``<runs_dir>/<run_id>/frozen_run.jsonl``
    tying the run to the tag, the commit, the layer, the rule and the
@@ -36,7 +36,7 @@ so one frozen run is one layer; the analysis refuses run directories of
 another layer. The unit of test-split access is the invocation: every call of
 this function that reaches the lock is one logged entry, granted or refused.
 Section 12 plans one frozen run per layer (layer 1: the confirmatory run and the
-mid-tier subsample run; layer 2: ``configs/test_grab_rag_supportive.toml``;
+mid-tier subsample run; layer 2: ``configs/test_sec.toml`` (PR 17);
 layer 3: ``configs/test_live.toml``), plus one further access for each resume
 (layer 3 when the monthly search quota stops it). The lock itself is unchanged:
 only ``testlock.check_unlock`` and ``testlock.load_test_split`` are used.

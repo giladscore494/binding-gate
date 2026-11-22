@@ -2,6 +2,8 @@ name: tests
 
 on:
   push:
+    branches-ignore:
+      - results-log   # PR 17: machine-written reports only (no code); see binding_gate.results_log
   pull_request:
 
 permissions:

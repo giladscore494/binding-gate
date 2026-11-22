@@ -22,8 +22,8 @@ Commands
     trace files only; writes ``analysis.json``, ``report.md`` and figures.
     Each layer, recognised from the run manifests, is analysed with its own
     pre-registered rule (PR 16, ``binding_gate.stats.layers``): layer 1 from
-    the ``provenance`` score (H1-H3); layer 2 (GRAB-RAG) from the
-    ``grab_rag_answer`` score, reporting only, no decision; layer 3 (SealQA)
+    the ``provenance`` score (H1-H3); layer 2 (SEC financial filings, PR 17)
+    from the ``sec_answer`` score (H1-H2 per model); layer 3 (SealQA)
     from the ``sealqa_answer`` score (H4; the same analysis as ``python -m
     binding_gate.scorers.sealqa_answer analyze``). Run directories of
     different layers in one call are refused.
@@ -42,7 +42,9 @@ Commands
     version; no ``method`` line means git).
 ``dataset-prepare --config C``
     Download and convert a dataset whose ``method`` is ``prepare`` (SealQA)
-    into its ``root`` under ``data/raw/``, checking every pinned hash.
+    into its ``root`` under ``data/raw/``, checking every pinned hash; for
+    ``sec_financials`` (PR 17) generate the layer-2 dataset from SEC EDGAR
+    (free; needs the secret ``SEC_CONTACT_EMAIL``) and print its content hash.
 ``requirements --config C``
     What the workflow needs for a config, one ``key=value`` per line:
     ``extras`` (optional dependency groups to install), ``secrets`` (API keys
@@ -225,7 +227,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
     # PR 16: one analysis per layer, each with its own pre-registered rule (binding_gate.stats.layers):
-    # layer 1 provenance, layer 2 grab_rag_answer (reporting only), layer 3 sealqa_answer (H4).
+    # layer 1 provenance, layer 2 sec_answer (H1-H2, PR 17), layer 3 sealqa_answer (H4).
     from binding_gate.stats.analysis import write_outputs
     from binding_gate.stats.layers import analyse_layer
 

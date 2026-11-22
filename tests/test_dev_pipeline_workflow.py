@@ -115,7 +115,7 @@ def config_of(name: str, job: dict) -> str:
 
 
 def test_every_config_runs_through_baseline_with_a_predictable_prefix_and_the_user_confirmation():
-    stage_of = {c: s for s in ("smoke", "dev-baseline", "dev-rest", "layer3-dev") for c in pipeline.STAGES[s]}
+    stage_of = {c: s for s in ("smoke", "dev-baseline", "dev-rest", "layer2-dev", "layer3-dev") for c in pipeline.STAGES[s]}
     seen = []
     for name, job in calls().items():
         w = job["with"]
@@ -125,7 +125,12 @@ def test_every_config_runs_through_baseline_with_a_predictable_prefix_and_the_us
         assert w["dry_run"] is False and w["confirm_spend"] == "${{ inputs.confirm_spend }}" and w["model"] == "all"
         assert job["secrets"] == "inherit"
         seeds = runner.run_requirements(load_config(REPO_ROOT / config))["seed_runs"]
-        if seeds:
+        if seeds and config in pipeline.STAGES["layer2-dev"]:
+            # PR 17: dev_sec_gated reuses the answers of dev_sec_baseline from THIS workflow run
+            assert w["seed_run_id"] == "${{ github.run_id }}", name
+            assert w["seed_pattern"] == pipeline.LAYER2_SEED_PATTERN
+            assert "layer2-baseline" in job["needs"] and "needs.layer2-baseline.result == 'success'" in job["if"]
+        elif seeds:
             assert w["seed_run_id"] == "${{ needs.dev-rest-gate.outputs.seed_run_id }}", name
             assert w["seed_pattern"] == "dev-baseline--dev_baseline--runs-*"
         else:
@@ -173,14 +178,58 @@ def test_stage_conditions_and_the_all_dev_chain():
             assert needs, name  # every job hangs below the plan job (directly or through the chain)
 
 
+FREE = " && ".join(f"inputs.stage != '{s}'" for s in pipeline.FREE_STAGES)
+
+
 def test_paid_stages_need_confirmation_and_check_secrets_spends_nothing():
     plan = {s.get("name"): s for s in steps(JOBS["plan"])}
     refuse = plan["Refuse a paid stage that was not confirmed"]
-    assert refuse["if"] == "${{ inputs.stage != 'check-secrets' && !inputs.confirm_spend }}" and "exit 1" in refuse["run"]
+    assert refuse["if"] == f"${{{{ {FREE} && !inputs.confirm_spend }}}}" and "exit 1" in refuse["run"]
     text = yaml.safe_dump(JOBS["check-secrets"])
     assert "--confirm-spend" not in text and "binding_gate.pipeline check-secrets" in text
     assert "mode: report" in text.replace("'", "")
     assert "secrets." not in yaml.safe_dump(JOBS["plan"])
+    # PR 17: the SEC dataset preparation is free (no model key reaches it) and only its own stage starts it
+    prepare = JOBS["sec-dataset-prepare"]
+    assert prepare["if"] == "${{ inputs.stage == 'sec-dataset-prepare' }}" and prepare["needs"] == "plan"
+    text = yaml.safe_dump(prepare)
+    assert set(re.findall(r"secrets\.([A-Z_]+)", text)) == {"SEC_CONTACT_EMAIL"} and "--confirm-spend" not in text
+    assert "SEC_CONTACT_EMAIL" in str(JOBS["check-secrets"]["steps"])  # reported as set or not
+
+
+def test_the_sec_dataset_is_prepared_with_a_cache_and_reports_the_hash_to_pin():
+    named = {s.get("name"): s for s in steps(JOBS["sec-dataset-prepare"])}
+    (cache,) = [s for s in steps(JOBS["sec-dataset-prepare"]) if s.get("uses") == "actions/cache@v4"]
+    assert cache["with"]["path"] == "data/raw/sec-financials/cache"
+    assert cache["with"]["key"] == ("sec-edgar-v1-${{ hashFiles('configs/datasets/sec_financials_v1.toml',"
+                                    "'configs/datasets/sec_financials_selection_v1.json') }}")
+    generate = named["Generate the SEC dataset (no model call; the contact e-mail is never written anywhere)"]
+    assert generate["env"] == {"SEC_CONTACT_EMAIL": "${{ secrets.SEC_CONTACT_EMAIL }}"}
+    assert "python -m binding_gate.cli dataset-prepare --config configs/dev_sec_baseline.toml" in generate["run"]
+    names = list(named)
+    assert names.index("Install package") < names.index(cache["name"]) < names.index(generate["name"])
+    report = named["The content hash to pin (content_sha256=... in this log and on the results-log branch)"]
+    assert "binding_gate.pipeline sec-prepare-report" in report["run"]
+    upload = [s for s in steps(JOBS["sec-dataset-prepare"]) if "upload-artifact" in str(s.get("uses"))]
+    assert [u["with"]["path"] for u in upload] == ["sec-dataset/"]
+    # no SEC run is started by this stage, and no SEC run starts it: every SEC run refuses while UNPINNED
+    for name, job in calls().items():
+        assert "sec-dataset-prepare" not in str(job.get("needs", "")), name
+
+
+def test_layer2_dev_is_wired_smoke_check_baseline_gated_analysis():
+    assert [JOBS[n]["with"]["config"] for n in ("layer2-smoke", "layer2-baseline", "layer2-gated")] == list(pipeline.STAGES["layer2-dev"])
+    smoke_if = JOBS["layer2-smoke"]["if"]
+    assert "inputs.stage == 'layer2-dev'" in smoke_if and "inputs.stage == 'all-dev' && needs.dev-rest-gate.result == 'success'" in smoke_if
+    assert "dev-analysis" in JOBS["layer2-smoke"]["needs"]  # all-dev: layer 2 after dev-rest
+    assert "needs.layer2-smoke-check.result == 'success'" in JOBS["layer2-baseline"]["if"]
+    (pattern,) = [s["with"]["pattern"] for s in steps(JOBS["layer2-smoke-check"]) if "download-artifact" in str(s.get("uses"))]
+    assert pattern == "layer2-dev--dev_sec_smoke--runs-*"
+    patterns = [s["with"]["pattern"] for s in steps(JOBS["layer2-analysis"]) if "download-artifact" in str(s.get("uses"))]
+    assert patterns == ["layer2-dev--dev_sec_baseline--runs-*", "layer2-dev--dev_sec_gated--runs-*"]
+    # layer 3 waits for layer 2 in all-dev but does not depend on its success (e.g. while the SEC pin is UNPINNED)
+    assert "layer2-analysis" in JOBS["layer3-smoke"]["needs"] and "layer2" not in JOBS["layer3-smoke"]["if"]
+    assert "dev-grab-rag" not in JOBS
 
 
 def test_the_gate_and_the_decision_are_wired_to_the_right_commands_and_artifacts():
@@ -208,7 +257,7 @@ def ledger_steps(job: dict) -> list[dict]:
 def test_the_ledger_guards_the_stage_and_every_paid_step():
     (plan,) = ledger_steps(JOBS["plan"])
     assert plan["with"]["mode"] == "check" and plan["with"]["stage"] == "${{ env.STAGE }}"
-    assert plan["if"] == "${{ inputs.stage != 'check-secrets' }}"
+    assert plan["if"] == f"${{{{ {FREE} }}}}"
     for name, paid in (("decomposer-eval", "Paid measurement"), ("rescore", "Judge dry run, paid re-scoring, agreement")):
         names = [s.get("name") for s in steps(JOBS[name])]
         (check,) = ledger_steps(JOBS[name])
@@ -229,6 +278,7 @@ def test_the_ledger_guards_the_stage_and_every_paid_step():
 def test_the_ledger_action_fetches_computes_checks_reports_uploads_then_refuses():
     names = [s["name"] for s in LEDGER_ACTION["runs"]["steps"]]
     assert names == [
+        "Read the ledger snapshots kept on the results-log branch (spend beyond the artifact retention)",  # PR 17
         "Download the artifacts of every earlier hand-started run (GitHub REST API)",
         "Compute the actual spend so far",
         "Check the spend so far plus the cap against the hard limit",
@@ -238,6 +288,8 @@ def test_the_ledger_action_fetches_computes_checks_reports_uploads_then_refuses(
     ]
     text = (ACTIONS / "ledger-check" / "action.yml").read_text(encoding="utf-8")
     assert "binding_gate.ledger fetch" in text and "binding_gate.ledger compute" in text and "binding_gate.ledger check" in text
+    assert "binding_gate.results_log export-ledgers --ref refs/remotes/origin/results-log --out ledger-results-log" in text
+    assert "--extra-ledgers ledger-results-log" in text and "compute ledger-results-log --inputs ledger-inputs" in text
     assert "GITHUB_TOKEN: ${{ inputs.github-token }}" in text
     last = LEDGER_ACTION["runs"]["steps"][-1]
     assert last["if"] == "${{ inputs.mode == 'check' && steps.check.outputs.code != '0' }}" and "exit 1" in last["run"]
@@ -254,6 +306,7 @@ SAMPLES = {
     "${{ matrix.model }}": "openai-low",
     "${{ inputs.stage }}": "all-dev",
     "${{ inputs.artifact-name }}": "x--ledger",
+    "${{ inputs.layer }}": "layer2_sec",  # PR 17: frozen_test.yml
 }
 
 

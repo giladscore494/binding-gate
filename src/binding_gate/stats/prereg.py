@@ -63,11 +63,16 @@ GATED_ARM = "gated"
 FAITHFULNESS_ARM = "faithfulness_checker"
 RESEARCH_ARM = "gated_research"
 
-LAYER_BY_DATASET = {"deceptive_grounding": 1, "grab_rag": 2, "sealqa": 3}
+LAYER_BY_DATASET = {"deceptive_grounding": 1, "sec_financials": 2, "sealqa": 3}
 """Layer of each dataset (PREREGISTRATION.md section 3). H1-H3 are evaluated on
-layer 1, H4 on layer 3; layer 2 has no threshold."""
+layer 1, H1 and H2 also on layer 2 (SEC financial filings, PR 17; the same
+thresholds, per model), H4 on layer 3. GRAB-RAG (layer 2 until PR 17) is in the
+extended design only (``EXTENDED_DATASETS``) and belongs to no layer."""
 
-HYPOTHESES_BY_LAYER = {1: ("H1", "H2", "H3"), 2: (), 3: ("H4",)}
+HYPOTHESES_BY_LAYER = {1: ("H1", "H2", "H3"), 2: ("H1", "H2"), 3: ("H4",)}
+
+EXTENDED_DATASETS = ("grab_rag",)
+"""Datasets kept in the extended design (configs/extended/), not part of any layer since PR 17."""
 
 CORRECT_OUTCOMES_DEFAULT = ("target_grounded",)
 """Outcome categories that count as a correct final answer. For layers 1 and 2

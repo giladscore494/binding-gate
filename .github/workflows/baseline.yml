@@ -1,4 +1,7 @@
 name: baseline
+# PR 17: the results-log workflow names its folder runs/<run id>-baseline-<config>-<model>-<mode> from this title
+# (a call from dev_pipeline.yml keeps the caller's title).
+run-name: "baseline: ${{ inputs.config }} (${{ inputs.model }}, ${{ inputs.dry_run && 'dry run' || 'paid' }})"
 
 # Manually started PR 2 runs: dry run (free), smoke run (a few dollars at most) and the full dev
 # baseline. Everything that defines a run is in the config file chosen below;
@@ -45,6 +48,14 @@ name: baseline
 # - a live-web run gets, before its run directory is encrypted, an UNENCRYPTED summary artifact
 #   layer3-summary-<...> (python -m binding_gate.layer3_summary: costs, metrics, per-question
 #   outcomes, URLs and hashes; never page text or quotes), from which the ledger reads its spend.
+#
+# PR 17 additions:
+# - the SEC dataset (layer 2, pin method "prepare") is generated from EDGAR inside the dataset step, with
+#   the secret SEC_CONTACT_EMAIL (the User-Agent contact SEC requires; never written anywhere) and the
+#   EDGAR responses cached between runs (.github/actions/get-dataset). It refuses while UNPINNED.
+# - when a run started by hand has finished (dry or paid, success or failure), the workflow
+#   .github/workflows/results_log.yml commits its non-sensitive reports to the branch results-log
+#   (runs/<workflow run id>-<stage>/), where the orchestrator reads them without downloading artifacts.
 
 on:
   workflow_dispatch:
@@ -234,6 +245,8 @@ jobs:
 
       - name: Get the dataset at its pinned version (into data/raw/, git-ignored)
         uses: ./.github/actions/get-dataset   # PR 15: shared with dev_pipeline.yml
+        env:
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}   # PR 17: only the SEC dataset reads it (EDGAR User-Agent)
         with:
           config: ${{ env.CONFIG }}
 
