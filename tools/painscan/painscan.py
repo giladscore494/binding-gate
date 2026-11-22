@@ -342,6 +342,117 @@ def read_rows(path: Path) -> list[dict]:
 
 
 # ----------------------------------------------------------------------------------------------
+# Stage 2: the question engine (PREREGISTRATION.md section 7)
+#
+# THE QUESTION, asked of every shortlisted problem:
+#   "Which problem costs a specific group of people enough money that they would pay a solo
+#    developer for a simple fix, and why do the existing solutions not satisfy them?"
+# It is split into five sub-questions. Four are answered from search evidence by fixed rules;
+# "simple_fix" comes from the plan's feasibility attributes. A sub-question without enough
+# evidence is UNKNOWN, and every UNKNOWN becomes a question for a customer conversation.
+
+QUESTION = ("Which problem costs a specific group of people enough money that they would pay a solo developer "
+            "for a simple fix, and why do the existing solutions not satisfy them?")
+SEGMENTS = ["plumber", "electrician", "hvac", "contractor", "roofer", "landscap", "dentist", "dental", "clinic", "chiropract",
+            "med spa", "salon", "restaurant", "cafe", "bakery", "realtor", "real estate agent", "landlord", "property manager",
+            "law firm", "lawyer", "attorney", "accountant", "bookkeeper", "cpa", "agency", "freelancer", "consultant",
+            "shopify store", "ecommerce store", "amazon seller", "etsy seller", "dropship", "startup", "saas founder",
+            "dispatcher", "freight broker", "trucking", "carrier", "warehouse", "manufacturer", "distributor", "wholesaler",
+            "recruiter", "staffing", "insurance agent", "auto shop", "dealership", "gym", "school", "nonprofit", "developer"]
+AMOUNT_RE = re.compile(r"\$\s?\d[\d,]*(\.\d+)?\s?(k|m)?\b(\s?(/|per|a)\s?(mo|month|year|yr|hour|hr|week|day|call|seat|user))?", re.I)
+PRICE_RE = re.compile(r"\$\s?\d[\d,]*(\.\d+)?\s?(/|per|a)\s?(mo|month|year|yr|seat|user)\b|pricing|per month|/month|subscription", re.I)
+WILLING_RE = re.compile(r"(would (gladly |happily )?pay|worth (paying|it|the money)|happy to pay|shut up and take my money|paying for)", re.I)
+FAIL_RE = re.compile(r"(switched (from|to)|alternative to|alternatives|cancel+ed|not worth|doesn'?t (work|support|handle)|"
+                     r"still (have|had|need) to|manually|spreadsheet|went back to|gave up|too expensive|overpriced|clunky|limited)", re.I)
+WORKAROUND_RE = re.compile(r"(manually|spreadsheet|excel|double[- ]check|hire[ds]? (a|an)|virtual assistant|\bva\b|went back to|by hand|copy[- ]paste)", re.I)
+
+
+def build_dossier_queries(plan: dict, domain_ids: list[str]) -> list[Query]:
+    s = plan["serper"]
+    tbs = {"baseline": s["baseline_tbs"], "recent": s["recent_tbs"], "none": ""}
+    domains = {d["id"]: d for d in plan["domain"]}
+    out = []
+    for did in domain_ids:
+        d = domains[did]
+        for t in plan["dossier_template"]:
+            for text in t["texts"]:
+                filled = text.format(p=d["phrase"])
+                q = f"{filled} {_site_filter(t['source'], plan)}".strip()
+                qid = hashlib.sha1(f"dossier|{did}|{t['question']}|{filled}".encode()).hexdigest()[:12]
+                out.append(Query(qid, did, f"dossier:{t['question']}", t["source"], t["window"], filled, q, tbs[t["window"]]))
+    return out
+
+
+def dossier(rows: list[dict], plan: dict, domain_id: str, stage1_rows: list[dict] | None = None) -> dict:
+    """Evidence for the five sub-questions of one domain, with a fixed answer status each."""
+    d = next(x for x in plan["domain"] if x["id"] == domain_id)
+    mine = [r for r in rows if r["domain"] == domain_id and r["kind"].startswith("dossier:")]
+    pain_rows = [r for r in (stage1_rows or []) if r["domain"] == domain_id and r["kind"] == "pain"]
+    ev = {"who": {}, "money": [], "pay": [], "existing_fail": [], "workarounds": []}
+    seen = set()
+    for r in mine + pain_rows:
+        if r["link"] in seen:
+            continue
+        seen.add(r["link"])
+        text = f"{r['title']} {r['snippet']}"
+        low = text.lower()
+        for seg in SEGMENTS:
+            if seg in low:
+                ev["who"].setdefault(seg, []).append(r["link"])
+        item = {"title": r["title"][:140], "link": r["link"], "date": r.get("date", "")}
+        if AMOUNT_RE.search(text) and (classify(r)["relevant"] or r["kind"] == "dossier:money"):
+            ev["money"].append({**item, "amount": AMOUNT_RE.search(text).group(0)})
+        if PRICE_RE.search(text) or WILLING_RE.search(text):
+            ev["pay"].append(item)
+        if FAIL_RE.search(text) and r["kind"] in ("dossier:existing_fail", "dossier:pay", "dossier:who", "pain"):
+            ev["existing_fail"].append(item)
+        if WORKAROUND_RE.search(text):
+            ev["workarounds"].append(item)
+    who_sorted = sorted(ev["who"].items(), key=lambda kv: -len(kv[1]))
+    status = {
+        "who": "answered" if who_sorted and len(who_sorted[0][1]) >= 3 else ("partial" if who_sorted else "unknown"),
+        "money": "answered" if len(ev["money"]) >= 3 else ("partial" if ev["money"] else "unknown"),
+        "pay": "answered" if len(ev["pay"]) >= 3 else ("partial" if ev["pay"] else "unknown"),
+        "existing_fail": "answered" if len(ev["existing_fail"]) >= 3 else ("partial" if ev["existing_fail"] else "unknown"),
+        "simple_fix": "answered" if (d["source_of_truth"] and d["smb_reachable"] and not d["regulated"]) else "no",
+    }
+    verdict = "candidate" if all(v == "answered" for v in status.values()) else "not yet"
+    interview = []
+    if status["who"] != "answered":
+        interview.append("Who exactly hits this, and how often?")
+    if status["money"] != "answered":
+        interview.append("What did the last occurrence cost you (money, hours, a customer)?")
+    if status["pay"] != "answered":
+        interview.append("What do you pay today to prevent or fix it, and would you pay for a check that catches it?")
+    if status["existing_fail"] != "answered":
+        interview.append("What have you tried, and why didn't it solve it?")
+    return {"domain": domain_id, "phrase": d["phrase"], "question": QUESTION, "status": status, "verdict": verdict,
+            "who_top": [(k, len(v)) for k, v in who_sorted[:5]],
+            "evidence": {k: (v[:6] if isinstance(v, list) else None) for k, v in ev.items() if k != "who"},
+            "interview_questions": interview}
+
+
+def write_dossiers(dossiers: list[dict], out: Path) -> None:
+    (out / "dossiers.json").write_text(json.dumps(dossiers, indent=1, ensure_ascii=False))
+    L = ["# painscan dossiers", "", f"> {QUESTION}", ""]
+    for x in dossiers:
+        L += [f"## {x['domain']} ({x['phrase']}) — verdict: **{x['verdict']}**", "",
+              "| sub-question | status |", "|---|---|"] + [f"| {k} | {v} |" for k, v in x["status"].items()]
+        L += ["", "Top segments: " + (", ".join(f"{k} ({n})" for k, n in x["who_top"]) or "none"), ""]
+        for k in ("money", "pay", "existing_fail", "workarounds"):
+            items = x["evidence"].get(k) or []
+            if items:
+                L.append(f"**{k}**")
+                for e in items:
+                    extra = f" — {e['amount']}" if "amount" in e else ""
+                    L.append(f"- [{e['title'].replace('|', '/')}]({e['link']}){extra}")
+                L.append("")
+        if x["interview_questions"]:
+            L += ["Open questions for customer conversations:"] + [f"- {q}" for q in x["interview_questions"]] + [""]
+    (out / "dossiers.md").write_text("\n".join(L), encoding="utf-8")
+
+
+# ----------------------------------------------------------------------------------------------
 # CLI
 
 
@@ -350,7 +461,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("plan")
     r = sub.add_parser("run")
-    r.add_argument("--mode", choices=["smoke", "full"], required=True)
+    r.add_argument("--mode", choices=["smoke", "full", "dossier"], required=True)
+    r.add_argument("--domains", default="", help="dossier mode: comma-separated domain ids (shortlist)")
     r.add_argument("--max-queries", type=int, default=0)
     r.add_argument("--recent-tbs", default="", help="override the recent window (after the smoke check)")
     r.add_argument("--out", type=Path, required=True)
@@ -375,6 +487,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.mode == "smoke":
             queries, cap = smoke_queries(plan), 6
+        elif args.mode == "dossier":
+            ids = [x.strip() for x in args.domains.split(",") if x.strip()]
+            known = {d["id"] for d in plan["domain"]}
+            if not ids or any(i not in known for i in ids):
+                print(f"--domains must list known domain ids, got {ids}", file=sys.stderr)
+                return 2
+            queries = build_dossier_queries(plan, ids)
+            cap = args.max_queries if args.max_queries > 0 else len(queries)
         else:
             queries = build_queries(plan, args.recent_tbs or None)
             cap = args.max_queries if args.max_queries > 0 else len(queries)
@@ -392,9 +512,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "report":
         rows = read_rows(args.inp)
         done = sum(1 for f in args.inp.rglob("done.jsonl") for l in f.read_text().splitlines() if l.strip())
-        metrics = aggregate(rows, plan)
+        stage1 = [r for r in rows if not r["kind"].startswith("dossier:")]
+        metrics = aggregate(stage1, plan)
         args.out.mkdir(parents=True, exist_ok=True)
-        write_report(metrics, plan, args.out, {"plan_hash": plan_hash(), "rows": len(rows), "queries_done": done})
+        write_report(metrics, plan, args.out, {"plan_hash": plan_hash(), "rows": len(stage1), "queries_done": done})
+        dossier_domains = sorted({r["domain"] for r in rows if r["kind"].startswith("dossier:")})
+        if dossier_domains:
+            write_dossiers([dossier(rows, plan, d, stage1) for d in dossier_domains], args.out)
         print((args.out / "report.md").read_text()[:3000])
         return 0
     return 1

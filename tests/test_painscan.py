@@ -75,3 +75,27 @@ def test_quota_exhaustion_stops_the_run(tmp_path):
 
     stats = painscan.run(plan, qs, tmp_path, "k", 40, search=broke)
     assert stats["quota_exhausted"] and stats["ok"] == 0 and stats["attempted"] <= plan["serper"]["workers"] * 4
+
+
+def test_dossier_answers_the_question_or_lists_interview_questions(tmp_path):
+    plan = painscan.load_plan()
+    qs = painscan.build_dossier_queries(plan, ["voice_receptionist", "recruiting"])
+    assert len(qs) == 16 and all(q.kind.startswith("dossier:") for q in qs)
+
+    def fake(q, plan, key):
+        if q.domain == "recruiting":
+            return {"organic": []}
+        texts = {"dossier:who": "As a plumber my AI receptionist booked wrong slots",
+                 "dossier:money": "AI receptionist mistake lost customers, cost us $1,200",
+                 "dossier:pay": "AI receptionist pricing $199/month, worth paying for",
+                 "dossier:existing_fail": "Switched from Smith.ai, still have to manually check every booking"}
+        return {"organic": [{"title": texts[q.kind], "link": f"https://r.com/{q.qid}/{i}", "snippet": "plumber"} for i in range(3)]}
+
+    painscan.run(plan, qs, tmp_path, "k", 100, search=fake)
+    rows = painscan.read_rows(tmp_path)
+    good = painscan.dossier(rows, plan, "voice_receptionist")
+    assert good["verdict"] == "candidate" and good["who_top"][0][0] == "plumber" and not good["interview_questions"]
+    bad = painscan.dossier(rows, plan, "recruiting")
+    assert bad["verdict"] == "not yet" and bad["status"]["simple_fix"] == "no" and len(bad["interview_questions"]) == 4
+    painscan.write_dossiers([good, bad], tmp_path)
+    assert painscan.QUESTION in (tmp_path / "dossiers.md").read_text()

@@ -69,3 +69,38 @@ A domain needs **≥ 10 recent relevant results** to be ranked (evidence floor).
   the keyword flag on ≥ 50 sampled results is reported.
 * Developers write online far more than business users: business-agent pain is under-counted.
 * Feasibility attributes are the analyst's judgement, fixed in advance with reasons, not data.
+
+## 7. Stage 2 — the question engine (fixed before data)
+
+Every shortlisted problem must answer **one question**:
+
+> *Which problem costs a specific group of people enough money that they would pay a solo developer
+> for a simple fix, and why do the existing solutions not satisfy them?*
+
+It is split into five sub-questions. For each top domain, 8 extra queries (plan.toml
+`dossier_template`, 12-month window except pricing) collect evidence; fixed rules give each
+sub-question a status:
+
+| sub-question | evidence rule | answered when |
+|---|---|---|
+| who (a specific group) | named segment (plumber, dentist, freight broker, Shopify store, …) in results | one segment in ≥ 3 distinct results |
+| money (what it costs them) | a $ amount in a relevant or money-query result | ≥ 3 results |
+| pay (willingness / current spend) | price per month, "worth paying", "would pay" | ≥ 3 results |
+| existing_fail (why current tools fall short) | switched / alternative / still manual / doesn't support / too expensive | ≥ 3 results |
+| simple_fix (solo-buildable) | plan attributes: source_of_truth and smb_reachable and not regulated | all three true |
+
+**Verdict:** a problem is a *candidate* only when all five are *answered*; otherwise it is *not yet*,
+and each unanswered sub-question is turned into a fixed question for a customer conversation.
+Search evidence can make a problem a candidate for conversations; only conversations and a paid
+pilot can show willingness to pay (stage 5 of the funnel). The analyst then writes the answer to
+the question in one paragraph per candidate, citing the evidence links, and marks what is verified.
+
+## 8. Funnel (adopted 2026-11-23)
+
+1. Find pain (Serper, papers, GitHub issues, forums) → 2. verify the failure (current models,
+baseline ≤ USD 5) → 3. commercial viability (defined customer, money lost, competitors,
+substitutes, willingness to pay) → 4. solo feasibility (a reliable minimal version without a team,
+costly infrastructure or unusual legal liability) → 5. demand test (conversations, small demo,
+attempt at a paid pilot) **before** full development. A frequent failure alone (≥ 10%) does not
+send an idea to product development; a reachable customer group that already tries to solve the
+problem and first proof of willingness to pay are also required.

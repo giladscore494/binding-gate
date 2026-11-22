@@ -8,17 +8,21 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "smoke (6 queries, checks the date filter) or full"
+        description: "smoke (6 queries, checks the date filter), full (stage 1) or dossier (stage 2, shortlist)"
         required: true
         default: smoke
         type: choice
-        options: [smoke, full]
+        options: [smoke, full, dossier]
       max_queries:
         description: "full mode: most queries to send in this run (hard cap 1300 in plan.toml)"
         required: true
         default: "810"
       recent_tbs:
         description: "full mode: recent-window filter override (empty = plan default qdr:m3)"
+        required: false
+        default: ""
+      domains:
+        description: "dossier mode: comma-separated domain ids from plan.toml (shortlist)"
         required: false
         default: ""
       confirm_quota:
@@ -62,10 +66,13 @@ jobs:
           MODE: ${{ inputs.mode }}
           MAX_QUERIES: ${{ inputs.max_queries }}
           RECENT_TBS: ${{ inputs.recent_tbs }}
+          DOMAINS: ${{ inputs.domains }}
         run: |
           set -o pipefail
           if [ "$MODE" = "smoke" ]; then
             python tools/painscan/painscan.py run --mode smoke --out out | tee out_run.log
+          elif [ "$MODE" = "dossier" ]; then
+            python tools/painscan/painscan.py run --mode dossier --domains "$DOMAINS" --max-queries "$MAX_QUERIES" --out out | tee out_run.log
           else
             python tools/painscan/painscan.py run --mode full --max-queries "$MAX_QUERIES" --recent-tbs "$RECENT_TBS" --out out | tee out_run.log
           fi
@@ -75,7 +82,7 @@ jobs:
         run: |
           if [ -d out ]; then
             python tools/painscan/painscan.py report --in out --out out
-            { echo "## painscan"; echo; cat out/report.md | head -80; } >> "$GITHUB_STEP_SUMMARY"
+            { echo "## painscan"; echo; head -80 out/report.md; if [ -f out/dossiers.md ]; then echo; head -120 out/dossiers.md; fi; } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload results
         if: always()

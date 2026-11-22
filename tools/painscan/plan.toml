@@ -364,3 +364,37 @@ source_of_truth = false
 bigtech_building = true
 israel_edge = false
 reason = "Google/Meta ship it; no deterministic reference"
+
+# ----------------------------------------------------------------------------------------------
+# Stage 2: the question engine (PREREGISTRATION.md section 7). For each shortlisted domain it tries
+# to answer ONE question: "Which problem costs a specific group of people enough money that they
+# would pay a solo developer for a simple fix, and why do the existing solutions not satisfy them?"
+[[dossier_template]]
+question = "who"            # which specific group suffers
+source = "reddit"
+window = "baseline"
+texts = ["{p} small business", "{p} for my business"]
+
+[[dossier_template]]
+question = "money"          # how much it costs them
+source = "reddit"
+window = "baseline"
+texts = ["{p} cost us money", "{p} lost customers"]
+
+[[dossier_template]]
+question = "pay"            # would they pay; what do they pay today
+source = "web"
+window = "none"
+texts = ["{p} pricing per month"]
+
+[[dossier_template]]
+question = "pay"
+source = "reddit"
+window = "baseline"
+texts = ["{p} worth paying for"]
+
+[[dossier_template]]
+question = "existing_fail"  # why current tools do not satisfy
+source = "reddit"
+window = "baseline"
+texts = ["{p} alternative", "{p} still have to manually"]
