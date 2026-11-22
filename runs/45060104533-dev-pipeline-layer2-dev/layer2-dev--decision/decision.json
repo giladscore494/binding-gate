@@ -1,0 +1,220 @@
+{
+  "decision": "STOP",
+  "decision_version": 1,
+  "layer": 2,
+  "models": {
+    "google-low": {
+      "R2E": 0.0,
+      "R2P": 0.0,
+      "at_least_carry": false,
+      "at_least_continue": false,
+      "by_stratum": {
+        "absent/peer": {
+          "abstained": 126,
+          "correct": 0,
+          "error": 0,
+          "other_wrong": 0,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/none": {
+          "abstained": 0,
+          "correct": 118,
+          "error": 0,
+          "other_wrong": 2,
+          "unparseable": 0,
+          "value_unsupported": 6,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/peer": {
+          "abstained": 1,
+          "correct": 116,
+          "error": 0,
+          "other_wrong": 1,
+          "unparseable": 0,
+          "value_unsupported": 8,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      },
+      "complete": true,
+      "decision": "STOP",
+      "labels_all": {
+        "abstained": 127,
+        "correct": 234,
+        "error": 0,
+        "other_wrong": 3,
+        "unparseable": 0,
+        "value_unsupported": 14,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "labels_peer_shown": {
+        "abstained": 127,
+        "correct": 116,
+        "error": 0,
+        "other_wrong": 1,
+        "unparseable": 0,
+        "value_unsupported": 8,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "measurement_check": false,
+      "model": "google-low",
+      "n_peer_shown": 252,
+      "n_records": 378,
+      "unmeasured": 3,
+      "unmeasured_share": 0.007936507936507936,
+      "wrong_entity_peer_shown": 0,
+      "wrong_period_or_scale_all": 0
+    },
+    "openai-low": {
+      "R2E": 0.0,
+      "R2P": 0.0,
+      "at_least_carry": false,
+      "at_least_continue": false,
+      "by_stratum": {
+        "absent/peer": {
+          "abstained": 126,
+          "correct": 0,
+          "error": 0,
+          "other_wrong": 0,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/none": {
+          "abstained": 1,
+          "correct": 124,
+          "error": 0,
+          "other_wrong": 1,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/peer": {
+          "abstained": 1,
+          "correct": 124,
+          "error": 0,
+          "other_wrong": 1,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      },
+      "complete": true,
+      "decision": "STOP",
+      "labels_all": {
+        "abstained": 128,
+        "correct": 248,
+        "error": 0,
+        "other_wrong": 2,
+        "unparseable": 0,
+        "value_unsupported": 0,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "labels_peer_shown": {
+        "abstained": 127,
+        "correct": 124,
+        "error": 0,
+        "other_wrong": 1,
+        "unparseable": 0,
+        "value_unsupported": 0,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "measurement_check": false,
+      "model": "openai-low",
+      "n_peer_shown": 252,
+      "n_records": 378,
+      "unmeasured": 2,
+      "unmeasured_share": 0.005291005291005291,
+      "wrong_entity_peer_shown": 0,
+      "wrong_period_or_scale_all": 0
+    },
+    "zai-low": {
+      "R2E": 0.0,
+      "R2P": 0.0,
+      "at_least_carry": false,
+      "at_least_continue": false,
+      "by_stratum": {
+        "absent/peer": {
+          "abstained": 126,
+          "correct": 0,
+          "error": 0,
+          "other_wrong": 0,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/none": {
+          "abstained": 0,
+          "correct": 123,
+          "error": 0,
+          "other_wrong": 2,
+          "unparseable": 0,
+          "value_unsupported": 1,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        },
+        "present/peer": {
+          "abstained": 1,
+          "correct": 124,
+          "error": 0,
+          "other_wrong": 1,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      },
+      "complete": true,
+      "decision": "STOP",
+      "labels_all": {
+        "abstained": 127,
+        "correct": 247,
+        "error": 0,
+        "other_wrong": 3,
+        "unparseable": 0,
+        "value_unsupported": 1,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "labels_peer_shown": {
+        "abstained": 127,
+        "correct": 124,
+        "error": 0,
+        "other_wrong": 1,
+        "unparseable": 0,
+        "value_unsupported": 0,
+        "wrong_entity": 0,
+        "wrong_period_or_scale": 0
+      },
+      "measurement_check": false,
+      "model": "zai-low",
+      "n_peer_shown": 252,
+      "n_records": 378,
+      "unmeasured": 3,
+      "unmeasured_share": 0.007936507936507936,
+      "wrong_entity_peer_shown": 0,
+      "wrong_period_or_scale_all": 0
+    }
+  },
+  "provisional": false,
+  "rule": "PREREGISTRATION.md section 10, layer 2 (binding_gate.layer2_stop); added by amendment 1 before the layer-2 baseline",
+  "thresholds_percent": {
+    "carry": 5,
+    "continue": 10,
+    "measurement_check": 20
+  },
+  "unfinished_runs": [],
+  "workflow_run_id": 45060104533
+}

@@ -1,0 +1,35 @@
+{
+  "outcome_rule": "sec_answer (layer 2)",
+  "summary": {
+    "H1": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H2": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H3": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H4": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    }
+  },
+  "written": {
+    "analysis": "analysis/dev-sec-baseline/analysis.json",
+    "figure_note": "figures not requested",
+    "figures": [],
+    "report": "analysis/dev-sec-baseline/report.md"
+  }
+}

@@ -1,0 +1,1086 @@
+{
+  "analysis_version": 1,
+  "confirmatory_blockers": [
+    "split is 'dev', not 'test' (exploratory only)"
+  ],
+  "dataset": "sec_financials",
+  "inputs": {
+    "n_records": 1134,
+    "run_dirs": [
+      "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-google-low/20261122T193357Z-c99b9b68-705a",
+      "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-openai-low/20261122T193408Z-c99b9b68-f658",
+      "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-zai-low/20261122T193405Z-c99b9b68-c0d1"
+    ],
+    "runs": [
+      {
+        "config_hash": "c99b9b68135d35a550e31dec4885b48680fa43750bf31cc2fe6c40dd18254e88",
+        "finished": true,
+        "git_commit": "435da6a4381e0050f6629e3d9c8ab464a1a7a0ff",
+        "git_dirty": false,
+        "run_id": "20261122T193357Z-c99b9b68-705a",
+        "test_unlock_tag": null,
+        "trace_count": 378,
+        "traces_sha256": "96f57035706758224a34f3a8851a8e9650b84ad8d5422c33d7a0d3ff86bced33"
+      },
+      {
+        "config_hash": "c99b9b68135d35a550e31dec4885b48680fa43750bf31cc2fe6c40dd18254e88",
+        "finished": true,
+        "git_commit": "435da6a4381e0050f6629e3d9c8ab464a1a7a0ff",
+        "git_dirty": false,
+        "run_id": "20261122T193408Z-c99b9b68-f658",
+        "test_unlock_tag": null,
+        "trace_count": 378,
+        "traces_sha256": "44bbba61fbc4776ccf84ba1b9e71b29ad9b420cc2635de927cc18d96730456c1"
+      },
+      {
+        "config_hash": "c99b9b68135d35a550e31dec4885b48680fa43750bf31cc2fe6c40dd18254e88",
+        "finished": true,
+        "git_commit": "435da6a4381e0050f6629e3d9c8ab464a1a7a0ff",
+        "git_dirty": false,
+        "run_id": "20261122T193405Z-c99b9b68-c0d1",
+        "test_unlock_tag": null,
+        "trace_count": 378,
+        "traces_sha256": "b33f57a94c785f50d3efc968dd34c7f48d91932cd7006bff953782eaff529e8c"
+      }
+    ],
+    "unfinished_runs": []
+  },
+  "layer": 2,
+  "layer2": {
+    "label_counts": {
+      "google-low": {
+        "no_gate": {
+          "abstained": 127,
+          "binding_errors": 0,
+          "correct": 234,
+          "error": 0,
+          "other_wrong": 3,
+          "scale_errors": 0,
+          "strict_wrong_entity": 0,
+          "unparseable": 0,
+          "value_unsupported": 14,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      },
+      "openai-low": {
+        "no_gate": {
+          "abstained": 128,
+          "binding_errors": 0,
+          "correct": 248,
+          "error": 0,
+          "other_wrong": 2,
+          "scale_errors": 0,
+          "strict_wrong_entity": 0,
+          "unparseable": 0,
+          "value_unsupported": 0,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      },
+      "zai-low": {
+        "no_gate": {
+          "abstained": 127,
+          "binding_errors": 0,
+          "correct": 247,
+          "error": 0,
+          "other_wrong": 3,
+          "scale_errors": 0,
+          "strict_wrong_entity": 0,
+          "unparseable": 0,
+          "value_unsupported": 1,
+          "wrong_entity": 0,
+          "wrong_period_or_scale": 0
+        }
+      }
+    },
+    "note": "exploratory: strict wrong entity = wrong_entity with the quote only in the competitor document; binding errors = wrong_entity + wrong_period_or_scale"
+  },
+  "models": {
+    "google-low": {
+      "arms": [
+        "no_gate"
+      ],
+      "complete": true,
+      "conditions": {
+        "absent/peer": {
+          "no_gate": {
+            "correct_all": 0.0,
+            "failed_all": 0.0,
+            "m1": null,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/none": {
+          "no_gate": {
+            "correct_all": 0.9365079365079365,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/peer": {
+          "no_gate": {
+            "correct_all": 0.9206349206349206,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        }
+      },
+      "controlled_layer_claim": "not evaluable",
+      "cost": {
+        "no_gate": {
+          "input_tokens": 1866326,
+          "output_tokens": 28514,
+          "paid_calls": 378
+        }
+      },
+      "dataset": "sec_financials",
+      "estimates": {
+        "arm/no_gate/abstained_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.3412698412698413,
+            "low": 0.3333333333333333,
+            "undefined": 0
+          },
+          "exact": "127/378",
+          "value": 0.335978835978836
+        },
+        "arm/no_gate/answered_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6666666666666666,
+            "low": 0.6587301587301587,
+            "undefined": 0
+          },
+          "exact": "251/378",
+          "value": 0.6640211640211641
+        },
+        "arm/no_gate/correct_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6428571428571429,
+            "low": 0.58994708994709,
+            "undefined": 0
+          },
+          "exact": "13/21",
+          "value": 0.6190476190476191
+        },
+        "arm/no_gate/failed_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m1": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m4": {
+          "ci": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "exact": null,
+          "value": null
+        },
+        "arm/no_gate/wrong_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        }
+      },
+      "factors": {
+        "competing_document": {
+          "none": {
+            "no_gate": {
+              "correct_all": 0.9365079365079365,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "peer": {
+            "no_gate": {
+              "correct_all": 0.4603174603174603,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        },
+        "x_document": {
+          "absent": {
+            "no_gate": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "present": {
+            "no_gate": {
+              "correct_all": 0.9285714285714286,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        }
+      },
+      "hypotheses": {
+        "H1": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H1",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H2": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H2",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H3": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H3",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H3 is evaluated on layer 1; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H4": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H4",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H4 is evaluated on layer 3; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        }
+      },
+      "n_groups": 126,
+      "n_items": 378,
+      "n_records": 378,
+      "outcome_counts": {
+        "no_gate": {
+          "abstention": 127,
+          "ambiguous": 0,
+          "error": 0,
+          "target_grounded": 234,
+          "ungrounded": 17,
+          "unparseable": 0,
+          "wrong_entity": 0
+        }
+      },
+      "outcome_counts_by_condition": {
+        "no_gate": {
+          "absent/peer": {
+            "abstention": 126,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 0,
+            "ungrounded": 0,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/none": {
+            "abstention": 0,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 118,
+            "ungrounded": 8,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/peer": {
+            "abstention": 1,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 116,
+            "ungrounded": 9,
+            "unparseable": 0,
+            "wrong_entity": 0
+          }
+        }
+      },
+      "reference": "no_gate",
+      "repeat_spread": {
+        "no_gate": {
+          "correct_all": {
+            "max": 0.6190476190476191,
+            "min": 0.6190476190476191,
+            "per_repeat": {
+              "0": 0.6190476190476191
+            }
+          },
+          "m1": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          },
+          "wrong_all": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          }
+        }
+      },
+      "repeats": [
+        0
+      ],
+      "scale": 1,
+      "unpaired_records": 0,
+      "validity_guard": {
+        "no_gate": {
+          "exceeded": false,
+          "failed_rate": 0.0,
+          "limit": 0.05
+        }
+      }
+    },
+    "openai-low": {
+      "arms": [
+        "no_gate"
+      ],
+      "complete": true,
+      "conditions": {
+        "absent/peer": {
+          "no_gate": {
+            "correct_all": 0.0,
+            "failed_all": 0.0,
+            "m1": null,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/none": {
+          "no_gate": {
+            "correct_all": 0.9841269841269841,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/peer": {
+          "no_gate": {
+            "correct_all": 0.9841269841269841,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        }
+      },
+      "controlled_layer_claim": "not evaluable",
+      "cost": {
+        "no_gate": {
+          "input_tokens": 1457838,
+          "output_tokens": 23352,
+          "paid_calls": 378
+        }
+      },
+      "dataset": "sec_financials",
+      "estimates": {
+        "arm/no_gate/abstained_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.3492063492063492,
+            "low": 0.3333333333333333,
+            "undefined": 0
+          },
+          "exact": "64/189",
+          "value": 0.3386243386243386
+        },
+        "arm/no_gate/answered_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6666666666666666,
+            "low": 0.6507936507936508,
+            "undefined": 0
+          },
+          "exact": "125/189",
+          "value": 0.6613756613756614
+        },
+        "arm/no_gate/correct_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6666666666666666,
+            "low": 0.6402116402116402,
+            "undefined": 0
+          },
+          "exact": "124/189",
+          "value": 0.656084656084656
+        },
+        "arm/no_gate/failed_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m1": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m4": {
+          "ci": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "exact": null,
+          "value": null
+        },
+        "arm/no_gate/wrong_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        }
+      },
+      "factors": {
+        "competing_document": {
+          "none": {
+            "no_gate": {
+              "correct_all": 0.9841269841269841,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "peer": {
+            "no_gate": {
+              "correct_all": 0.49206349206349204,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        },
+        "x_document": {
+          "absent": {
+            "no_gate": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "present": {
+            "no_gate": {
+              "correct_all": 0.9841269841269841,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        }
+      },
+      "hypotheses": {
+        "H1": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H1",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H2": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H2",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H3": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H3",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H3 is evaluated on layer 1; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H4": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H4",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H4 is evaluated on layer 3; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        }
+      },
+      "n_groups": 126,
+      "n_items": 378,
+      "n_records": 378,
+      "outcome_counts": {
+        "no_gate": {
+          "abstention": 128,
+          "ambiguous": 0,
+          "error": 0,
+          "target_grounded": 248,
+          "ungrounded": 2,
+          "unparseable": 0,
+          "wrong_entity": 0
+        }
+      },
+      "outcome_counts_by_condition": {
+        "no_gate": {
+          "absent/peer": {
+            "abstention": 126,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 0,
+            "ungrounded": 0,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/none": {
+            "abstention": 1,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 124,
+            "ungrounded": 1,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/peer": {
+            "abstention": 1,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 124,
+            "ungrounded": 1,
+            "unparseable": 0,
+            "wrong_entity": 0
+          }
+        }
+      },
+      "reference": "no_gate",
+      "repeat_spread": {
+        "no_gate": {
+          "correct_all": {
+            "max": 0.656084656084656,
+            "min": 0.656084656084656,
+            "per_repeat": {
+              "0": 0.656084656084656
+            }
+          },
+          "m1": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          },
+          "wrong_all": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          }
+        }
+      },
+      "repeats": [
+        0
+      ],
+      "scale": 1,
+      "unpaired_records": 0,
+      "validity_guard": {
+        "no_gate": {
+          "exceeded": false,
+          "failed_rate": 0.0,
+          "limit": 0.05
+        }
+      }
+    },
+    "zai-low": {
+      "arms": [
+        "no_gate"
+      ],
+      "complete": true,
+      "conditions": {
+        "absent/peer": {
+          "no_gate": {
+            "correct_all": 0.0,
+            "failed_all": 0.0,
+            "m1": null,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/none": {
+          "no_gate": {
+            "correct_all": 0.9761904761904762,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        },
+        "present/peer": {
+          "no_gate": {
+            "correct_all": 0.9841269841269841,
+            "failed_all": 0.0,
+            "m1": 0.0,
+            "n_items": 126,
+            "wrong_all": 0.0
+          }
+        }
+      },
+      "controlled_layer_claim": "not evaluable",
+      "cost": {
+        "no_gate": {
+          "input_tokens": 1513290,
+          "output_tokens": 23771,
+          "paid_calls": 378
+        }
+      },
+      "dataset": "sec_financials",
+      "estimates": {
+        "arm/no_gate/abstained_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.3412698412698413,
+            "low": 0.3333333333333333,
+            "undefined": 0
+          },
+          "exact": "127/378",
+          "value": 0.335978835978836
+        },
+        "arm/no_gate/answered_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6666666666666666,
+            "low": 0.6587301587301587,
+            "undefined": 0
+          },
+          "exact": "251/378",
+          "value": 0.6640211640211641
+        },
+        "arm/no_gate/correct_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.6666666666666666,
+            "low": 0.6349206349206349,
+            "undefined": 0
+          },
+          "exact": "247/378",
+          "value": 0.6534391534391535
+        },
+        "arm/no_gate/failed_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m1": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        },
+        "arm/no_gate/m4": {
+          "ci": {
+            "defined": 0,
+            "high": null,
+            "low": null,
+            "undefined": 10000
+          },
+          "exact": null,
+          "value": null
+        },
+        "arm/no_gate/wrong_all": {
+          "ci": {
+            "defined": 10000,
+            "high": 0.0,
+            "low": 0.0,
+            "undefined": 0
+          },
+          "exact": "0/1",
+          "value": 0.0
+        }
+      },
+      "factors": {
+        "competing_document": {
+          "none": {
+            "no_gate": {
+              "correct_all": 0.9761904761904762,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "peer": {
+            "no_gate": {
+              "correct_all": 0.49206349206349204,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        },
+        "x_document": {
+          "absent": {
+            "no_gate": {
+              "correct_all": 0.0,
+              "failed_all": 0.0,
+              "m1": null,
+              "n_items": 126,
+              "wrong_all": 0.0
+            }
+          },
+          "present": {
+            "no_gate": {
+              "correct_all": 0.9801587301587301,
+              "failed_all": 0.0,
+              "m1": 0.0,
+              "n_items": 252,
+              "wrong_all": 0.0
+            }
+          }
+        }
+      },
+      "hypotheses": {
+        "H1": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H1",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H2": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H2",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "arm(s) ['gated'] not in the traces"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H3": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H3",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H3 is evaluated on layer 1; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        },
+        "H4": {
+          "arms": [],
+          "confirmatory": false,
+          "criteria": [],
+          "hypothesis": "H4",
+          "non_confirmatory_reasons": [
+            "split is 'dev', not 'test' (exploratory only)"
+          ],
+          "notes": [
+            "H4 is evaluated on layer 3; these traces are layer 2"
+          ],
+          "sensitivity": null,
+          "status": "NOT EVALUABLE"
+        }
+      },
+      "n_groups": 126,
+      "n_items": 378,
+      "n_records": 378,
+      "outcome_counts": {
+        "no_gate": {
+          "abstention": 127,
+          "ambiguous": 0,
+          "error": 0,
+          "target_grounded": 247,
+          "ungrounded": 4,
+          "unparseable": 0,
+          "wrong_entity": 0
+        }
+      },
+      "outcome_counts_by_condition": {
+        "no_gate": {
+          "absent/peer": {
+            "abstention": 126,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 0,
+            "ungrounded": 0,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/none": {
+            "abstention": 0,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 123,
+            "ungrounded": 3,
+            "unparseable": 0,
+            "wrong_entity": 0
+          },
+          "present/peer": {
+            "abstention": 1,
+            "ambiguous": 0,
+            "error": 0,
+            "target_grounded": 124,
+            "ungrounded": 1,
+            "unparseable": 0,
+            "wrong_entity": 0
+          }
+        }
+      },
+      "reference": "no_gate",
+      "repeat_spread": {
+        "no_gate": {
+          "correct_all": {
+            "max": 0.6534391534391535,
+            "min": 0.6534391534391535,
+            "per_repeat": {
+              "0": 0.6534391534391535
+            }
+          },
+          "m1": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          },
+          "wrong_all": {
+            "max": 0.0,
+            "min": 0.0,
+            "per_repeat": {
+              "0": 0.0
+            }
+          }
+        }
+      },
+      "repeats": [
+        0
+      ],
+      "scale": 1,
+      "unpaired_records": 0,
+      "validity_guard": {
+        "no_gate": {
+          "exceeded": false,
+          "failed_rate": 0.0,
+          "limit": 0.05
+        }
+      }
+    }
+  },
+  "outcome_rule": {
+    "correct": "correct",
+    "decision": "H1 and H2 per primary model (PREREGISTRATION.md section 11), as on layer 1",
+    "m1": "wrong_entity (the peer company's figure) / answered",
+    "m2": "among records where no_gate was correct, the share where the compared arm was not",
+    "mapping": {
+      "abstained": "abstention",
+      "correct": "target_grounded",
+      "other_wrong": "ungrounded",
+      "unparseable": "unparseable",
+      "value_unsupported": "ungrounded",
+      "wrong_entity": "wrong_entity",
+      "wrong_period_or_scale": "ungrounded"
+    },
+    "rule_version": 1,
+    "scorer": "sec_answer"
+  },
+  "package_version": "0.1.0",
+  "parameters": {
+    "as_preregistered": true,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20261122,
+    "ci_level": "19/20",
+    "cluster": "group_id",
+    "correct_outcomes": [
+      "target_grounded"
+    ],
+    "correct_rule_is_placeholder": false,
+    "faithfulness_arm": "faithfulness_checker",
+    "gated_arm": "gated",
+    "h1_min_relative_reduction": "1/2",
+    "h2_max_correct_blocked": "1/10",
+    "h4_min_net_difference": "0",
+    "reference_arm": "no_gate",
+    "repeats": 1,
+    "research_arm": "gated_research",
+    "status": "PROPOSED - requires owner approval before freeze",
+    "used": {
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20261122,
+      "ci_level": "19/20"
+    },
+    "validity_max_failed_rate": "1/20"
+  },
+  "pooled_descriptive": {
+    "arms": {
+      "no_gate": {
+        "correct_all": 0.6428571428571429,
+        "failed_all": 0.0,
+        "m1": 0.0,
+        "m2": null,
+        "wrong_all": 0.0
+      }
+    },
+    "models": [
+      "google-low",
+      "openai-low",
+      "zai-low"
+    ],
+    "note": "descriptive only; no hypothesis uses pooled numbers"
+  },
+  "split": "dev",
+  "summary": {
+    "H1": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H2": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H3": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    },
+    "H4": {
+      "evaluated": [],
+      "supported": [],
+      "supported_confirmatory": [],
+      "trade_off": []
+    }
+  }
+}

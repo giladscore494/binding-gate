@@ -1,0 +1,198 @@
+{
+  "artifacts": [
+    "layer2-dev--analysis",
+    "layer2-dev--decision",
+    "layer2-dev--dev_sec_baseline--ledger",
+    "layer2-dev--dev_sec_baseline--runs-google-low",
+    "layer2-dev--dev_sec_baseline--runs-openai-low",
+    "layer2-dev--dev_sec_baseline--runs-zai-low",
+    "layer2-dev--dev_sec_smoke--ledger",
+    "layer2-dev--dev_sec_smoke--runs-google-low",
+    "layer2-dev--dev_sec_smoke--runs-openai-low",
+    "layer2-dev--dev_sec_smoke--runs-zai-low",
+    "layer2-dev--dev_sec_smoke--usage-check",
+    "ledger-after-run",
+    "pipeline--layer2-dev--ledger"
+  ],
+  "attempt": 1,
+  "collected_at": "2026-11-22T19:36:37+00:00",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "folder": "runs/45060104533-dev-pipeline-layer2-dev",
+  "head_branch": "main",
+  "head_sha": "435da6a4381e0050f6629e3d9c8ab464a1a7a0ff",
+  "kept": [
+    {
+      "bytes": 28165,
+      "path": "layer2-dev--analysis/dev-sec-baseline/analysis.json",
+      "sha256": "27332db93333a55e47e0533a15b3ae36afe717e8cdae2f3882e40e4af662a20c"
+    },
+    {
+      "bytes": 9069,
+      "path": "layer2-dev--analysis/dev-sec-baseline/report.md",
+      "sha256": "d736c70e207c20a70997c45e165cee0b5405ffc20be04db5f85e3868d58c1640"
+    },
+    {
+      "bytes": 750,
+      "path": "layer2-dev--analysis/dev-sec-baseline.log",
+      "sha256": "b20c17ad1529b9116bda68d81ced6acbd4e01844a788503729695719713625ec"
+    },
+    {
+      "bytes": 501,
+      "path": "layer2-dev--analysis/index.json",
+      "sha256": "1dbd72eebbff85490754c09a9f272678fa45391a7422ed75078b530609e356a5"
+    },
+    {
+      "bytes": 5685,
+      "path": "layer2-dev--decision/decision.json",
+      "sha256": "1a2881d1a5197390f4a560cacaeb2777c401ab49521178462f4bd0428b3193f2"
+    },
+    {
+      "bytes": 475,
+      "path": "layer2-dev--decision/decision.md",
+      "sha256": "3863037e02cad2def5c9344a973ae612118daf1e6fca1e5b17584c0174da2f97"
+    },
+    {
+      "bytes": 63855,
+      "path": "layer2-dev--dev_sec_baseline--ledger/ledger.json",
+      "sha256": "a9e7a29a16a617bed4d9413fd6b077042ea1e6d4f40d39fc8d339fa275793cea"
+    },
+    {
+      "bytes": 24100,
+      "path": "layer2-dev--dev_sec_baseline--ledger/ledger.md",
+      "sha256": "ec66bae0a7621c52eb3a435e8970b77bc8b8a042d272b61b796727295e635202"
+    },
+    {
+      "bytes": 924,
+      "path": "layer2-dev--dev_sec_baseline--runs-google-low/20261122T193357Z-c99b9b68-705a/invocations.jsonl",
+      "sha256": "475370a9351c61f5109e9b6c7f59cea3b2cf5fef9444ac2a89fabe6ae8f6b050"
+    },
+    {
+      "bytes": 2964,
+      "path": "layer2-dev--dev_sec_baseline--runs-google-low/20261122T193357Z-c99b9b68-705a/manifest.json",
+      "sha256": "92f3978450d29b9f5952fd671f25ce9b7bd42e82232f68c88f9dd2de775942d3"
+    },
+    {
+      "bytes": 922,
+      "path": "layer2-dev--dev_sec_baseline--runs-openai-low/20261122T193408Z-c99b9b68-f658/invocations.jsonl",
+      "sha256": "c60270226095f5542e30bba294ec6d42f156aba0d1c56df7aadcf6520fb0baf2"
+    },
+    {
+      "bytes": 2964,
+      "path": "layer2-dev--dev_sec_baseline--runs-openai-low/20261122T193408Z-c99b9b68-f658/manifest.json",
+      "sha256": "be95485501899ab8be7f2179b27952dc7c647ac50c023f16c51dc322e1bd3993"
+    },
+    {
+      "bytes": 915,
+      "path": "layer2-dev--dev_sec_baseline--runs-zai-low/20261122T193405Z-c99b9b68-c0d1/invocations.jsonl",
+      "sha256": "e21369da1d7b9fc526ed0649603782ac8706607e56bd80a550fe38e79e6c0940"
+    },
+    {
+      "bytes": 2964,
+      "path": "layer2-dev--dev_sec_baseline--runs-zai-low/20261122T193405Z-c99b9b68-c0d1/manifest.json",
+      "sha256": "2a7af349f4e71cd24e3b554cc782b709e7aba62e7b62f79d15374f8e35e8935d"
+    },
+    {
+      "bytes": 59986,
+      "path": "layer2-dev--dev_sec_smoke--ledger/ledger.json",
+      "sha256": "a57d1ec008e0b9f7b7af8a1b5ab0d23b5587b0b2ecb091e38c365b37aa85b1e6"
+    },
+    {
+      "bytes": 23545,
+      "path": "layer2-dev--dev_sec_smoke--ledger/ledger.md",
+      "sha256": "e8e67548dc52000ae523507860e462b277e3dc3c2e7f7211ce5dfb6fdea657e6"
+    },
+    {
+      "bytes": 917,
+      "path": "layer2-dev--dev_sec_smoke--runs-google-low/20261122T193222Z-107403d8-3a53/invocations.jsonl",
+      "sha256": "0bc35c22ed19c000faa0799ccd801d8d10dc59117583936dca8ce75ff82f52fb"
+    },
+    {
+      "bytes": 2875,
+      "path": "layer2-dev--dev_sec_smoke--runs-google-low/20261122T193222Z-107403d8-3a53/manifest.json",
+      "sha256": "9413eaefe8434a15332fc104f397dc5e8ebe8c81f820a97c2f06c744c5c2db7e"
+    },
+    {
+      "bytes": 917,
+      "path": "layer2-dev--dev_sec_smoke--runs-openai-low/20261122T193209Z-107403d8-a003/invocations.jsonl",
+      "sha256": "1d7bc03d0a73f6f359ecec47134aaf7c6aec75c1b674e0c15a9893c72603939a"
+    },
+    {
+      "bytes": 2875,
+      "path": "layer2-dev--dev_sec_smoke--runs-openai-low/20261122T193209Z-107403d8-a003/manifest.json",
+      "sha256": "6ac1d957bced483121a907169b077c3f140c1fd4d20b1d0aabda3c624256c3ec"
+    },
+    {
+      "bytes": 908,
+      "path": "layer2-dev--dev_sec_smoke--runs-zai-low/20261122T193210Z-107403d8-a1c3/invocations.jsonl",
+      "sha256": "af19282ae92f5f8475b83e1baaeee71159714a2edfcfeca6dedfaf067a016eca"
+    },
+    {
+      "bytes": 2875,
+      "path": "layer2-dev--dev_sec_smoke--runs-zai-low/20261122T193210Z-107403d8-a1c3/manifest.json",
+      "sha256": "4357cbae11d989b607071267c5d28732785b0ac28d7a6cfc7e8d71c49a34d9c8"
+    },
+    {
+      "bytes": 12142,
+      "path": "layer2-dev--dev_sec_smoke--usage-check/smoke_usage_check.json",
+      "sha256": "9ce8f1284734d41ba9b2333cbeda35054b19dcd34a65455169521cf89be8ebdb"
+    },
+    {
+      "bytes": 2222,
+      "path": "layer2-dev--dev_sec_smoke--usage-check/smoke_usage_check.md",
+      "sha256": "f6eddf8333ff26f251e71425e049e2c824dd8c8f3b058c932cc2bbb732349388"
+    },
+    {
+      "bytes": 68079,
+      "path": "ledger-after-run/ledger.json",
+      "sha256": "0f49d6fc6c8a0b72953a5644763faf985da9bb9824db538dd7123b4af3923db2"
+    },
+    {
+      "bytes": 24842,
+      "path": "ledger-after-run/ledger.md",
+      "sha256": "d45230d9e49a000af1269bf404332a057a6b4e72cad31f018826bea01e9d196a"
+    },
+    {
+      "bytes": 56638,
+      "path": "pipeline--layer2-dev--ledger/ledger.json",
+      "sha256": "2b3b3eb59da41fc99680fbcd03a5ee05d1a1a606eb6699848d6a09c1db292944"
+    },
+    {
+      "bytes": 20485,
+      "path": "pipeline--layer2-dev--ledger/ledger.md",
+      "sha256": "bd9de09c47f5c6854a6c383af95d390be236cbdeea6c2f5f0f70d7a0dbab858c"
+    }
+  ],
+  "left_out": [
+    {
+      "path": "layer2-dev--dev_sec_baseline--runs-google-low/20261122T193357Z-c99b9b68-705a/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "layer2-dev--dev_sec_baseline--runs-openai-low/20261122T193408Z-c99b9b68-f658/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "layer2-dev--dev_sec_baseline--runs-zai-low/20261122T193405Z-c99b9b68-c0d1/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "layer2-dev--dev_sec_smoke--runs-google-low/20261122T193222Z-107403d8-3a53/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "layer2-dev--dev_sec_smoke--runs-openai-low/20261122T193209Z-107403d8-a003/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    },
+    {
+      "path": "layer2-dev--dev_sec_smoke--runs-zai-low/20261122T193210Z-107403d8-a1c3/traces.jsonl",
+      "reason": "traces carry prompts with benchmark documents, SEC statements or web pages"
+    }
+  ],
+  "results_log_version": 1,
+  "rules": "binding_gate.results_log: report files on an allow-list, scanned for secrets and page text",
+  "run_id": 45060104533,
+  "stage": "dev-pipeline-layer2-dev",
+  "title": "dev pipeline: layer2-dev",
+  "workflow": "dev pipeline: layer2-dev"
+}

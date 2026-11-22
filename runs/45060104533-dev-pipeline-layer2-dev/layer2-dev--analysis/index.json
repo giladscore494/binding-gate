@@ -1,0 +1,15 @@
+{
+  "analyses": {
+    "dev-sec-baseline": {
+      "exit_code": 0,
+      "out": "analysis/dev-sec-baseline",
+      "run_dirs": [
+        "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-google-low/20261122T193357Z-c99b9b68-705a",
+        "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-openai-low/20261122T193408Z-c99b9b68-f658",
+        "sec-runs/baseline/layer2-dev--dev_sec_baseline--runs-zai-low/20261122T193405Z-c99b9b68-c0d1"
+      ]
+    }
+  },
+  "calibration": null,
+  "failed": []
+}

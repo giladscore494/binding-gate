@@ -1,0 +1,109 @@
+{
+  "config": {
+    "arms": [
+      {
+        "label": "no_gate",
+        "name": "no_gate",
+        "options": {
+          "presentation": "sec_filings"
+        }
+      }
+    ],
+    "config_version": 1,
+    "dataset": {
+      "label": "sec_financials",
+      "name": "sec_financials",
+      "options": {
+        "build_config": "configs/datasets/sec_financials_v1.toml",
+        "data_sha256": "1310f020dd2c47ad1a0d7950cc13564bd3bda16bc7dd048e8f32bf656ec21e2c",
+        "root": "data/raw/sec-financials"
+      }
+    },
+    "description": "PR 17 layer-2 dev baseline: no_gate on every sec_financials dev item, 1 repeat, slots A, E, H.",
+    "limit": null,
+    "models": [
+      {
+        "label": "openai-low",
+        "name": "openai_responses",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gpt-6-luna",
+          "reasoning": {
+            "effort": "none"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "google-low",
+        "name": "google_gemini",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "gemini-3.1-flash-lite",
+          "temperature": 0.0,
+          "thinking_config": {
+            "thinkingLevel": "minimal"
+          },
+          "timeout_seconds": 180
+        }
+      },
+      {
+        "label": "zai-low",
+        "name": "zai_chat",
+        "options": {
+          "backoff_seconds": 2.0,
+          "max_backoff_seconds": 60.0,
+          "max_output_tokens": 4096,
+          "max_retries": 5,
+          "model_id": "glm-5.3-flash",
+          "reasoning_effort": "low",
+          "temperature": 0.0,
+          "thinking": {
+            "type": "enabled"
+          },
+          "timeout_seconds": 180
+        }
+      }
+    ],
+    "name": "dev-sec-baseline",
+    "repeats": 1,
+    "runner": {
+      "concurrency": 8,
+      "max_usd": 0.3,
+      "max_usd_by_model": {
+        "google-low": 0.75,
+        "zai-low": 0.65
+      },
+      "prices": "configs/prices.toml"
+    },
+    "scorers": [
+      {
+        "label": "sec_answer",
+        "name": "sec_answer",
+        "options": {
+          "min_quote_tokens": 5
+        }
+      }
+    ],
+    "split": "dev"
+  },
+  "config_hash": "c99b9b68135d35a550e31dec4885b48680fa43750bf31cc2fe6c40dd18254e88",
+  "config_path": "configs/dev_sec_baseline.toml",
+  "ended_at": "2026-11-22T19:34:40+00:00",
+  "git_commit": "435da6a4381e0050f6629e3d9c8ab464a1a7a0ff",
+  "git_dirty": false,
+  "package_version": "0.1.0",
+  "python_version": "3.13.18",
+  "run_id": "20261122T193357Z-c99b9b68-705a",
+  "schema_version": 1,
+  "started_at": "2026-11-22T19:33:57+00:00",
+  "test_unlock_tag": null,
+  "trace_count": 378,
+  "traces_sha256": "96f57035706758224a34f3a8851a8e9650b84ad8d5422c33d7a0d3ff86bced33"
+}
