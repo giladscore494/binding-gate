@@ -71,10 +71,12 @@ def test_the_caps_of_all_configs_referenced_by_the_plan_sum_to_at_most_50_usd():
     assert enforced + planned <= 50.0
 
 
-def test_planned_runs_without_a_config_are_the_open_test_configs_of_layers_2_and_3():
-    planned = [r for r in RUNS if r["kind"] == "planned"]
-    assert {r["id"] for r in planned} == {"test_live", "test_grab_rag_supportive"}
-    assert all(r["config"] == "" and "item 39" in r["note"] for r in planned)
+def test_no_planned_run_is_left_without_a_config():
+    """PR 16 (section 17, item 39): the test configs of layers 2 and 3 exist and enforce their planned caps."""
+    assert [r for r in RUNS if r["kind"] == "planned"] == []
+    by_id = {r["id"]: r for r in RUNS}
+    assert by_id["test_live"]["config"] == "configs/test_live.toml"
+    assert by_id["test_grab_rag_supportive"]["config"] == "configs/test_grab_rag_supportive.toml"
 
 
 def test_every_paid_config_is_in_the_plan_or_marked_extended():
@@ -130,6 +132,11 @@ def test_judge_only_limits_fit_inside_the_runner_caps():
 def test_month_one_searches_fit_the_serpapi_free_plan():
     limits = [runner.RunnerSettings.from_config(load_config(CONFIGS / n)).max_searches for n in ("dev_live_smoke.toml", "dev_live.toml")]
     assert sum(limits) <= 250
+
+
+def test_month_two_test_searches_fit_the_serpapi_free_plan():
+    """PR 16: the layer-3 test run is month 2 of the allocation (resumed in month 3 if needed)."""
+    assert runner.RunnerSettings.from_config(load_config(CONFIGS / "test_live.toml")).max_searches <= 250
 
 
 @pytest.mark.skipif(

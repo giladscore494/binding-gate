@@ -33,7 +33,8 @@ limits in the runner, and together they are at most 50 USD.
 | 8 | layer 2 cost side (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
 | 10 | **layer 1 test, confirmatory** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | mid-tier check, 225 test items (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
-| later | layer 3 test and layer 2 test (configs not written yet; section 17, item 39) | 0.73 | 2.19 | 2.40 |
+| 10b | layer 2 test, cost side, exploratory (`configs/test_grab_rag_supportive.toml`) | 0.13 | 0.56 | 0.60 |
+| 10c | **layer 3 test, confirmatory** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
 | | **Total** | **13.16** | **39.21** | **43.70** |
 
 What makes it fit: three low-cost primary models (`openai-low`, `google-low`,
@@ -477,12 +478,15 @@ Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> --out analysis-
    being frozen (owner approvals and decisions recorded with their date),
    including the budget plan (item 43) and the caps re-derived from the
    measured dev usage (item 13).
-2. In one pull request: approve `configs/test_layer1.toml` and
-   `configs/test_layer1_midtier.toml`, update `PARAMETERS_STATUS` in
+2. In one pull request: approve the test configs of the layer(s) being frozen
+   (layer 1: `configs/test_layer1.toml` and `configs/test_layer1_midtier.toml`;
+   layer 2: `configs/test_grab_rag_supportive.toml`; layer 3:
+   `configs/test_live.toml`), update `PARAMETERS_STATUS` in
    `src/binding_gate/mcp/core.py` (item 42), change the status line of
    PREREGISTRATION.md to `**Status:** FROZEN` and its version. Merge it into
    `main`; the tests must pass.
-3. Tag exactly that merge commit `prereg-freeze-1` (later layers: `-2`, `-3`).
+3. Tag exactly that merge commit `prereg-freeze-1` (later layers: `-2`, `-3`;
+   if all three layers are frozen together, one tag serves every frozen run).
    In GitHub: **Releases → Draft a new release → Choose a tag**, type
    `prereg-freeze-1`, **Create new tag on publish**, Target `main`, **Publish
    release**. Or CLI:
@@ -495,13 +499,34 @@ Analysis, CLI: `python -m binding_gate.cli analyze runs/<run_id> --out analysis-
 4. From now on PREREGISTRATION.md changes only through its amendment log
    (section 18).
 
-## 10. Frozen test runs, layer 1 (CLI only)
+## 10. Frozen test runs (CLI only)
 
-Not in the workflow. On your computer, in a clean checkout of the tag:
+Not in the workflow: the workflow **baseline** runs the dev split only, and a
+frozen run needs a clean checkout of the freeze tag. Do **not** start a test
+config there, not even as a dry run (the lock would refuse and log the attempt
+on the runner). Every frozen run below covers ONE layer, analyses it with that
+layer's own pre-registered rule, and each invocation (including every
+`--resume`) is one logged access to the test split (PREREGISTRATION.md section
+12). On your computer, in a clean checkout of the tag:
 
 ```bash
-git fetch --tags && git checkout prereg-freeze-1
-git status                                   # must show a clean tree
+git fetch --tags && git checkout prereg-freeze-1   # the tag of the stage that covers the layer
+git status                                         # must show a clean tree
+```
+
+After every frozen run, commit the access log (the same three commands each
+time; the branch name only has to be new):
+
+```bash
+git switch -c test-access-log-<layer>
+git add audit/test_access_log.jsonl
+git commit -m "Test-split access log after the frozen test run(s) of layer <layer>"
+git push -u origin test-access-log-<layer>    # open and merge a pull request
+```
+
+### 10a. Layer 1 (H1-H3)
+
+```bash
 python -m pip install -e ".[dev,plots,faithfulness]"
 python -m binding_gate.arms.faithfulness_checker prepare
 # benchmark in data/raw/ as in "Local setup"; OPENAI, GEMINI and ZAI keys in the shell
@@ -524,35 +549,101 @@ python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.
 ```
 
 A run stopped by a budget cap is continued with `--resume runs/<run_id>` (a
-further logged access). Then commit the access log:
+further logged access).
+
+### 10b. Layer 2, cost side (exploratory; estimate 0.13-0.56 USD, cap 0.60 USD)
+
+GRAB-RAG's supportive items of the 606 test questions, slot A, `no_gate` and
+`gated`. The analysis uses the `grab_rag_answer` rule and reports M1, M2 and the
+outcome tables **without a decision** (layer 2 has no threshold; every
+hypothesis shows NOT EVALUABLE there). Needs `OPENAI_API_KEY` only.
 
 ```bash
-git switch -c test-access-log-1
-git add audit/test_access_log.jsonl
-git commit -m "Test-split access log after the layer-1 frozen test runs"
-git push -u origin test-access-log-1          # open and merge a pull request
+python -m pip install -e ".[dev,plots]"
+git clone https://github.com/andre44s/grab-rag data/raw/grab-rag      # if not already there
+git -C data/raw/grab-rag checkout 2006561476b39a6cd1ebc0ab5df1b09af01dbcab
+python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
+    --tag prereg-freeze-2 --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
 ```
 
-Layers 2 and 3 have no frozen test configuration yet (section 17, item 39); the
-budget plan reserves 2.40 USD of caps for them.
+Use the tag of the stage that froze layer 2 (`prereg-freeze-1` if every layer
+was frozen together).
 
-## 11. Human audit and public report (CLI only, no key)
+### 10c. Layer 3, live web (H4; estimate 0.60-1.63 USD, caps 0.55 + 1.25 USD)
+
+Every SealQA test question (about 146), slots A and E, `no_gate` (live) and
+`gated_research`, one job for both models (they share searches and pages). The
+analysis uses the `sealqa_answer` rule: M3, M4 and H4 with its status. Needs
+`OPENAI_API_KEY`, `GEMINI_API_KEY` and `SERPAPI_API_KEY` in the shell; no
+search may be made in that month before (month 2 of the SerpApi allocation).
 
 ```bash
-python -m binding_gate.audit_tool sample runs/<test_run_id> --out audit/sample.json --html audit/audit.html
+python -m pip install -e ".[dev,plots,sealqa]"
+python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml   # if data/raw/sealqa is not there yet
+python -m binding_gate.cli frozen-test-run --config configs/test_live.toml \
+    --tag prereg-freeze-3 --purpose "layer-3 confirmatory test run (H4)" --confirm-spend
+```
+
+`max_searches = 250` (the Free plan's month; lowered automatically to what the
+account reports as left) and one search per 72 s: the run takes up to about 5
+hours, so keep the computer awake. If the quota is reached, the command ends
+with exit code 3, "ABORTED", and no analysis; after the quota renews (next
+month), run the same command with `--resume runs/<run_id>` added (a further
+logged access). The run directory holds third-party page text: never commit or
+upload it. Check the snapshots: `python -m binding_gate.research.snapshots
+verify runs/<run_id>`.
+
+## 11. Published results, human audit and public report (CLI only, no key)
+
+**Published results (`results/layer<N>/<run_id>/`).** For each finished frozen
+run (and any dev run whose numbers are published), copy its non-sensitive
+results into the repository and commit them in a pull request:
+
+```bash
+python -m binding_gate.report publish runs/<run_id>
+git switch -c results-<run_id>
+git add results/
+git commit -m "Published results of run <run_id>"
+git push -u origin results-<run_id>           # open and merge a pull request
+```
+
+It copies only the manifest, `invocations.jsonl`, `frozen_run.jsonl`,
+`analysis/analysis.json`, `analysis/report.md`, the figures and, for layer 3,
+`snapshots/publish_manifest.json` (URLs, times, hashes; no page text), and
+writes `results_manifest.json`. It refuses unfinished or unanalysed runs,
+traces whose SHA-256 differs from the manifest, an existing target directory,
+and any file not on its list (page text, layer-2/3 traces, re-scoring outputs).
+`--include-traces` adds `traces.jsonl` for layer 1 only (Apache-2.0 documents;
+large). If the analysis was written elsewhere, re-run `python -m
+binding_gate.cli analyze runs/<run_id>` first (it writes `runs/<run_id>/analysis/`).
+
+**Human audit and report.**
+
+```bash
+python -m binding_gate.audit_tool sample runs/<test_run_id> runs/<live_test_run_id> \
+    --out audit/sample.json --html audit/audit.html
 # label: open audit/audit.html in a browser (offline) and press "Export labels", or in the terminal:
 python -m binding_gate.audit_tool label --sample audit/sample.json --out audit/labels.json --auditor "<name>"
 python -m binding_gate.audit_tool analyze --sample audit/sample.json --labels audit/labels.json --out audit/audit.json
-python -m binding_gate.report build --analysis runs/<test_run_id>/analysis --run-dir runs/<test_run_id> \
+python -m binding_gate.report build \
+    --analysis results/layer1/<test_run_id>/analysis --run-dir results/layer1/<test_run_id> \
+    --analysis results/layer1/<midtier_run_id>/analysis --run-dir results/layer1/<midtier_run_id> \
+    --analysis results/layer2/<grab_rag_test_run_id>/analysis --run-dir results/layer2/<grab_rag_test_run_id> \
+    --analysis results/layer3/<live_test_run_id>/analysis --run-dir results/layer3/<live_test_run_id> \
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```
 
-`<test_run_id>` is the run of `configs/test_layer1.toml` (the mid-tier run is
-not in the audit population; PREREGISTRATION.md section 13). The sample draws 50
-blocked and 50 accepted gate decisions with the fixed seed; who audits is
+`<test_run_id>` is the run of `configs/test_layer1.toml` and
+`<live_test_run_id>` the run of `configs/test_live.toml` (the mid-tier run and
+layer 2 are not in the audit population; PREREGISTRATION.md section 13; whether
+layer-3 decisions are pooled with layer 1 is section 17, item 19: if not, give
+only the layer-1 run). With layer-3 decisions in it, `audit/sample.json` and
+`audit/audit.html` contain web page text: do not commit them. The sample draws
+50 blocked and 50 accepted gate decisions with the fixed seed; who audits is
 section 17, item 19. The report (`public-report/report.md`,
 `public-report/report.html`) refuses an analysis that marks a result
-confirmatory while the pre-registration is not FROZEN.
+confirmatory while the pre-registration is not FROZEN; an analysis that was not
+supplied is listed as absent.
 
 ---
 
@@ -580,7 +671,8 @@ confirmatory while the pre-registration is not FROZEN.
 | 8 | שכבה 2, צד העלות (`configs/dev_grab_rag_supportive.toml`) | 0.09 | 0.36 | 0.40 |
 | 10 | **test של שכבה 1, מאשש** (`configs/test_layer1.toml`) | 5.98 | 15.85 | 16.75 |
 | 10 | בדיקת מודלי הביניים, 225 פריטי test (`configs/test_layer1_midtier.toml`) | 2.47 | 6.55 | 6.95 |
-| בהמשך | test של שכבות 3 ו-2 (הקונפיגים עוד לא נכתבו; פריט 39) | 0.73 | 2.19 | 2.40 |
+| 10ב | test של שכבה 2, צד העלות, גישושי (`configs/test_grab_rag_supportive.toml`) | 0.13 | 0.56 | 0.60 |
+| 10ג | **test של שכבה 3, מאשש** (`configs/test_live.toml`) | 0.60 | 1.63 | 1.80 |
 | | **סך הכול** | **13.16** | **39.21** | **43.70** |
 
 למה זה נכנס: שלושה מודלים ראשיים זולים (`openai-low`, `google-low`, `zai-low`) על כל הפריטים עם חזרה אחת, ברמת ה-reasoning הנמוכה ביותר; כל זרועות ה-gate משתמשות בתשובה ש-`no_gate` כבר שילם עליה; כל ריצת dev אחרי ה-baseline משתמשת שוב בתשובות שלו (seed runs, למטה); מודלי הביניים (`openai-mid`, `google-mid`, `zai-mid`), השופטים ובדיקת אי-הדטרמיניזם רצים על מדגמים קבועים; החיפוש בתוכנית החינמית של SerpApi. התכנון המלא הקודם שמור, בלי להריץ, תחת `configs/extended/` ("אם יהיה מימון").
@@ -868,8 +960,8 @@ Workflow. הפריטים התומכים של GRAB-RAG (394 שאלות dev, סל�
 ### שלב 9 — הקפאה
 
 1. לסגור כל פריט בסעיף 17 שנוגע לשכבה שמוקפאת (אישורים והחלטות עם תאריך), כולל תוכנית התקציב (פריט 43) והתקרות שחושבו מחדש לפי השימוש שנמדד ב-dev (פריט 13).
-2. ב-pull request אחד: לאשר את `configs/test_layer1.toml` ואת `configs/test_layer1_midtier.toml`, לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
-3. לתייג בדיוק את ה-merge commit בשם `prereg-freeze-1` (לשכבות הבאות `-2`, `-3`). ב-GitHub: **Releases ← Draft a new release ← Choose a tag** ← להקליד `prereg-freeze-1` ← **Create new tag on publish** ← Target: `main` ← **Publish release**. או ב-CLI:
+2. ב-pull request אחד: לאשר את קונפיגי ה-test של השכבה (או השכבות) שמוקפאות (שכבה 1: `configs/test_layer1.toml` ו-`configs/test_layer1_midtier.toml`; שכבה 2: `configs/test_grab_rag_supportive.toml`; שכבה 3: `configs/test_live.toml`), לעדכן את `PARAMETERS_STATUS` ב-`src/binding_gate/mcp/core.py` (פריט 42), לשנות את שורת הסטטוס ל-`**Status:** FROZEN` ואת הגרסה. למזג ל-`main`; הבדיקות חייבות לעבור.
+3. לתייג בדיוק את ה-merge commit בשם `prereg-freeze-1` (לשכבות הבאות `-2`, `-3`; אם שלוש השכבות מוקפאות יחד, תג אחד משמש את כל הריצות המוקפאות). ב-GitHub: **Releases ← Draft a new release ← Choose a tag** ← להקליד `prereg-freeze-1` ← **Create new tag on publish** ← Target: `main` ← **Publish release**. או ב-CLI:
 
    ```bash
    git fetch origin && git tag -a prereg-freeze-1 -m "Pre-registration frozen (layer 1)" origin/main
@@ -878,13 +970,27 @@ Workflow. הפריטים התומכים של GRAB-RAG (394 שאלות dev, סל�
 
 4. מעכשיו PREREGISTRATION.md משתנה רק דרך יומן התיקונים (סעיף 18).
 
-### שלב 10 — ריצות ה-test המוקפאות, שכבה 1 (CLI בלבד)
+### שלב 10 — ריצות ה-test המוקפאות (CLI בלבד)
 
-אין workflow. על המחשב שלך, ב-checkout נקי של התג:
+אין workflow: ה-workflow **baseline** מריץ רק את ה-dev split, וריצה מוקפאת צריכה checkout נקי של תג ההקפאה. **לא** להפעיל שם קונפיג test, גם לא dry run (המנעול יסרב וירשום את הניסיון על השרת של GitHub). כל ריצה מוקפאת למטה מכסה שכבה אחת בלבד, מנתחת אותה עם הכלל שנקבע מראש לשכבה הזו, וכל הפעלה (כולל כל `--resume`) היא גישה אחת שנרשמת ל-test split (סעיף 12 ב-PREREGISTRATION.md). על המחשב שלך, ב-checkout נקי של התג:
 
 ```bash
-git fetch --tags && git checkout prereg-freeze-1
-git status                                   # חייב להיות נקי
+git fetch --tags && git checkout prereg-freeze-1   # התג של השלב שמכסה את השכבה
+git status                                         # חייב להיות נקי
+```
+
+אחרי כל ריצה מוקפאת, commit ליומן הגישה (אותן שלוש פקודות בכל פעם; שם ה-branch רק צריך להיות חדש):
+
+```bash
+git switch -c test-access-log-<layer>
+git add audit/test_access_log.jsonl
+git commit -m "Test-split access log after the frozen test run(s) of layer <layer>"
+git push -u origin test-access-log-<layer>    # לפתוח pull request ולמזג
+```
+
+#### 10א — שכבה 1 (H1 עד H3)
+
+```bash
 python -m pip install -e ".[dev,plots,faithfulness]"
 python -m binding_gate.arms.faithfulness_checker prepare
 # הבנצ'מרק ב-data/raw/ כמו ב"הכנה מקומית"; מפתחות OPENAI, GEMINI ו-ZAI ב-shell
@@ -899,26 +1005,63 @@ python -m binding_gate.cli frozen-test-run --config configs/test_layer1_midtier.
     --tag prereg-freeze-1 --purpose "layer-1 mid-tier exploratory subsample" --confirm-spend
 ```
 
-ריצה שנעצרה בתקרה ממשיכים עם `--resume runs/<run_id>` (גישה נוספת שנרשמת). אחר כך commit ליומן הגישה:
+ריצה שנעצרה בתקרה ממשיכים עם `--resume runs/<run_id>` (גישה נוספת שנרשמת).
+
+#### 10ב — שכבה 2, צד העלות (גישושי; הערכה 0.13 עד 0.56 דולר, תקרה 0.60)
+
+הפריטים התומכים של GRAB-RAG ב-606 שאלות ה-test, סלוט A, `no_gate` ו-`gated`. הניתוח משתמש בכלל `grab_rag_answer` ומדווח M1, M2 וטבלאות התוצאות **בלי החלטה** (לשכבה 2 אין סף; כל ההשערות יופיעו שם כ-NOT EVALUABLE). צריך רק `OPENAI_API_KEY`.
 
 ```bash
-git switch -c test-access-log-1
-git add audit/test_access_log.jsonl
-git commit -m "Test-split access log after the layer-1 frozen test runs"
-git push -u origin test-access-log-1          # לפתוח pull request ולמזג
+python -m pip install -e ".[dev,plots]"
+git clone https://github.com/andre44s/grab-rag data/raw/grab-rag      # אם עוד לא קיים
+git -C data/raw/grab-rag checkout 2006561476b39a6cd1ebc0ab5df1b09af01dbcab
+python -m binding_gate.cli frozen-test-run --config configs/test_grab_rag_supportive.toml \
+    --tag prereg-freeze-2 --purpose "layer-2 cost-side test run (exploratory)" --confirm-spend
 ```
 
-לשכבות 2 ו-3 עדיין אין קונפיג test מוקפא (פריט 39); תוכנית התקציב שומרת להן 2.40 דולר של תקרות.
+להשתמש בתג של השלב שהקפיא את שכבה 2 (`prereg-freeze-1` אם כל השכבות הוקפאו יחד).
 
-### שלב 11 — audit אנושי ודוח ציבורי (CLI בלבד, בלי מפתח)
+#### 10ג — שכבה 3, web חי (H4; הערכה 0.60 עד 1.63 דולר, תקרות 0.55 + 1.25)
+
+כל שאלות ה-test של SealQA (בערך 146), סלוטים A ו-E, `no_gate` (חי) ו-`gated_research`, ריצה אחת לשני המודלים (הם חולקים את החיפושים והדפים). הניתוח משתמש בכלל `sealqa_answer`: M3, M4 ו-H4 עם הסטטוס שלה. צריך `OPENAI_API_KEY`, `GEMINI_API_KEY` ו-`SERPAPI_API_KEY` ב-shell; אסור שיהיה חיפוש אחר באותו חודש לפני כן (חודש 2 בחלוקת המכסה של SerpApi).
 
 ```bash
-python -m binding_gate.audit_tool sample runs/<test_run_id> --out audit/sample.json --html audit/audit.html
+python -m pip install -e ".[dev,plots,sealqa]"
+python -m binding_gate.cli dataset-prepare --config configs/dev_live.toml   # אם data/raw/sealqa עוד לא קיים
+python -m binding_gate.cli frozen-test-run --config configs/test_live.toml \
+    --tag prereg-freeze-3 --purpose "layer-3 confirmatory test run (H4)" --confirm-spend
+```
+
+`max_searches = 250` (החודש של התוכנית החינמית; יורד אוטומטית למה שהחשבון מדווח שנשאר) וחיפוש אחד כל 72 שניות: הריצה נמשכת עד בערך 5 שעות, אז המחשב צריך להישאר ער. אם המכסה נגמרת, הפקודה מסתיימת עם קוד יציאה 3, "ABORTED", ובלי ניתוח; אחרי שהמכסה מתחדשת (בחודש הבא) מריצים את אותה פקודה ומוסיפים `--resume runs/<run_id>` (גישה נוספת שנרשמת). תיקיית הריצה מכילה טקסט של דפים של צד שלישי: לעולם לא לעשות לה commit ולא להעלות אותה. בדיקת ה-snapshots: `python -m binding_gate.research.snapshots verify runs/<run_id>`.
+
+### שלב 11 — תוצאות מפורסמות, audit אנושי ודוח ציבורי (CLI בלבד, בלי מפתח)
+
+**תוצאות מפורסמות (`results/layer<N>/<run_id>/`).** לכל ריצה מוקפאת שהסתיימה (ולכל ריצת dev שהמספרים שלה מתפרסמים), להעתיק לריפו את התוצאות הלא-רגישות ולעשות להן commit ב-pull request:
+
+```bash
+python -m binding_gate.report publish runs/<run_id>
+git switch -c results-<run_id>
+git add results/
+git commit -m "Published results of run <run_id>"
+git push -u origin results-<run_id>           # לפתוח pull request ולמזג
+```
+
+הפקודה מעתיקה רק את ה-manifest, `invocations.jsonl`, `frozen_run.jsonl`, `analysis/analysis.json`, `analysis/report.md`, הגרפים, ובשכבה 3 גם `snapshots/publish_manifest.json` (כתובות, זמנים, hashes; בלי טקסט של דפים), וכותבת `results_manifest.json`. היא מסרבת לריצה לא גמורה או בלי ניתוח, ל-traces שה-SHA-256 שלהם שונה מה-manifest, לתיקיית יעד שכבר קיימת, ולכל קובץ שלא ברשימה (טקסט של דפים, traces של שכבות 2 ו-3, פלטי re-scoring). `--include-traces` מוסיף את `traces.jsonl` רק בשכבה 1 (מסמכים ברישיון Apache-2.0; קובץ גדול). אם הניתוח נכתב למקום אחר, להריץ קודם `python -m binding_gate.cli analyze runs/<run_id>` (הוא כותב ל-`runs/<run_id>/analysis/`).
+
+**audit אנושי ודוח.**
+
+```bash
+python -m binding_gate.audit_tool sample runs/<test_run_id> runs/<live_test_run_id> \
+    --out audit/sample.json --html audit/audit.html
 # תיוג: לפתוח את audit/audit.html בדפדפן (בלי אינטרנט) וללחוץ "Export labels", או בטרמינל:
 python -m binding_gate.audit_tool label --sample audit/sample.json --out audit/labels.json --auditor "<name>"
 python -m binding_gate.audit_tool analyze --sample audit/sample.json --labels audit/labels.json --out audit/audit.json
-python -m binding_gate.report build --analysis runs/<test_run_id>/analysis --run-dir runs/<test_run_id> \
+python -m binding_gate.report build \
+    --analysis results/layer1/<test_run_id>/analysis --run-dir results/layer1/<test_run_id> \
+    --analysis results/layer1/<midtier_run_id>/analysis --run-dir results/layer1/<midtier_run_id> \
+    --analysis results/layer2/<grab_rag_test_run_id>/analysis --run-dir results/layer2/<grab_rag_test_run_id> \
+    --analysis results/layer3/<live_test_run_id>/analysis --run-dir results/layer3/<live_test_run_id> \
     --baseline baseline.json --audit audit/audit.json --out public-report/
 ```
 
-`<test_run_id>` הוא הריצה של `configs/test_layer1.toml` (ריצת מודלי הביניים לא באוכלוסיית ה-audit; סעיף 13). המדגם: 50 החלטות חסומות ו-50 מאושרות עם seed קבוע; מי מתייג — פריט 19. הדוח (`public-report/report.md`, `public-report/report.html`) מסרב לניתוח שמסמן תוצאה כמאששת כל עוד ה-pre-registration לא FROZEN.
+`<test_run_id>` הוא הריצה של `configs/test_layer1.toml` ו-`<live_test_run_id>` הריצה של `configs/test_live.toml` (ריצת מודלי הביניים ושכבה 2 לא באוכלוסיית ה-audit; סעיף 13; האם החלטות שכבה 3 מאוחדות עם שכבה 1 — פריט 19: אם לא, לתת רק את ריצת שכבה 1). כשיש במדגם החלטות של שכבה 3, `audit/sample.json` ו-`audit/audit.html` מכילים טקסט של דפי web: לא לעשות להם commit. המדגם: 50 החלטות חסומות ו-50 מאושרות עם seed קבוע; מי מתייג — פריט 19. הדוח (`public-report/report.md`, `public-report/report.html`) מסרב לניתוח שמסמן תוצאה כמאששת כל עוד ה-pre-registration לא FROZEN; ניתוח שלא נמסר מופיע כחסר.

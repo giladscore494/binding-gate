@@ -1,0 +1,165 @@
+# PR 16: the frozen layer-3 TEST run (live web, SealQA), CONFIRMATORY for H4 (PREREGISTRATION.md
+# sections 3 (layer 3), 7, 8, 11 and 12; configs/budget.toml, run "test_live"). Section 17, item 39.
+#
+# Run ONLY through the one-command frozen test run, after the pre-registration (the stage that covers
+# layer 3) is FROZEN and tagged, on your own computer (not in the workflow):
+#
+#   python -m binding_gate.cli frozen-test-run --config configs/test_live.toml \
+#       --tag prereg-freeze-<n> --purpose "layer-3 confirmatory test run (H4)" --confirm-spend
+#
+# It refuses (and logs the refusal in audit/test_access_log.jsonl) unless HEAD is exactly the freeze
+# tag, the working tree is clean and PREREGISTRATION.md says FROZEN. Then it runs both arms on every
+# SealQA test question and writes the layer-3 analysis (scorer sealqa_answer: M3, M4, H4) under
+# runs/<run_id>/analysis/.
+#
+# Identical to configs/dev_live.toml except the split-dependent fields (tests/test_pr16_frozen_layers.py):
+# name, description, split, the caps and max_searches. Models (slots A and E), sampling, dataset pin,
+# both arms with every option (search, fetch, pages, max_attempts, gate parameters, decomposer) and
+# the scorer are those of the dev run, so the frozen run executes what was run on dev.
+#
+# Search quota (section 3, layer 3, item 7): SerpApi's FREE plan, 250 searches per month, 50 per hour
+# (min_interval_seconds = 72). The test run is month 2 of the allocation: max_searches = 250, lowered
+# automatically to what the free account check reports as left. About 146 test questions x at most 2
+# searches (first attempt + one re-search, shared by both models) can exceed 250: the runner then
+# stops before a unit that could exceed the quota, leaves the run unfinished, and it is resumed in
+# month 3 with the same command plus `--resume runs/<run_id>` (a further logged access, section 12).
+# At 72 s per search the run takes up to about 5 hours per month.
+#
+# Every search response, robots.txt and page is stored under runs/<run_id>/snapshots/ (git-ignored).
+# Page text is third-party material: never commit or publish the run directory; only the files that
+# `python -m binding_gate.report publish` copies to results/layer3/<run_id>/ are published.
+#
+# Caps: the test split cannot be dry-run; the plan's HIGH estimate is the dev dry run of the same
+# arms scaled by 146 / 108 questions (0.60-1.63 USD); caps 0.55 + 1.25 = 1.80 USD, the "test_live"
+# entry of configs/budget.toml. PROPOSED - requires owner approval before freeze.
+# Nothing in this file is read from environment variables; only API keys are
+# (src/binding_gate/secrets.py).
+
+config_version = 1
+name = "test-live"
+description = "PR 16: frozen layer-3 test run on SealQA (seal_hard), 1 repeat, slots A and E, no_gate (live) and gated_research; SerpApi Free plan; confirmatory for H4."
+split = "test"
+repeats = 1
+
+[runner]
+# Hard budget cap in US dollars PER MODEL LABEL (reported usage x configs/prices.toml; auxiliary
+# calls such as the decomposer and the judge included). Each cap is this run's allotment in
+# configs/budget.toml ("test_live"), above its HIGH estimate; sum of caps 1.8 USD. PROPOSED.
+concurrency = 4
+prices = "configs/prices.toml"
+max_searches = 250                       # PROPOSED: the whole Free-plan month (month 2); resumed in month 3
+max_usd = 0.55
+[runner.max_usd_by_model]
+google-low = 1.25
+
+[dataset]
+name = "sealqa"
+[dataset.options]
+root = "data/raw/sealqa"                 # filled by `python -m binding_gate.cli dataset-prepare` (git-ignored)
+revision = "0e75db526ad93dd039714897b7631afc03510e30"
+subsets = ["seal_hard", "seal_0"]        # items = seal_hard; seal_0 only marks its questions
+repository = "https://huggingface.co/datasets/vtllms/sealqa"
+
+[[models]]                               # slot A
+name = "openai_responses"
+label = "openai-low"
+[models.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+# temperature: not sent (provider default); see the header
+reasoning = { effort = "none" }         # lowest setting (section 9); UNVERIFIED for this id, see the header
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[models]]                               # slot E
+name = "google_gemini"
+label = "google-low"
+[models.options]
+model_id = "gemini-3.1-flash-lite"
+max_output_tokens = 4096
+temperature = 0.0
+thinking_config = { thinkingLevel = "minimal" }   # lowest setting (section 9); UNVERIFIED for this id
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[arms]]
+name = "no_gate_live"                    # the live baseline: same first attempt, no gate
+label = "no_gate"                        # the reference arm of the statistics (PREREGISTRATION.md section 8)
+[arms.options]
+presentation = "sealqa_live_web"
+documents_per_attempt = 5                # PROPOSED
+max_document_chars = 8000                # PROPOSED
+[arms.options.search]
+name = "serpapi_google"
+label = "search"
+[arms.options.search.options]
+max_results = 10                         # PROPOSED: organic results kept per search
+hl = "en"
+gl = "us"
+min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+timeout_seconds = 60
+max_retries = 4
+backoff_seconds = 5.0
+max_backoff_seconds = 120.0
+[arms.options.fetch]                     # PROPOSED limits (research/fetch.py)
+max_bytes = 2000000
+timeout_seconds = 20.0
+max_redirects = 5
+per_host_interval_seconds = 1.0
+
+[[arms]]
+name = "gated_research"
+[arms.options]
+presentation = "sealqa_live_web"
+documents_per_attempt = 5                # PROPOSED; must equal no_gate's so the first attempt is shared
+max_document_chars = 8000                # PROPOSED; idem
+max_attempts = 2                         # PROPOSED: the first attempt plus ONE targeted re-search
+checks = ["quote_verbatim", "entity_in_window", "qualifiers_in_window", "no_closer_competitor", "premise_present"]
+[arms.options.parameters]                # PROPOSED (section 5.1), identical to configs/dev_gated.toml
+window_tokens = 40
+min_quote_tokens = 5
+lead_max_tokens = 4
+lead_min_repeats = 2
+premise_scope = "document"
+competitor_tie = "fail"
+[arms.options.search]                    # must equal no_gate's so searches are shared
+name = "serpapi_google"
+label = "search"
+[arms.options.search.options]
+max_results = 10                         # PROPOSED: organic results kept per search
+hl = "en"
+gl = "us"
+min_interval_seconds = 72.0              # 50 searches per hour = SerpApi Free plan limit (PR 13)
+timeout_seconds = 60
+max_retries = 4
+backoff_seconds = 5.0
+max_backoff_seconds = 120.0
+[arms.options.fetch]                     # PROPOSED limits (research/fetch.py)
+max_bytes = 2000000
+timeout_seconds = 20.0
+max_redirects = 5
+per_host_interval_seconds = 1.0
+[arms.options.decomposer]
+name = "model_decomposer"                # slot "Dec" (provisional), as in configs/dev_gated.toml
+[arms.options.decomposer.options]
+prompt_version = 1
+[arms.options.decomposer.options.model]
+name = "openai_responses"
+label = "decomposer"
+[arms.options.decomposer.options.model.options]
+model_id = "gpt-6-luna"
+max_output_tokens = 4096
+reasoning = { effort = "none" }          # lowest setting, as for slot A (section 9)
+timeout_seconds = 180
+max_retries = 5
+backoff_seconds = 2.0
+max_backoff_seconds = 60.0
+
+[[scorers]]
+name = "sealqa_answer"                   # deterministic correctness rule (PREREGISTRATION.md section 7, layer 3)
+[scorers.options]
+min_quote_tokens = 5

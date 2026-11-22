@@ -2,9 +2,23 @@
 
 **Status:** DRAFT
 
-**Document version:** 0.6 (2026-11-22, PR 14)
+**Document version:** 0.7 (2026-11-22, PR 16)
 
-**Changelog.** 0.6 (2026-11-22, PR 14): models re-selected from the providers
+**Changelog.** 0.7 (2026-11-22, PR 16): frozen test runs for layers 2 and 3
+(section 17, items 37 and 39 closed). New test configs
+`configs/test_live.toml` (layer 3, confirmatory for H4; slots A and E; caps
+0.55 + 1.25 USD; `max_searches = 250`, month 2 of the SerpApi allocation) and
+`configs/test_grab_rag_supportive.toml` (layer 2, cost side, exploratory; slot
+A, `no_gate` and `gated`; cap 0.60 USD), each identical to its dev counterpart
+except split-dependent fields; their caps are the planned entries of the budget
+plan (section 9; totals unchanged). The frozen test run now analyses each layer
+with its own rule (layer 1 `provenance`, layer 2 `grab_rag_answer` without a
+decision, layer 3 `sealqa_answer` and H4) and refuses mixed layers (sections 8
+and 12); the lock is unchanged. Published, non-sensitive results go to
+`results/layer<N>/<run_id>/` through `python -m binding_gate.report publish`
+(sections 14 and 15). No threshold, gate parameter, sample-size rule or model
+changed. Status stays DRAFT; every changed value is PROPOSED.
+0.6 (2026-11-22, PR 14): models re-selected from the providers
 the owner funds (OpenAI, Google, Z.ai, Moonshot; decided by the orchestrator
 under the owner's delegation). Primary models A `gpt-6-luna`, E
 `gemini-3.1-flash-lite` and the new H `glm-5.3-flash` (Z.ai): three families,
@@ -56,10 +70,10 @@ owner approves it, the status line is changed to `FROZEN`, and that commit is
 tagged `prereg-freeze-<n>`. From then on changes are made only through the
 amendment log (section 18).
 
-**State of the project at version 0.6 (PR 14):** all ten planned pull requests,
-the housekeeping PR 11, PR 12 and PR 13 are merged; PR 13 fitted the paid plan
-into the USD 50 budget and PR 14 moves it to the providers the owner funds
-(changelog). No model has been called and no result of any kind
+**State of the project at version 0.7 (PR 16):** all ten planned pull requests,
+the housekeeping PR 11, PR 12, PR 13 and PR 14 are merged; PR 13 fitted the paid
+plan into the USD 50 budget, PR 14 moved it to the providers the owner funds and
+PR 16 adds the frozen test runs of layers 2 and 3 (changelog). No model has been called and no result of any kind
 exists. The
 Deceptive Grounding benchmark has been cloned at a pinned commit and its files
 inspected for structure (section 3); the structural statistics quoted there were
@@ -372,8 +386,10 @@ Proposed interpretation (**PROPOSED — requires owner approval before freeze.**
   supportive condition of every dev question (394; slot A; one repeat;
   supportive items need no export: dataset options `conditions =
   ["supportive"]`, `supportive_questions = "all"`), estimate $0.09-$0.36; the
-  same on the 606 test questions is planned ($0.13-$0.56) once a layer-2
-  frozen path exists (section 17, item 39). The paired misleading configs are
+  same on the 606 test questions is `configs/test_grab_rag_supportive.toml`
+  (version 0.7, PR 16; $0.13-$0.56, cap $0.60), a frozen test run (section 12)
+  whose analysis reports the layer-2 metrics with the `grab_rag_answer` rule and
+  decides nothing (section 11). The paired misleading configs are
   kept, not run, as `configs/extended/dev_grab_rag_*.toml`.
 
 For context only, the paper reports that in the misleading condition small
@@ -504,7 +520,9 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    reorders items. Allocation: month 1 = the dev smoke run (at most 10 searches:
    5 questions × 2) and the dev run (`max_searches = 240`; about 108 dev
    questions × at most 2 searches, shared by all models of the single job);
-   month 2 = the test run, continued in month 3 if its re-searches do not fit.
+   month 2 = the test run (`configs/test_live.toml`, `max_searches = 250`, the
+   whole monthly quota; version 0.7), continued in month 3 with `--resume` (a
+   further logged access, section 12) if its re-searches do not fit.
    **PROPOSED — requires owner approval before freeze.**
 8. **Cost** (version 0.5; dry run of `configs/dev_live.toml` on a synthetic
    stand-in of 254 questions, 108 of them dev; nothing spent): slots A and E,
@@ -513,8 +531,8 @@ paper (arXiv 2506.01062, HTML version). Adapter:
    prompt), at most as many re-search answers, at most 108 decompositions;
    searches 108 to 216, free. Totals: A $0.13-$0.35, E $0.32-$0.85; caps
    $0.40 and $0.90. Smoke (5 dev questions, slot A): $0.01-$0.02, cap $0.10.
-   The test run (planned; about 146 questions; section 17, item 39) is
-   estimated at $0.60-$1.63. Slots C and G are left out of layer 3 to stay
+   The test run (`configs/test_live.toml`, version 0.7; about 146 questions)
+   is estimated at $0.60-$1.63, caps $0.55 (A) and $1.25 (E). Slots C and G are left out of layer 3 to stay
    within the budget (section 9). Before version 0.5: six models, three
    repeats, caps $165 (`configs/extended/dev_live.toml`).
 9. **Limitations specific to layer 3.** The queries are chosen by the harness,
@@ -1311,7 +1329,21 @@ was 3 until version 0.4; it is 1 since version 0.5 (USD 50 budget; see
   --tag prereg-freeze-<n> --purpose "..." --confirm-spend`, which refuses (and
   logs the refusal) unless every condition of section 12 holds, runs every arm
   of the config on the test split, and writes `analysis.json`, `report.md` and
-  figures under `runs/<run_id>/analysis/`.
+  figures under `runs/<run_id>/analysis/`. *Version 0.7 (PR 16):* the same
+  command runs the frozen test runs of layers 2 and 3
+  (`configs/test_grab_rag_supportive.toml`, `configs/test_live.toml`). One frozen
+  run analyses one layer, with that layer's pre-registered rule, chosen from the
+  config's dataset (`src/binding_gate/stats/layers.py`): layer 1 from the
+  `provenance` score (H1-H3); layer 2 from the `grab_rag_answer` score (M1 =
+  misled / answered, with the strict variant counted; M2 with `correct` as the
+  correct answer), reported with the same intervals and **no decision** (section
+  11: no threshold; every hypothesis is NOT EVALUABLE there); layer 3 from the
+  `sealqa_answer` score (M3 = correct / all, M4; H4 with its status of section
+  11, NOT EVALUABLE when an arm it needs is absent). The run refuses a config
+  whose dataset is in no layer or that lacks the scorer its layer's rule reads,
+  and the analysis refuses run directories of different layers. `python -m
+  binding_gate.cli analyze` applies the same rules, so a re-analysis gives the
+  same numbers.
 
 ## 9. Models
 
@@ -1473,8 +1505,8 @@ reported size; searches free (SerpApi Free plan).
 | layer 2 cost side (`dev_grab_rag_supportive.toml`) | A | 394 supportive dev items | 0.09 | 0.36 | 0.40 |
 | **layer 1 test, confirmatory** (`test_layer1.toml`) | A, E, H | 2,505 test items: `no_gate`, `prompt_entity_check`, decomposer | 5.98 | 15.85 | 16.75 |
 | mid-tier check (`test_layer1_midtier.toml`) | B, F, I | 225 test items | 2.47 | 6.55 | 6.95 |
-| layer 3 test, confirmatory (config pending, item 39) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
-| layer 2 test (config pending, item 39) | A | 606 supportive test items | 0.13 | 0.56 | 0.60 |
+| layer 3 test, confirmatory (`test_live.toml`) | A, E | SealQA test (about 146) | 0.60 | 1.63 | 1.80 |
+| layer 2 test, exploratory (`test_grab_rag_supportive.toml`) | A | 606 supportive test items | 0.13 | 0.56 | 0.60 |
 | **Total** | | | **13.16** | **39.21** | **43.70** |
 
 The caps are hard limits in the runner (a model stops when its reported usage
@@ -1635,15 +1667,31 @@ H4_MIN_NET_DIFFERENCE     = 0
 - This is an audit trail, not a security boundary: a person who wants to look at
   test data can bypass it. The commitment is that the supported path leaves a
   record and that the record is published.
-- Planned test-split uses: one frozen run per layer (layer 1: `cli
-  frozen-test-run`, PR 6; layers 2 and 3: not implemented yet, section 17,
-  item 39). Since version 0.5 layer 1 has two frozen runs, each one logged
-  access: `configs/test_layer1.toml` (confirmatory, the primary models) and
-  then `configs/test_layer1_midtier.toml` (exploratory mid-tier check on a
-  pre-registered subsample, section 9). The layer-3 test run may be resumed in
-  the following month when the SerpApi quota stops it (section 3, layer 3,
-  item 7); every resume is a further logged access. Any additional use is
-  listed in the amendment log with its reason.
+- Planned test-split uses: frozen runs per layer, each started with `cli
+  frozen-test-run` (PR 6; layers 2 and 3 since version 0.7, PR 16). A frozen
+  run covers exactly one layer: its config names one dataset, the analysis
+  applies that layer's rule (section 8, "Frozen analysis") and refuses run
+  directories of another layer. The unit of access is the invocation: each
+  `frozen-test-run` call that reaches the lock is one logged entry, granted or
+  refused, and a resume is a further entry. Planned accesses:
+  - layer 1: `configs/test_layer1.toml` (confirmatory, the primary models), then
+    `configs/test_layer1_midtier.toml` (exploratory mid-tier check on a
+    pre-registered subsample, section 9) - two accesses (since version 0.5);
+  - layer 2: `configs/test_grab_rag_supportive.toml` (exploratory, cost side,
+    reported without a decision) - one access;
+  - layer 3: `configs/test_live.toml` (confirmatory for H4) - one access, plus
+    one per resume in a following month when the SerpApi quota stops it
+    (section 3, layer 3, item 7; expected: at most one).
+
+  One access per layer (per config) rather than per model is the default
+  because the models of a layer-3 run share their searches and pages (section
+  3, layer 3, item 7), and because a separate access per model would multiply
+  the log entries without adding information; whether layer 1 is split per
+  model to fit a job's time limit is still item 18 of section 17 (an
+  invocation with `--model` is then one access for those models). Layers may be
+  frozen in stages (section 17, last paragraph): a frozen run uses the tag of
+  the stage that covers its layer. Any additional use is listed in the
+  amendment log with its reason.
 - While the status is DRAFT the log must contain no successful access;
   `tests/test_preregistration.py` enforces this.
 
@@ -1771,6 +1819,10 @@ are third-party material without a known licence and are kept privately. Trace
 files contain them too (prompts are part of the trace), so the run directories
 of live-web runs are uploaded by the workflow only encrypted (the
 `RUNS_ENCRYPTION_PASSPHRASE` secret), next to the unencrypted publish manifest.
+*Version 0.7 (PR 16):* the committed record of a run is
+`results/layer<N>/<run_id>/`, written by `python -m binding_gate.report
+publish`; for layer 3 it holds the publish manifest, the analysis and the run
+manifest, and the tool refuses the traces and every other snapshot file.
 
 ## 15. Reporting commitments
 
@@ -1964,8 +2016,9 @@ changed on dev data before the freeze.
 10. Layer-3 protocol values: `max_attempts = 2`, 10 results, 5 pages, 8,000
     characters per page, fetch limits (2,000,000 bytes, 20 s, 5 redirects, 1 s
     per host), one search per 72 s and the search quota and monthly allocation
-    of the SerpApi Free plan (`max_searches` 10 + 240 in month 1; section 3,
-    layer 3, item 7); the layer-3
+    of the SerpApi Free plan (`max_searches` 10 + 240 in month 1, 250 for the
+    test run in month 2 and its resume in month 3; section 3, layer 3, item 7);
+    the layer-3
     correctness rule `sealqa_answer` version 1 (section 7); the layer-2
     answer rule `grab_rag_answer` (section 3, layer 2, item 10).
 11. Secondary-judge settings: temperature 0.0, at most 12,288 output tokens,
@@ -2101,7 +2154,17 @@ owner in the repository settings).
 36. The decomposer is not measured on layers 2 and 3: define a reference
     procedure or state that it is not measured there (section 7).
 37. Location of published result sets: `results/layer1/<run_id>/` (proposed;
-    ARCHITECTURE.md section 7; section 15, R10).
+    ARCHITECTURE.md section 7; section 15, R10). *Closed in version 0.7 (PR 16):
+    published, non-sensitive results of a run are committed under
+    `results/layer<N>/<run_id>/` (N = 1, 2, 3). `python -m binding_gate.report
+    publish runs/<run_id>` copies only allowed files from a finished, analysed
+    run (manifest, invocations, frozen-run record, `analysis.json`, `report.md`,
+    figures and, for layer 3, the snapshot publish manifest), refuses page text,
+    the traces of layers 2 and 3 (third-party text whose licence does not allow
+    it; layer-1 traces only on request, Apache-2.0), re-scoring outputs and any
+    other file, never overwrites a published directory, replaces local absolute
+    paths and writes `results_manifest.json` with every file's SHA-256
+    (ARCHITECTURE.md section 7; sections 14 and 15).*
 38. `configs/test_layer1.toml`: complete the arm options (decomposer, judges,
     checker and gate parameters as in the dev configs; TODO markers), make the
     ablation labels agree with the dev configs (`gated_minus_<check>` there,
@@ -2112,7 +2175,12 @@ owner in the repository settings).
     dev (tested).*
 39. No frozen test configuration or frozen analysis path exists for layers 2
     and 3: `frozen_run.py` analyses with the layer-1 rule (section 12 plans one
-    frozen run per layer).
+    frozen run per layer). *Closed in version 0.7 (PR 16):
+    `configs/test_live.toml` and `configs/test_grab_rag_supportive.toml` (each
+    identical to its dev counterpart except split-dependent fields, tested; caps
+    from the budget plan) and a frozen analysis per layer (section 8, "Frozen
+    analysis"; section 12). The owner's approval of the configs and caps
+    remains part of items 13 and 43.*
 40. The workflow installs the `faithfulness` extra but does not run
     `python -m binding_gate.arms.faithfulness_checker prepare`, so a config with
     the `faithfulness_checker` arm stops in the workflow before its first paid

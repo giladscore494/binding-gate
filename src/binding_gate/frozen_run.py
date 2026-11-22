@@ -6,9 +6,11 @@
 1. **Config checks** (no data is touched, nothing is logged): the config's
    split is ``test``; it has the pre-registered number of repeats and the
    reference arm ``no_gate``; it names no seed runs (PR 12: a test run makes
-   all of its own calls); the config file lies inside the repository and is
-   tracked by git (so the clean-tree condition covers it); the runs directory is
-   outside the repository or git-ignored.
+   all of its own calls); its dataset belongs to a pre-registered layer and it
+   runs the scorer that layer's analysis rule reads (PR 16); the config file
+   lies inside the repository and is tracked by git (so the clean-tree
+   condition covers it); the runs directory is outside the repository or
+   git-ignored.
 2. ``--confirm-spend`` must be given (a test run makes paid model calls).
 3. **Lock pre-check.** The conditions of ``testlock.load_test_split`` are
    evaluated first with the public, read-only ``testlock.check_unlock`` (no
@@ -20,13 +22,28 @@
    test items are obtained exclusively through ``testlock.load_test_split``
    (one logged access per invocation), and the tag is recorded in the run
    manifest.
-5. **The analysis** (``binding_gate.stats``): ``analysis.json``, ``report.md``
-   and figures under ``<runs_dir>/<run_id>/analysis/``, plus
-   ``<runs_dir>/<run_id>/frozen_run.jsonl`` tying the run to the tag, the commit
-   and the access-log entry.
+5. **The analysis** (``binding_gate.stats.layers``), with the pre-registered
+   rule of the run's layer: layer 1 ``provenance`` (H1-H3); layer 2
+   ``grab_rag_answer`` (metrics reported, no decision: section 11 gives layer 2
+   no threshold); layer 3 ``sealqa_answer`` (H4 from M3, M4 reported).
+   ``analysis.json``, ``report.md`` and figures under
+   ``<runs_dir>/<run_id>/analysis/``, plus ``<runs_dir>/<run_id>/frozen_run.jsonl``
+   tying the run to the tag, the commit, the layer, the rule and the
+   access-log entry.
 
-If a model's budget cap is reached, the run is left unfinished (resumable with
-``--resume``; that is a further logged access) and no analysis is written.
+**One layer per frozen run (PR 16; section 12).** A config names one dataset,
+so one frozen run is one layer; the analysis refuses run directories of
+another layer. The unit of test-split access is the invocation: every call of
+this function that reaches the lock is one logged entry, granted or refused.
+Section 12 plans one frozen run per layer (layer 1: the confirmatory run and the
+mid-tier subsample run; layer 2: ``configs/test_grab_rag_supportive.toml``;
+layer 3: ``configs/test_live.toml``), plus one further access for each resume
+(layer 3 when the monthly search quota stops it). The lock itself is unchanged:
+only ``testlock.check_unlock`` and ``testlock.load_test_split`` are used.
+
+If a model's budget cap or the search quota (layer 3) is reached, the run is
+left unfinished (resumable with ``--resume``; that is a further logged access)
+and no analysis is written.
 
 After the run, commit ``audit/test_access_log.jsonl`` (ARCHITECTURE.md
 section 6). This module never edits the pre-registration or the log by hand.
@@ -45,7 +62,8 @@ from binding_gate.canonical import sha256_text, utc_now_iso
 from binding_gate.config import RunConfig, load_config
 from binding_gate.contracts import Split
 from binding_gate.stats import prereg
-from binding_gate.stats.analysis import analyse_run_dirs, write_outputs
+from binding_gate.stats.analysis import write_outputs
+from binding_gate.stats.layers import LAYER_RULES, analyse_layer
 
 FROZEN_RUN_LOG = "frozen_run.jsonl"
 """One JSON line per invocation (a resumed run adds a line; nothing is overwritten)."""
@@ -87,6 +105,19 @@ def config_refusals(config: RunConfig, config_path: Path, repo_root: Path, runs_
         reasons.append("the config names seed runs ([runner] seed_responses_from); a frozen test run makes all its own calls")
     if prereg.REFERENCE_ARM not in {arm.label for arm in config.arms}:
         reasons.append(f"the config has no arm labelled {prereg.REFERENCE_ARM!r} (the reference of every comparison)")
+    layer = prereg.LAYER_BY_DATASET.get(config.dataset.name)
+    if layer is None:
+        reasons.append(
+            f"the config's dataset {config.dataset.name!r} belongs to no pre-registered layer "
+            f"({sorted(prereg.LAYER_BY_DATASET)}); a frozen run analyses one layer with its own rule"
+        )
+    else:
+        rule = LAYER_RULES[layer]
+        if rule.scorer not in {scorer.name for scorer in config.scorers}:
+            reasons.append(
+                f"layer {layer} is analysed from the {rule.scorer!r} score (PREREGISTRATION.md sections 7 and 11); "
+                "the config does not run that scorer"
+            )
     relative = _inside(config_path, repo_root)
     if relative is None:
         reasons.append(f"the config {config_path} is outside the repository {repo_root}")
@@ -157,6 +188,8 @@ def frozen_test_run(
             "frozen test run refused: it makes paid model calls; pass --confirm-spend after checking the plan"
         )
 
+    layer = prereg.LAYER_BY_DATASET[config.dataset.name]  # checked by config_refusals
+    rule = LAYER_RULES[layer]
     lock_precheck(repo_root, tag, purpose)
     started = utc_now_iso()
     relative_config = _inside(config_path, repo_root)
@@ -185,9 +218,12 @@ def frozen_test_run(
         "run_summary": result.summary,
         "access_log_after_load": _access_log_tail(repo_root),
         "analysis_parameters": prereg.as_dict(),
+        "layer": layer,
+        "outcome_rule": rule.outcome_rule,
+        "decision": rule.decision,
     }
     if not summary.budget_exceeded:
-        analysis = analyse_run_dirs([summary.run_dir])
+        analysis, _rule = analyse_layer([summary.run_dir], expected_layer=layer)
         result.analysis_dir = summary.run_dir / ANALYSIS_DIRNAME
         result.written = write_outputs(analysis, result.analysis_dir, figures=figures)
         record["analysis"] = {

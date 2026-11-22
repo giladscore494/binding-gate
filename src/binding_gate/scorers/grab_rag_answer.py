@@ -47,13 +47,28 @@ candidates the quote's ``matched_document_ids`` and ``quote_source``:
 A ``misled`` answer whose quote_source is ``misleading`` is the layer-2
 analogue of a wrong-entity answer: the model repeated the planted value and
 quoted the passage that planted it.
+
+Statistics (PR 16)
+------------------
+The statistics package names its outcome categories after layer 1.
+:func:`layer2_outcome` maps this scorer's labels onto them - ``correct`` ->
+``target_grounded`` (counted as correct, so layer-2 M2 = correct answers of
+``no_gate`` that the compared arm lost), ``misled`` -> ``wrong_entity``
+(layer-2 M1 = misled / answered), ``ambiguous`` -> ``ambiguous``,
+``other_wrong`` -> ``ungrounded`` (answered, neither correct nor misled),
+``abstained`` -> ``abstention``, ``unparseable`` -> ``unparseable``, an arm or
+scorer error -> ``error`` - and :func:`analyse_layer2` runs the analysis with
+that mapping. Layer 2 has no pass/fail threshold (PREREGISTRATION.md section
+11): the analysis reports the metrics and decides nothing.
 """
 
 from __future__ import annotations
 
+from collections import Counter
+from pathlib import Path
 from typing import Any, Sequence
 
-from binding_gate.contracts import AnswerCandidate, AnswerStatus, Item, ScoreResult
+from binding_gate.contracts import AnswerCandidate, AnswerStatus, Item, ScoreResult, TraceRecord
 from binding_gate.datasets.grab_rag import contains_answer
 from binding_gate.registry import register
 from binding_gate.textnorm import normalize_text
@@ -156,3 +171,87 @@ class GrabRagAnswerScorer:
                 "source_id_matches": final_answer.source_id in matched,
             },
         )
+
+
+# --------------------------------------------------------------------------- #
+# Statistics (PR 16): the layer-2 outcome rule
+# --------------------------------------------------------------------------- #
+
+LAYER2_OUTCOME_BY_LABEL = {
+    LABEL_CORRECT: "target_grounded",
+    LABEL_MISLED: "wrong_entity",
+    LABEL_AMBIGUOUS: "ambiguous",
+    LABEL_OTHER_WRONG: "ungrounded",
+    LABEL_ABSTAINED: "abstention",
+    LABEL_UNPARSEABLE: "unparseable",
+}
+LAYER2_CORRECT_OUTCOMES = ("target_grounded",)
+LAYER2_DECISION = "none: layer 2 is exploratory and has no pass/fail threshold (PREREGISTRATION.md section 11)"
+
+
+def layer2_outcome(record: TraceRecord) -> str:
+    """The statistics' outcome category of a layer-2 record (see the module docstring)."""
+    if record.error is not None:
+        return "error"
+    for score in record.scores:
+        if score.scorer == SCORER_NAME:
+            return LAYER2_OUTCOME_BY_LABEL.get(score.label, "error")  # "scorer_error" -> error
+    raise GrabRagScoringError(f"record {record.item_id!r} ({record.arm}, {record.model}) has no {SCORER_NAME} score")
+
+
+def _strict_misled(records: Sequence[TraceRecord]) -> dict[str, dict[str, dict[str, int]]]:
+    """Per model and arm: ``misled`` answers, and those whose quote came from the edited passage (strict M1
+    numerator of section 3, layer 2), with the answered records they are counted against. Counts only."""
+    out: dict[str, dict[str, Counter]] = {}
+    for record in records:
+        counts = out.setdefault(record.model, {}).setdefault(record.arm, Counter())
+        outcome = layer2_outcome(record)
+        if outcome in ("target_grounded", "wrong_entity", "ambiguous", "ungrounded"):
+            counts["answered"] += 1
+        if outcome == "wrong_entity":
+            counts["misled"] += 1
+            score = next(s for s in record.scores if s.scorer == SCORER_NAME)
+            if score.details.get("quote_source") == "misleading":
+                counts["misled_quote_from_edited_passage"] += 1
+    return {
+        model: {arm: {k: c.get(k, 0) for k in ("answered", "misled", "misled_quote_from_edited_passage")}
+                for arm, c in sorted(arms.items())}
+        for model, arms in sorted(out.items())
+    }
+
+
+def analyse_layer2(run_dirs: Sequence[str | Path], **kwargs: Any) -> dict[str, Any]:
+    """``binding_gate.stats.analysis.analyse`` with the layer-2 outcome rule; reporting only, no decision.
+
+    Adds ``outcome_rule`` (scorer, mapping, decision: none) and ``layer2`` (counts of misled answers,
+    strict variant included). Every hypothesis is NOT EVALUABLE on layer 2 (H1-H3 are layer 1, H4 layer 3),
+    and each model's ``controlled_layer_claim`` says that no decision is made.
+    """
+    from binding_gate.stats.analysis import analyse, load_trace_set
+
+    trace_set = load_trace_set(run_dirs)
+    analysis = analyse(
+        trace_set.records,
+        run_dirs=trace_set.run_dirs,
+        manifests=trace_set.manifests,
+        unfinished=trace_set.unfinished,
+        outcome_of=layer2_outcome,
+        correct_outcomes=LAYER2_CORRECT_OUTCOMES,
+        **kwargs,
+    )
+    for model in analysis["models"].values():
+        model["controlled_layer_claim"] = "no decision (layer 2 is reporting only)"
+    analysis["outcome_rule"] = {
+        "scorer": SCORER_NAME,
+        "mapping": dict(LAYER2_OUTCOME_BY_LABEL),
+        "correct": LABEL_CORRECT,
+        "m1": "misled / answered",
+        "m2": "among records where no_gate was correct, the share where the compared arm was not",
+        "decision": LAYER2_DECISION,
+    }
+    analysis["layer2"] = {
+        "misled_counts": _strict_misled(trace_set.records),
+        "note": "strict variant of layer-2 M1: misled answers whose quote comes from the edited passage "
+        "(misleading items only; supportive items have no planted answer)",
+    }
+    return analysis
