@@ -16,7 +16,7 @@
 # Nothing in this file is read from environment variables.
 
 config_version = 1
-user_agent_project = "binding-gate research project https://github.com/giladscore494/binding-gate"   # SEC format: requester name, then the contact e-mail (appended at run time); the earlier tool-style string got HTTP 403 (2026-11-22)
+user_agent_project = "binding-gate research project"   # SEC sample format: requester name, then the contact e-mail (appended at run time from the secret); tool-style and URL-bearing strings got HTTP 403 (2026-11-22)
 max_requests_per_second = 5
 max_retries = 4
 # After the first generation in GitHub Actions, commit data/raw/sec-financials/selection.json as
