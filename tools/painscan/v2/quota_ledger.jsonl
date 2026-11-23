@@ -1,7 +1,7 @@
 {"time_il": "2026-11-23 01:24", "run": 45083095185, "mode": "smoke", "queries": 6}
 {"time_il": "2026-11-23 01:28", "run": 45083451639, "mode": "full", "queries": 810}
-{"time_il": "2026-11-23 01:33", "run": 45084307292, "mode": "dossier", "queries": 40}
-{"time_il": "2026-11-23 02:36", "run": 45089409261, "mode": "balance", "queries": 0, "serper_balance": 1376}
-{"time_il": "2026-11-23 03:05", "run": 45089848774, "mode": "custom", "round": 1, "queries": 10, "serper_balance_before": 1376, "serper_balance_after_reported": 1375, "note": "balance endpoint lags; ledger count = 1366"}
-{"time_il": "2026-11-23 03:14", "run": 45089994244, "mode": "custom", "round": 2, "queries": 16, "serper_balance_after_reported": 1358, "note": "ledger count = 1350"}
-{"time_il": "2026-11-23 03:30", "run": 45090333159, "mode": "custom", "round": 3, "queries": 12, "serper_balance_after_reported": 1341, "note": "ledger count = 1338"}
+{"time_il": "2026-11-23 01:38", "run": 45084307292, "mode": "dossier", "queries": 40}
+{"time_il": "2026-11-23 02:32", "run": 45089409261, "mode": "balance", "queries": 0, "serper_balance": 1376}
+{"time_il": "2026-11-23 02:37", "run": 45089848774, "mode": "custom", "round": 1, "queries": 10, "serper_balance_before": 1376, "serper_balance_after_reported": 1375, "note": "balance endpoint lags; ledger count = 1366"}
+{"time_il": "2026-11-23 02:38", "run": 45089994244, "mode": "custom", "round": 2, "queries": 16, "serper_balance_after_reported": 1358, "note": "ledger count = 1350"}
+{"time_il": "2026-11-23 02:42", "run": 45090333159, "mode": "custom", "round": 3, "queries": 12, "serper_balance_after_reported": 1341, "note": "ledger count = 1338"}
