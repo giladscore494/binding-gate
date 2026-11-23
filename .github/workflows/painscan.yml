@@ -12,13 +12,17 @@ on:
         required: true
         default: smoke
         type: choice
-        options: [smoke, full, dossier]
+        options: [smoke, full, dossier, custom, balance]
       max_queries:
         description: "full mode: most queries to send in this run (hard cap 1300 in plan.toml)"
         required: true
         default: "810"
       recent_tbs:
         description: "full mode: recent-window filter override (empty = plan default qdr:m3)"
+        required: false
+        default: ""
+      queries_file:
+        description: "custom mode: committed round file, e.g. tools/painscan/rounds/round_01.toml"
         required: false
         default: ""
       domains:
@@ -67,9 +71,14 @@ jobs:
           MAX_QUERIES: ${{ inputs.max_queries }}
           RECENT_TBS: ${{ inputs.recent_tbs }}
           DOMAINS: ${{ inputs.domains }}
+          QUERIES_FILE: ${{ inputs.queries_file }}
         run: |
           set -o pipefail
-          if [ "$MODE" = "smoke" ]; then
+          if [ "$MODE" = "balance" ]; then
+            python -c "import os,sys; sys.path.insert(0,'tools/painscan'); import painscan; print('serper_balance', painscan.serper_balance(os.environ['SERPER_API_KEY']))" | tee out_run.log
+          elif [ "$MODE" = "custom" ]; then
+            python tools/painscan/painscan.py run --mode custom --queries-file "$QUERIES_FILE" --max-queries "$MAX_QUERIES" --out out | tee out_run.log
+          elif [ "$MODE" = "smoke" ]; then
             python tools/painscan/painscan.py run --mode smoke --out out | tee out_run.log
           elif [ "$MODE" = "dossier" ]; then
             python tools/painscan/painscan.py run --mode dossier --domains "$DOMAINS" --max-queries "$MAX_QUERIES" --out out | tee out_run.log
