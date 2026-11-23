@@ -2,3 +2,4 @@
 {"time_il": "2026-11-23 01:28", "run": 45083451639, "mode": "full", "queries": 810}
 {"time_il": "2026-11-23 01:33", "run": 45084307292, "mode": "dossier", "queries": 40}
 {"time_il": "2026-11-23 02:36", "run": 45089409261, "mode": "balance", "queries": 0, "serper_balance": 1376}
+{"time_il": "2026-11-23 03:05", "run": 45089848774, "mode": "custom", "round": 1, "queries": 10, "serper_balance_before": 1376, "serper_balance_after_reported": 1375, "note": "balance endpoint lags; ledger count = 1366"}

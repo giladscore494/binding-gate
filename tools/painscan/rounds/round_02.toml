@@ -1,0 +1,114 @@
+round = 2
+purpose = "C3 S1 continued: non-reddit first-hand findings (review sites, ContractorTalk), losses from estimating errors, and evidence that contractors already pay for estimate checking (outsourced review/QA)."
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "site:capterra.com"
+tbs = ""
+text = "Togal.AI reviews cons"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "site:g2.com"
+tbs = ""
+text = "Togal.AI reviews"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "site:capterra.com"
+tbs = ""
+text = "AI takeoff software reviews missed items"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "site:g2.com"
+tbs = ""
+text = "takeoff software reviews inaccurate quantities"
+
+[[query]]
+candidate = "C3"
+question = "find"
+source = "site:contractortalk.com"
+tbs = ""
+text = "AI takeoff"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "site:contractortalk.com"
+tbs = ""
+text = "estimating mistake cost me"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "site:contractortalk.com"
+tbs = ""
+text = "underbid job lost money takeoff error"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "site:contractortalk.com"
+tbs = ""
+text = "takeoff software mistakes"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "web"
+tbs = "qdr:y"
+text = "we lost money because of a takeoff error"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "web"
+tbs = "qdr:y"
+text = "estimating error cost us the job contractor"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "site:linkedin.com"
+tbs = "qdr:y"
+text = "missed scope in our bid cost us"
+
+[[query]]
+candidate = "C3"
+question = "pay"
+source = "web"
+tbs = ""
+text = "estimate review service for contractors price"
+
+[[query]]
+candidate = "C3"
+question = "pay"
+source = "web"
+tbs = ""
+text = "second set of eyes bid review estimator cost"
+
+[[query]]
+candidate = "C3"
+question = "pay"
+source = "web"
+tbs = ""
+text = "outsourced takeoff QA check pricing"
+
+[[query]]
+candidate = "C3"
+question = "pay"
+source = "web"
+tbs = ""
+text = "pre-bid estimate audit service subcontractor"
+
+[[query]]
+candidate = "C3"
+question = "who"
+source = "web"
+tbs = "qdr:y"
+text = "subcontractor estimator checklist before submitting bid errors"

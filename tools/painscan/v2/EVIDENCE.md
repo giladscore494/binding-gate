@@ -64,3 +64,10 @@ Round 0 = re-labelled run-1 rows (snippet-only; reddit pages are not fetched).
 | C3 | 0 | reddit | estimator | other |  | ChatGPT takeoff via OST performed poorly | title: Building an Agent on ChatGPT to help/assist ... |
 | C3 | 0 | reddit | bookkeeper | wrong_output_facts |  | client supplied obviously AI-generated expenditure report | title: How to deal with ridiculous and obviously AI generated ... |
 | C3 | 0 | reddit | small business | quality_regression |  | AI estimates and invoices regressed after months of good output | title: Document generation : r/artificial |
+| C3 | 1 | reddit (snippet) | estimator | wrong_output_facts | | "best AI misses half the takeoff, takes off items not meant to be" | title: How good is AI in estimation? What is bad? (r/estimators) |
+| C3 | 1 | reddit (snippet) | lumber estimator | wrong_output_facts | | Togal and Kreo "miss sections entirely, mix codes" | title: AI for lumber takeoff? (r/estimators) |
+| C3 | 1 | reddit (snippet) | estimator | wrong_output_facts | | demo "missed a ton"; mistake noticed 6 months later | title: The beginning of the end, or a new era for estimators? |
+| C3 | 1 | reddit (snippet) | estimator | other | | Togal does not reduce time for assemblies/structural | title: Any of you guys using Togal.AI? Just switched from OST |
+| C3 | 1 | reddit (snippet) | contractor | other | 1 month dispute | client used AI to contest a $600k change order (AI said $350–400k) | title: Uh oh, our AI takeoff tool is getting good at commercial Div |
+| C3 | 1 | reddit (snippet) | estimator (human error) | other | $18k | net loss on a division after addendum error (not AI) | title: Why are there so many errors in estimating? |
+| C3 | 1 | reddit (snippet) | civil estimator (human error) | other | | quantity-conversion error found after bid submission (not AI) | https://www.reddit.com/ (title: How common are estimating mistakes after bid submission?) |
