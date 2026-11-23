@@ -1,0 +1,4 @@
+{"time_il": "2026-11-23 01:24", "run": 45083095185, "mode": "smoke", "queries": 6}
+{"time_il": "2026-11-23 01:28", "run": 45083451639, "mode": "full", "queries": 810}
+{"time_il": "2026-11-23 01:33", "run": 45084307292, "mode": "dossier", "queries": 40}
+{"time_il": "2026-11-23 02:36", "run": 45089409261, "mode": "balance", "queries": 0, "serper_balance": 1376}

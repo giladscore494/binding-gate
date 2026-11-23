@@ -1,0 +1,72 @@
+round = 1
+purpose = "Instrument pilot (ARCH §7, 10 queries) and C3 S1: first-hand estimate/takeoff errors with a stated loss; who; what they use today. Two Hebrew queries probe the Israeli lane."
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "reddit"
+tbs = "qdr:y"
+text = "AI takeoff wrong quantities cost us"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "reddit"
+tbs = "qdr:y"
+text = "Togal takeoff mistakes"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "reddit"
+tbs = "qdr:y"
+text = "AI estimate error lost bid"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "reddit"
+tbs = "qdr:y"
+text = "estimating mistake lost money on a bid"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "web"
+tbs = "qdr:y"
+text = "takeoff error change order dispute"
+
+[[query]]
+candidate = "C3"
+question = "who"
+source = "web"
+tbs = "qdr:y"
+text = "estimator double check AI takeoff"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "web"
+tbs = "qdr:y"
+text = "AI takeoff accuracy complaints"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "web"
+tbs = "qdr:y"
+text = "Kreo takeoff review problems"
+
+[[query]]
+candidate = "C3"
+question = "money"
+source = "web"
+tbs = ""
+text = "טעות בכתב כמויות הפסד קבלן"
+
+[[query]]
+candidate = "C3"
+question = "existing_fail"
+source = "web"
+tbs = ""
+text = "כתב כמויות בינה מלאכותית טעויות"
