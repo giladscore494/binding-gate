@@ -140,12 +140,25 @@ def serper_search(query: Query, plan: dict, api_key: str, *, opener=urllib.reque
     raise RuntimeError(f"query {query.qid} failed after {retries} attempts: {last_err}")
 
 
+def canonical_key(link: str, title: str) -> str:
+    """De-duplication key. Google 'goto' redirect links carry an opaque token, not the target URL:
+    use the target if it is a plain URL, otherwise the normalised title (v2, section 6)."""
+    u = urlparse(link)
+    if u.netloc.endswith("google.com") and u.path.startswith("/goto"):
+        from urllib.parse import parse_qs
+        target = (parse_qs(u.query).get("url") or [""])[0]
+        if target.startswith("http"):
+            return target
+        return "title:" + re.sub(r"\W+", " ", title.lower()).strip()
+    return link
+
+
 def flatten(query: Query, resp: dict) -> list[dict]:
     rows = []
     for item in resp.get("organic", []) or []:
         link = item.get("link", "")
         rows.append({**asdict(query), "position": item.get("position"), "title": item.get("title", ""),
-                     "link": link, "host": urlparse(link).netloc.lower().removeprefix("www."),
+                     "link": link, "key": canonical_key(link, item.get("title", "")), "host": urlparse(link).netloc.lower().removeprefix("www."),
                      "snippet": item.get("snippet", ""), "date": item.get("date", "")})
     return rows
 
@@ -342,6 +355,50 @@ def read_rows(path: Path) -> list[dict]:
 
 
 # ----------------------------------------------------------------------------------------------
+# v2: custom rounds from a committed file (ARCHITECTURE_V2.md section 6) and the balance check
+
+ROUND_MAX = 60
+SERPER_ACCOUNT_URL = "https://google.serper.dev/account"
+
+
+def load_round(path: Path, plan: dict) -> list[Query]:
+    """Queries of one round, from tools/painscan/rounds/round_NN.toml (committed before dispatch)."""
+    with path.open("rb") as f:
+        spec = tomllib.load(f)
+    out = []
+    for i, q in enumerate(spec.get("query", [])):
+        src = q.get("source", "web")
+        site = _site_filter(src, plan) if src in ("reddit", "hn", "forums") else (f"site:{src[5:]}" if src.startswith("site:") else "")
+        full = f"{q['text']} {site}".strip()
+        tbs = q.get("tbs", "")
+        if tbs and not re.fullmatch(r"qdr:[hdwmy]\d*", tbs):
+            raise ValueError(f"query {i}: bad tbs {tbs!r}")
+        qid = hashlib.sha1(f"r{spec['round']}|{q['candidate']}|{q.get('question', '')}|{full}|{tbs}".encode()).hexdigest()[:12]
+        out.append(Query(qid, q["candidate"], f"v2:{q.get('question', 'find')}", src, tbs or "none", q["text"], full, tbs))
+    if not out or len(out) > ROUND_MAX:
+        raise ValueError(f"a round needs 1..{ROUND_MAX} queries, got {len(out)}")
+    if len({q.qid for q in out}) != len(out):
+        raise ValueError("duplicate queries in the round file")
+    return out
+
+
+def serper_balance(api_key: str, *, opener=urllib.request.urlopen) -> int | None:
+    """Remaining Serper credits if the account endpoint answers, else None (fallback: quota ledger)."""
+    req = urllib.request.Request(SERPER_ACCOUNT_URL, headers={"X-API-KEY": api_key})
+    try:
+        with opener(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:  # noqa: BLE001 - reported, never fatal
+        print(f"balance check unavailable: {type(e).__name__}", file=sys.stderr)
+        return None
+    for k in ("balance", "credits", "creditsRemaining"):
+        if isinstance(data.get(k), (int, float)):
+            return int(data[k])
+    print(f"balance check: unknown response fields {sorted(data)[:8]}", file=sys.stderr)
+    return None
+
+
+# ----------------------------------------------------------------------------------------------
 # Stage 2: the question engine (PREREGISTRATION.md section 7)
 #
 # THE QUESTION, asked of every shortlisted problem:
@@ -461,7 +518,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("plan")
     r = sub.add_parser("run")
-    r.add_argument("--mode", choices=["smoke", "full", "dossier"], required=True)
+    r.add_argument("--mode", choices=["smoke", "full", "dossier", "custom"], required=True)
+    r.add_argument("--queries-file", type=Path, default=None, help="custom mode: tools/painscan/rounds/round_NN.toml")
+    r.add_argument("--reserve", type=int, default=1000, help="custom mode: refuse if balance < round size + reserve")
     r.add_argument("--domains", default="", help="dossier mode: comma-separated domain ids (shortlist)")
     r.add_argument("--max-queries", type=int, default=0)
     r.add_argument("--recent-tbs", default="", help="override the recent window (after the smoke check)")
@@ -485,6 +544,22 @@ def main(argv: list[str] | None = None) -> int:
         if not key:
             print("SERPER_API_KEY is not set", file=sys.stderr)
             return 2
+        if args.mode == "custom":
+            if not args.queries_file or not args.queries_file.exists():
+                print("--queries-file must point to a committed round file", file=sys.stderr)
+                return 2
+            queries = load_round(args.queries_file, plan)
+            cap = min(len(queries), args.max_queries) if args.max_queries > 0 else len(queries)
+            bal = serper_balance(key)
+            print(json.dumps({"serper_balance_before": bal, "round_queries": cap}))
+            if bal is not None and bal < cap + args.reserve:
+                print(f"refused: balance {bal} < {cap} + reserve {args.reserve}", file=sys.stderr)
+                return 3
+            stats = run(plan, queries, args.out, key, cap)
+            stats["serper_balance_before"] = bal
+            stats["serper_balance_after"] = serper_balance(key)
+            print(json.dumps(stats, indent=1))
+            return 0 if stats["ok"] > 0 else 1
         if args.mode == "smoke":
             queries, cap = smoke_queries(plan), 6
         elif args.mode == "dossier":

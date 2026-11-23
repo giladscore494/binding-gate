@@ -99,3 +99,33 @@ def test_dossier_answers_the_question_or_lists_interview_questions(tmp_path):
     assert bad["verdict"] == "not yet" and bad["status"]["simple_fix"] == "no" and len(bad["interview_questions"]) == 4
     painscan.write_dossiers([good, bad], tmp_path)
     assert painscan.QUESTION in (tmp_path / "dossiers.md").read_text()
+
+
+def test_custom_round_file_and_redirect_keys(tmp_path):
+    plan = painscan.load_plan()
+    f = tmp_path / "round_01.toml"
+    f.write_text('round = 1\npurpose = "t"\n[[query]]\ncandidate = "c1"\nquestion = "money"\nsource = "reddit"\ntbs = "qdr:y"\ntext = "agent said done"\n'
+                 '[[query]]\ncandidate = "c1"\nquestion = "pay"\nsource = "site:community.n8n.io"\ntbs = ""\ntext = "verify agent"\n')
+    qs = painscan.load_round(f, plan)
+    assert [q.q for q in qs] == ["agent said done site:reddit.com", "verify agent site:community.n8n.io"]
+    assert qs[0].tbs == "qdr:y" and qs[1].tbs == "" and qs[0].kind == "v2:money"
+    bad = tmp_path / "bad.toml"
+    bad.write_text('round = 2\n[[query]]\ncandidate = "c"\ntext = "x"\ntbs = "qdr:zz"\n')
+    with pytest.raises(ValueError):
+        painscan.load_round(bad, plan)
+    goto = "https://www.google.com/goto?url=CAESnQEBxCJF1yG&gsessionid=x"
+    assert painscan.canonical_key(goto, "My n8n Agent LIED!") == "title:my n8n agent lied"
+    assert painscan.canonical_key("https://www.reddit.com/r/n8n/x", "t") == "https://www.reddit.com/r/n8n/x"
+
+
+def test_balance_check_never_fails_the_run():
+    def boom(req, timeout):
+        raise OSError("no network")
+    assert painscan.serper_balance("k", opener=boom) is None
+
+    class R:
+        def __init__(self, body): self.body = body
+        def read(self): return self.body
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    assert painscan.serper_balance("k", opener=lambda req, timeout: R(b'{"balance": 1376}')) == 1376
