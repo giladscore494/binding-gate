@@ -71,3 +71,8 @@ Round 0 = re-labelled run-1 rows (snippet-only; reddit pages are not fetched).
 | C3 | 1 | reddit (snippet) | contractor | other | 1 month dispute | client used AI to contest a $600k change order (AI said $350–400k) | title: Uh oh, our AI takeoff tool is getting good at commercial Div |
 | C3 | 1 | reddit (snippet) | estimator (human error) | other | $18k | net loss on a division after addendum error (not AI) | title: Why are there so many errors in estimating? |
 | C3 | 1 | reddit (snippet) | civil estimator (human error) | other | | quantity-conversion error found after bid submission (not AI) | https://www.reddit.com/ (title: How common are estimating mistakes after bid submission?) |
+| C5 | 3 | community.ebay.com | eBay seller | wrong_output_facts | | AI entered an odd EU size for a shoe (listing had to be edited) | thread "needing to edit listing with photo" |
+| C5 | 3 | community.ebay.com | eBay seller | destructive_action | shipping overcharge | eBay's AI changed weight and size without notice (8 oz shipped in 5x8x3 box at $8.95) | thread "Being forced to use Shipping With eBay?" |
+| C5 | 3 | community.ebay.com | eBay seller | destructive_action | | AI listing flow overwrites content of an existing listing ("sell similar") | thread "Bypass New Garbage Listing Process?" |
+| C5 | 3 | community.ebay.com | buyer/seller | wrong_output_facts | | AI descriptions add incorrect info; some NAD returns follow | thread "AI descriptions" (Buying) |
+| C5 | 3 | sellercentral.amazon.com | Amazon seller | wrong_output_facts | | Alexa AI summary claims "plug and play" installation, inaccurate | thread "Amazon Alexa AI Putting Incorrect Product Summaries" |
