@@ -1,0 +1,4 @@
+# C6 ai_bookkeeping_cleanup — KILLED at S1k (2026-11-23)
+Card: small bookkeeping firms cleaning up clients' AI categorisation/extraction errors; fix = deterministic monthly exception list.
+Kill memo: rule 2 HOLDS (Double, formerly Keeper, flags miscategorised transactions/duplicates/unusual balances from $200/month; Dext Practice $17.70–19.20 per client/month; Client Hub AI review $79/user/month; MindBridge). Scale signal (vendor survey): Dext reports 93% of 500 UK accountants spend a large share of each month correcting AI-caused mistakes, ~40% lose 4–10 hours a week — absorbed as unbilled time. Israeli angle (Hashavshevet/Green Invoice) untested, no demand evidence.
+Verdict: KILL. Sources: https://resources.rework.com/tools/ai-tools/best-ai-tools-for-accountants-2026 · https://accountancyage.com/2026/01/08/ai-slop-in-the-books-the-rising-cost-of-fixing-chatbot-errors/

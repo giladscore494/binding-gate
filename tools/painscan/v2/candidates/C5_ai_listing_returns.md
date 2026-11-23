@@ -1,0 +1,5 @@
+# C5 ai_listing_returns — ALIVE (weak), in S1 (2026-11-23)
+Card: online resellers (eBay/Etsy/Amazon/Shopify) whose AI-written listings carry wrong facts → "not as described" returns, defects; fix = deterministic pre-publish consistency check (title vs item specifics vs description vs source data); concierge audit first.
+Kill memo: rules 1–2 UNCLEAR (sellers say eBay's AI tool must be proofread; cross-listers Vendoo $14.99–59.99/month and Crosslist $29.99–44.99/month do cross-posting, no consistency check found); rule 3 does not hold; rule 4 does not hold (eBay Community has many AI-description threads).
+Risks: losses anecdotal; small resellers often lack a source of truth (no supplier spec/UPC), and the most visible AI errors (wrong item, size category) need the photo/item, not text; price anchor $15–45/month for the whole listing tool.
+Verdict: SURVIVES (low confidence) → S1. Sources: https://community.ebay.com/t5/Selling/Caution-in-using-Ebay-s-AI-description-tool/m-p/35310064 · https://www.valueaddedresource.net/ebay-ai-magical-listing-complaints/ · https://crosslist.com/blog/vendoo-pricing

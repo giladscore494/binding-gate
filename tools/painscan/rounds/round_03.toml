@@ -1,0 +1,86 @@
+round = 3
+purpose = "C5 S1: first-hand losses (returns, defects, fees) caused by AI-written listings, on eBay/Etsy/Amazon seller forums; whether higher-volume sellers with supplier data have the problem; price signals for listing QA."
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "site:community.ebay.com"
+tbs = "qdr:y"
+text = "AI description not as described return"
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "site:community.ebay.com"
+tbs = "qdr:y"
+text = "magical listing wrong item specifics defect"
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "site:community.ebay.com"
+tbs = "qdr:y"
+text = "AI listing tool cost me money"
+
+[[query]]
+candidate = "C5"
+question = "existing_fail"
+source = "site:community.ebay.com"
+tbs = "qdr:y"
+text = "AI generated description wrong size"
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "site:community.etsy.com"
+tbs = "qdr:y"
+text = "AI listing description wrong customer return"
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "site:sellercentral.amazon.com"
+tbs = "qdr:y"
+text = "AI generated listing incorrect information returns"
+
+[[query]]
+candidate = "C5"
+question = "who"
+source = "site:community.shopify.com"
+tbs = "qdr:y"
+text = "AI product description wrong specifications"
+
+[[query]]
+candidate = "C5"
+question = "money"
+source = "web"
+tbs = "qdr:y"
+text = "AI written listing not as described returns seller"
+
+[[query]]
+candidate = "C5"
+question = "who"
+source = "web"
+tbs = "qdr:y"
+text = "bulk listing AI errors item specifics high volume seller"
+
+[[query]]
+candidate = "C5"
+question = "pay"
+source = "web"
+tbs = ""
+text = "ebay listing audit service price"
+
+[[query]]
+candidate = "C5"
+question = "pay"
+source = "web"
+tbs = ""
+text = "product listing quality checker tool marketplace sellers"
+
+[[query]]
+candidate = "C5"
+question = "existing_fail"
+source = "site:valueaddedresource.net"
+tbs = "qdr:y"
+text = "AI listing errors returns"

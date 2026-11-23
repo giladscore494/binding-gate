@@ -1,0 +1,4 @@
+# C4 ai_quote_pushback — KILLED at S1k (2026-11-23)
+Card: small contractors whose clients contest quotes with AI figures; fix = deterministic client-facing quote justification from the contractor's own line items and local price references.
+Kill memo: rule 1 HOLDS (contractors explain for free; ACCA/trade press advise better-documented proposals — one case where a homeowner paid ~$6k more for the documented bid); rule 2 HOLDS for itemised quoting (Jobber $29–199/month, Housecall Pro $59–329/month, both itemise; Jobber auto-drafts quotes); frequency anecdotal (homeowner AI use > 40%, but contractors remain the most trusted source at 63%).
+Verdict: KILL. Sources: https://community.getjobber.com/discussions/operations-forum/how-are-you-handling-ai-generated-advice-from-clients/11551 · https://hvac-blog.acca.org/customers-are-using-ai-to-vet-your-quotes-heres-what-to-know/ · https://getjobber.com/pricing-plans/ · https://housecallpro.com/pricing/
